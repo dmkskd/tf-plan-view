@@ -1,5 +1,5 @@
 ### sample aws_iam_instance_profile.ssm
-ACTION create
+ACTION no-op
 HCL resource "aws_iam_instance_profile" "ssm" {
   name_prefix = "example-ssm-"  # from var.name_prefix
   role = aws_iam_role.ssm.name
@@ -9,7 +9,7 @@ CHANGED []
 DIFF (none)
 RULES (none)
 ### sample aws_iam_role.ssm
-ACTION create
+ACTION no-op
 HCL resource "aws_iam_role" "ssm" {
   assume_role_policy = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}"
   name_prefix = "example-ssm-"  # from var.name_prefix
@@ -42,10 +42,10 @@ HCL resource "aws_instance" "test" {
 }
 CLI [{"label":"Describe","cmd":"aws ec2 describe-instances --region us-east-1 --filters \"Name=tag:Name,Values=example-instance\" --query \"Reservations[].Instances[].{Id:InstanceId,State:State.Name,Private:PrivateIpAddress,Public:PublicIpAddress}\" --output table"},{"label":"Open a shell","cmd":"aws ssm start-session --region us-east-1 --target <instance-id>"},{"label":"Console output","cmd":"aws ec2 get-console-output --region us-east-1 --instance-id <instance-id> --output text"}]
 CHANGED ["ami","id","instance_type"]
-DIFF 3|<div class="diff"><div class="diff-reason">replace because cannot update</div><div class="diff-row"><div class="dk">ami</div><div class="dv old">ami-0example00000001</div><div class="dv new">ami-0example00000002</div></div><div class="diff-row"><div class="dk">id</div><div class="dv old">i-0example00000001</div><div class="dv new"><i>known after apply</i></div></div><div class="diff-row forced"><div class="dk">instance_type<span class="tagf">forces replacement</span></div><div class="dv old">t3.micro</div><div class="dv new">t3.large</div></div></div>
+DIFF 3|<div class="diff"><div class="diff-reason">Must be replaced: <code>instance_type</code> cannot be changed in place.</div><div class="diff-row"><div class="dk">ami</div><div class="dv old">ami-0example00000001</div><div class="dv new">ami-0example00000002</div></div><div class="diff-row"><div class="dk">id</div><div class="dv old">i-0example00000001</div><div class="dv new"><i>known after apply</i></div></div><div class="diff-row forced"><div class="dk">instance_type<span class="tagf">forces replacement</span></div><div class="dv old">t3.micro</div><div class="dv new">t3.large</div></div></div>
 RULES (none)
 ### sample aws_internet_gateway.igw
-ACTION create
+ACTION no-op
 HCL resource "aws_internet_gateway" "igw" {
   tags = {
     Name = "example-igw"
@@ -123,7 +123,7 @@ DIFF 1|<div class="diff"><div class="diff-row"><div class="dk">ingress</div><div
 ]</div></div></div>
 RULES Network ACL rules|<div class="rules"><div class="rules-cap">ingress</div><table><thead><tr><th>#</th><th>Proto</th><th>Ports</th><th>Source</th><th>Action</th></tr></thead><tbody><tr><td>100</td><td>tcp</td><td>443</td><td>10.20.0.0/16</td><td class="allow">allow</td></tr><tr><td>110</td><td>tcp</td><td>1024–65535</td><td>0.0.0.0/0</td><td class="allow">allow</td></tr><tr class="implicit"><td>*</td><td>all</td><td>all</td><td>0.0.0.0/0</td><td class="deny">deny</td></tr></tbody></table><div class="rules-cap">egress</div><table><thead><tr><th>#</th><th>Proto</th><th>Ports</th><th>Destination</th><th>Action</th></tr></thead><tbody><tr><td>100</td><td>tcp</td><td>443</td><td>0.0.0.0/0</td><td class="allow">allow</td></tr><tr class="implicit"><td>*</td><td>all</td><td>all</td><td>0.0.0.0/0</td><td class="deny">deny</td></tr></tbody></table><div class="none" style="padding-top:8px">Stateless: each direction is evaluated independently, first match wins.</div></div>
 ### sample aws_route_table.public
-ACTION create
+ACTION no-op
 HCL resource "aws_route_table" "public" {
   route = [aws_internet_gateway.igw.id]
   tags = {
@@ -136,7 +136,7 @@ CHANGED []
 DIFF (none)
 RULES (none)
 ### sample aws_route_table_association.public
-ACTION create
+ACTION no-op
 HCL resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
   subnet_id = aws_subnet.public.id
@@ -167,7 +167,7 @@ CHANGED ["description"]
 DIFF 1|<div class="diff"><div class="diff-row"><div class="dk">description</div><div class="dv old">Managed by Terraform (old)</div><div class="dv new">Managed by Terraform</div></div></div>
 RULES Security group rules|<div class="rules"><div class="rules-cap">ingress</div><div class="none">no ingress rules</div><div class="rules-cap">egress</div><table><thead><tr><th>Proto</th><th>Ports</th><th>Destination</th></tr></thead><tbody><tr><td>all</td><td>all</td><td>0.0.0.0/0<br><span style="color:var(--faint)">all outbound</span></td></tr></tbody></table><div class="none" style="padding-top:8px">Stateful: replies to allowed traffic return without a matching rule.</div></div>
 ### sample aws_security_group.ssm_endpoints
-ACTION create
+ACTION no-op
 HCL resource "aws_security_group" "ssm_endpoints" {
   ingress = [aws_security_group.instance.id]
   name_prefix = "example-ssm-ep-sg-"  # from var.name_prefix
@@ -236,10 +236,10 @@ HCL resource "aws_vpc_endpoint" "ec2messages" {
 }
 CLI [{"label":"Describe","cmd":"aws ec2 describe-vpc-endpoints --region us-east-1 --filters \"Name=service-name,Values=<service>\""},{"label":"Endpoint ENI addresses","cmd":"aws ec2 describe-network-interfaces --region us-east-1 --filters \"Name=description,Values=*<vpce-id>*\" --query \"NetworkInterfaces[].PrivateIpAddress\""}]
 CHANGED ["auto_accept","id","private_dns_enabled","resource_configuration_arn","service_name","service_network_arn","tags","timeouts","vpc_endpoint_type"]
-DIFF 9|<div class="diff"><div class="diff-reason">delete because no resource config</div><div class="diff-reason">This resource is destroyed. Values below are what exists today.</div><div class="diff-row"><div class="dk">auto_accept</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">id</div><div class="dv old">vpce-0example00000001</div></div><div class="diff-row"><div class="dk">private_dns_enabled</div><div class="dv old">true</div></div><div class="diff-row"><div class="dk">resource_configuration_arn</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">service_name</div><div class="dv old">com.amazonaws.us-east-1.ec2messages</div></div><div class="diff-row"><div class="dk">service_network_arn</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">tags</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">timeouts</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">vpc_endpoint_type</div><div class="dv old">Interface</div></div></div>
+DIFF 9|<div class="diff"><div class="diff-reason">Destroyed: no longer declared in the configuration.</div><div class="diff-row"><div class="dk">auto_accept</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">id</div><div class="dv old">vpce-0example00000001</div></div><div class="diff-row"><div class="dk">private_dns_enabled</div><div class="dv old">true</div></div><div class="diff-row"><div class="dk">resource_configuration_arn</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">service_name</div><div class="dv old">com.amazonaws.us-east-1.ec2messages</div></div><div class="diff-row"><div class="dk">service_network_arn</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">tags</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">timeouts</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">vpc_endpoint_type</div><div class="dv old">Interface</div></div></div>
 RULES (none)
 ### sample aws_vpc_endpoint.ssm
-ACTION create
+ACTION no-op
 HCL resource "aws_vpc_endpoint" "ssm" {
   private_dns_enabled = true
   security_group_ids = [aws_security_group.ssm_endpoints.id]

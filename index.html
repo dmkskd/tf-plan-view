@@ -179,6 +179,18 @@
     color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .chg .wh i{font-style:normal; color:var(--replace); font-weight:600;}
 
+  .statbar.filterable span{cursor:pointer;}
+  .statbar span.off{opacity:.25;}
+  .statbar span.on{box-shadow:inset 0 0 0 2px var(--surface), inset 0 0 0 3px currentColor;}
+  .filter-clear{
+    display:flex; align-items:center; gap:7px; width:100%; margin:6px 0 2px;
+    padding:5px 9px; border:1px solid var(--line); border-radius:7px;
+    background:var(--surface-2); cursor:pointer;
+    font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600;
+    letter-spacing:.07em; text-transform:uppercase; color:var(--muted);
+  }
+  .filter-clear:hover{border-color:var(--faint); color:var(--ink);}
+  .filter-clear .x{margin-left:auto; color:var(--faint);}
   .plan-sum{margin-bottom:4px;}
   .statbar{display:flex; height:20px; border-radius:5px; overflow:hidden;
     background:var(--surface-3);}
@@ -267,6 +279,33 @@
   .canvas-wrap.iso{cursor:grab; user-select:none;}
   .canvas-wrap.iso.grabbing{cursor:grabbing;}
 
+  .ctxmenu{
+    position:fixed; z-index:50; min-width:210px; padding:5px;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    box-shadow:0 8px 28px -8px rgba(19,26,34,.3), 0 2px 6px rgba(19,26,34,.12);
+    font-size:13px; color:var(--body);
+  }
+  .ctxmenu .ctx-head{
+    padding:7px 9px 8px; border-bottom:1px solid var(--line-soft); margin-bottom:4px;
+    display:grid; grid-template-columns:18px minmax(0,1fr); gap:8px; align-items:center;
+  }
+  .ctxmenu .ctx-head .ico{width:18px; height:18px; border-radius:4px;}
+  .ctxmenu .ctx-head b{
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500; color:var(--ink);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .ctxmenu button{
+    display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+    padding:7px 9px; border:0; border-radius:6px; background:none; cursor:pointer;
+    font-family:"IBM Plex Sans",sans-serif; font-size:12.5px; color:var(--body);
+  }
+  .ctxmenu button:hover{background:var(--surface-2); color:var(--ink);}
+  .ctxmenu button .k{
+    margin-left:auto; font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--faint);
+  }
+  .ctxmenu hr{border:0; border-top:1px solid var(--line-soft); margin:4px 0;}
+  .node.hidden-res, .grp.hidden-res{display:none;}
+
   .iso-hud{
     position:absolute; left:16px; bottom:16px; z-index:3;
     display:none; align-items:center; gap:10px;
@@ -308,7 +347,7 @@
   .canvas.iso .node.unsup::after{background:color-mix(in srgb, var(--warn-soft) 80%, var(--face-s));}
   .canvas.iso .node.unsup::before{background:color-mix(in srgb, var(--warn-soft) 66%, var(--face-e));}
   .canvas.iso #edges{transform:translateZ(26px); overflow:visible;}
-  .canvas.iso .node.disabled{--h:6px;}
+  .canvas.iso .node.impact-src{--h:44px;}
   #edges{position:absolute; inset:0; pointer-events:none; overflow:visible;}
 
   .grp{
@@ -409,11 +448,19 @@
   .canvas.mode-changes .node.act-delete{border-color:var(--destroy); box-shadow:inset 3px 0 0 var(--destroy);}
   .node.unsup{border-style:dashed; border-color:var(--warn); background:var(--warn-soft);}
   .node.unsup .ttl{color:var(--warn);}
-  .node.disabled{opacity:.35; border-style:dashed;}
-  .node.broken{border-color:var(--destroy); box-shadow:0 0 0 2px color-mix(in srgb, var(--destroy) 30%, transparent), var(--shadow);}
+  .node.impact-src{
+    border-color:var(--replace);
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--replace) 45%, transparent);
+  }
+  .node.broken{
+    border-color:var(--replace);
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--replace) 22%, transparent);
+    background:var(--warn-soft);
+  }
   .node .flag{
-    font-family:"Archivo",sans-serif; font-size:9px; font-weight:700; letter-spacing:.08em;
-    text-transform:uppercase; color:var(--destroy); margin-top:auto;
+    position:absolute; right:8px; bottom:7px;
+    font-family:"Archivo",sans-serif; font-size:8.5px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--replace);
   }
 
   .empty-state{
@@ -446,12 +493,46 @@
   /* ---------- detail ---------- */
   .detail .dhd{
     position:sticky; top:0; z-index:2; background:var(--surface);
-    padding:14px 18px 12px; border-bottom:1px solid var(--line);
-    display:flex; flex-direction:column; gap:5px;
+    padding:13px 18px 11px; border-bottom:1px solid var(--line);
+    display:flex; flex-direction:column; gap:10px;
   }
-  .detail .dhd .type{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--muted);}
-  .detail .dhd h3{font-size:16px;}
-  .detail .dhd .badges{display:flex; flex-wrap:wrap; gap:6px; margin-top:2px;}
+  .detail .dhd-foot{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+  /* three columns, each centred on the block: nothing hangs below anything */
+  .detail .dhd-top{
+    display:grid; grid-template-columns:34px minmax(0,1fr) auto;
+    gap:0 12px; align-items:center;
+  }
+  .detail .dhd-top > .ico{align-self:center;}
+  .detail .dhd-name{min-width:0;}
+  .detail .dhd-top > .act-badge{flex:none;}
+  /* one word beside the name, carrying terraform's own plan symbol */
+  .detail .dhd-name h3{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .act-badge{
+    display:inline-flex; align-items:center; gap:7px;
+    font-family:"Archivo",sans-serif; font-size:10px; font-weight:700;
+    letter-spacing:.09em; text-transform:uppercase;
+    padding:3px 9px; border-radius:5px;
+  }
+  .act-badge i{
+    font-family:"IBM Plex Mono",monospace; font-style:normal; font-size:10.5px;
+    font-weight:700; letter-spacing:0; opacity:.7;
+  }
+
+  .detail .dhd-tools{display:flex; align-items:center; gap:6px;}
+  .iconbtn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:26px; height:26px; padding:0; cursor:pointer;
+    background:var(--surface-2); border:1px solid var(--line); border-radius:7px;
+    color:var(--muted); transition:color .13s ease, border-color .13s ease;
+  }
+  .iconbtn svg{width:14px; height:14px;}
+  .iconbtn:hover{color:var(--ink); border-color:var(--faint);}
+  .detail .dhd-top .ico{width:34px; height:34px; border-radius:7px;}
+  .detail .dhd-name{display:flex; flex-direction:column; min-width:0;}
+  .detail .dhd .type{font-family:"IBM Plex Mono",monospace; font-size:11.5px; line-height:1.5;
+    color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .detail .dhd h3{font-size:16px; line-height:1.3; overflow-wrap:anywhere;}
+  .detail .dhd .badges{display:flex; flex-wrap:wrap; gap:6px; min-width:0;}
   .badge{
     display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
     font-family:"Archivo",sans-serif; font-size:10px; font-weight:700; letter-spacing:.09em;
@@ -494,6 +575,17 @@
   summary.dsec:hover{background:var(--surface-2);}
   summary.dsec .cnt{font-family:"IBM Plex Mono",monospace; font-weight:400;
     letter-spacing:0; text-transform:none; color:var(--faint); font-size:11px;}
+  .sec-master{display:flex; justify-content:flex-end; padding:7px 18px 0;}
+  .sec-master button{
+    display:flex; align-items:center; gap:7px; cursor:pointer;
+    background:none; border:0; padding:2px 0; border-radius:5px;
+    font-family:"Archivo",sans-serif; font-size:9.5px; font-weight:600;
+    letter-spacing:.11em; text-transform:uppercase; color:var(--faint);
+  }
+  .sec-master button:hover{color:var(--ink);}
+  .sec-master .chev{width:9px; height:9px; transition:transform .18s ease;}
+  .sec-master button.open .chev{transform:rotate(90deg);}
+
   summary.dsec .chev{
     margin-left:auto; width:9px; height:9px; flex:none; color:var(--faint);
     transition:transform .18s ease;
@@ -519,15 +611,6 @@
   .chipbtn.on::before{background:var(--create);}
   .chipbtn.on:hover{color:var(--create); border-color:var(--create);}
 
-  .sec-tools{
-    display:flex; justify-content:flex-end; padding:8px 18px 0;
-  }
-  .sec-tools button{
-    font-family:"Archivo",sans-serif; font-size:10px; font-weight:600;
-    letter-spacing:.07em; text-transform:uppercase; color:var(--aws-net);
-    background:none; border:0; padding:3px 5px; cursor:pointer; border-radius:5px;
-  }
-  .sec-tools button:hover{background:var(--surface-2);}
 
   .cli{display:flex; flex-direction:column; gap:8px; padding:0 18px 14px;}
   .cli-item{border:1px solid var(--line); border-radius:9px; background:var(--surface-2); overflow:hidden;}
@@ -586,8 +669,14 @@
   .rules .none{font-size:11.5px; color:var(--faint); padding:4px 0;}
 
   .diff{padding:0 18px 14px; display:flex; flex-direction:column; gap:8px;}
-  .diff-reason{font-size:12px; color:var(--warn); background:var(--warn-soft);
-    border-radius:7px; padding:7px 9px; line-height:1.5;}
+  .diff-reason{
+    font-size:12.5px; color:var(--body); line-height:1.5;
+    border-left:2px solid var(--replace); padding:1px 0 1px 10px; margin-bottom:2px;
+  }
+  .diff-reason code{
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px;
+    background:var(--surface-2); padding:.05em .35em; border-radius:4px; color:var(--ink);
+  }
   .diff-row{display:flex; flex-direction:column; gap:3px; padding:7px 9px;
     border:1px solid var(--line-soft); border-radius:8px; background:var(--surface-2);}
   .diff-row.forced{border-color:var(--replace);}
@@ -682,6 +771,7 @@
       <div class="block">
         <h3>Plan <em id="planMeta">—</em></h3>
         <div class="plan-sum" id="planSum"></div>
+        <button class="filter-clear" id="filterClear" hidden></button>
         <div class="chg-list" id="chgList"></div>
       </div>
 
@@ -725,6 +815,7 @@
       <div class="canvas" id="canvas">
         <svg id="edges"></svg>
       </div>
+      <div class="ctxmenu" id="ctxMenu" hidden></div>
       <div class="iso-hud" id="isoHud">
         <span>drag <b>orbit</b></span>
         <span>shift-drag <b>pan</b></span>
@@ -1461,11 +1552,13 @@ terraform show -json plan.out &gt; plan.json</pre>
 
   function visibleResources(model, opts){
     return model.resources.filter(function(r){
+      if (r.hidden) return false;
       if (!r.enabledType) return false;
       if (r.kind === "assoc" && !opts.showAssoc) return false;
       if (!r.supported && !opts.showUnsup) return false;
       if (opts.mode === "changes" && r.kind !== "group" &&
           (r.action === "no-op" || r.action === "read")) return false;
+      if (opts.action && r.kind !== "group" && r.action !== opts.action) return false;
       return true;
     });
   }
@@ -1593,7 +1686,7 @@ terraform show -json plan.out &gt; plan.json</pre>
   var $ = function(id){ return document.getElementById(id); };
   var canvas = $("canvas"), edgesSvg = $("edges"), detailEl = $("detail"), splitEl = $("split");
   var model = null, selected = null;
-  var opts = {showAssoc:false, showUnsup:true, edges:"select", mode:"all"};
+  var opts = {showAssoc:false, showUnsup:true, edges:"select", mode:"all", action:null};
   var nodeEls = {};
 
   function icoSvg(spec, size){
@@ -1909,12 +2002,12 @@ terraform show -json plan.out &gt; plan.json</pre>
     model.resources.forEach(function(r){
       var el = nodeEls[r.addr];
       if (!el) return;
-      el.classList.toggle("disabled", !r.enabled);
+      el.classList.toggle("impact-src", !r.enabled);
       el.classList.toggle("broken", !!broken[r.addr] && r.enabled);
       var f = el.querySelector(".flag");
       if (broken[r.addr] && r.enabled){
         if (!f){ f = document.createElement("div"); f.className = "flag"; el.appendChild(f); }
-        f.textContent = "dep disabled";
+        f.textContent = "affected";
       } else if (f){ f.remove(); }
     });
   }
@@ -2088,6 +2181,48 @@ terraform show -json plan.out &gt; plan.json</pre>
     });
   }
 
+  /* terraform's action_reason enum, as sentences */
+  var ACTION_REASON = {
+    replace_because_cannot_update:
+      "Must be replaced: an attribute changed that cannot be updated in place.",
+    replace_because_tainted:
+      "Must be replaced: the resource is marked tainted.",
+    replace_by_request:
+      "Replacement was requested explicitly, with -replace.",
+    delete_because_no_resource_config:
+      "Destroyed: no longer declared in the configuration.",
+    delete_because_no_module:
+      "Destroyed: the module holding it was removed.",
+    delete_because_wrong_repetition:
+      "Destroyed: count or for_each no longer produces this instance.",
+    delete_because_count_index:
+      "Destroyed: its count index is outside the new range.",
+    delete_because_each_key:
+      "Destroyed: its for_each key is no longer present.",
+    read_because_config_unknown:
+      "Read during apply: the configuration is not known yet.",
+    read_because_dependency_pending:
+      "Read during apply: a dependency has not been created yet."
+  };
+
+  function reasonText(r){
+    var base = ACTION_REASON[r.actionReason];
+    if (!base){
+      /* an enum this build has not seen: say so plainly rather than guess */
+      return r.actionReason
+        ? "Terraform reason: " + String(r.actionReason).replace(/_/g, " ") + "."
+        : null;
+    }
+    var forced = (r.replacePaths || []).map(function(pp){
+      return Array.isArray(pp) ? pp[0] : pp;
+    });
+    if (forced.length && r.actionReason === "replace_because_cannot_update"){
+      return "Must be replaced: <code>" + escapeHtml(forced.join("</code>, <code>")) +
+             "</code> cannot be changed in place.";
+    }
+    return escapeHtml(base);
+  }
+
   function changeHtml(r){
     if (r.action === "create" || r.action === "no-op") return null;
 
@@ -2105,11 +2240,10 @@ terraform show -json plan.out &gt; plan.json</pre>
     if (!rows.length && r.action !== "delete") return null;
 
     var b = '<div class="diff">';
-    if (r.actionReason){
-      b += '<div class="diff-reason">' + escapeHtml(String(r.actionReason).replace(/_/g, " ")) + '</div>';
-    }
-    if (r.action === "delete"){
-      b += '<div class="diff-reason">This resource is destroyed. Values below are what exists today.</div>';
+    var why = reasonText(r);
+    if (why) b += '<div class="diff-reason">' + why + '</div>';
+    if (r.action === "delete" && !why){
+      b += '<div class="diff-reason">Destroyed. The values below are what exists today.</div>';
     }
     rows.forEach(function(k){
       var sens = r.sensitive && r.sensitive[k];
@@ -2155,6 +2289,8 @@ terraform show -json plan.out &gt; plan.json</pre>
            '</details>';
   }
 
+  var detailSections = [], saveSections = function(){};
+
   function wireSections(){
     var allSecs = Array.prototype.slice.call(detailEl.querySelectorAll("details[data-sec]"));
     var btn = $("secAll");
@@ -2164,8 +2300,10 @@ terraform show -json plan.out &gt; plan.json</pre>
     function syncAll(){
       if (!btn) return;
       var anyClosed = allSecs.some(function(d){ return !d.open; });
-      btn.textContent = anyClosed ? "Expand all" : "Collapse all";
       btn.dataset.want = anyClosed ? "open" : "close";
+      btn.classList.toggle("open", !anyClosed);
+      var lbl = btn.querySelector(".lbl");
+      if (lbl) lbl.textContent = anyClosed ? "expand all" : "collapse all";
     }
     allSecs.forEach(function(d){
       d.addEventListener("toggle", function(){ secOpen[d.dataset.sec] = d.open; save(); syncAll(); });
@@ -2200,14 +2338,18 @@ terraform show -json plan.out &gt; plan.json</pre>
       ["outputs", model.outputs ? Object.keys(model.outputs).length : 0]
     ];
 
-    var html = '<div class="dhd"><span class="type">loaded file</span>' +
-      '<h3>' + escapeHtml(model.source) + '</h3><div class="badges">';
+    var html = '<div class="dhd">' +
+      '<div class="dhd-top"><div class="dhd-name">' +
+        '<span class="type">loaded file</span>' +
+        '<h3>' + escapeHtml(model.source) + '</h3></div>' +
+        '</div>' +
+      '<div class="dhd-foot"><div class="badges">';
     ["create","update","replace","delete"].forEach(function(a){
       if (S[a]) html += '<span class="badge" style="color:' + ACTION_COLOR[a] +
         '; background:color-mix(in srgb, ' + ACTION_COLOR[a] + ' 14%, transparent)">' +
         S[a] + " " + escapeHtml(a) + '</span>';
     });
-    html += '</div></div><div class="sec-tools"><button id="secAll"></button></div>';
+    html += '</div></div></div>' + SEC_MASTER;
 
     var meta = '<div class="attrs">';
     rows.forEach(function(kv){
@@ -2364,22 +2506,53 @@ terraform show -json plan.out &gt; plan.json</pre>
     return {count:count, body:b + '</div>'};
   }
 
+  /* Sits directly above the sections and right-aligns with their chevrons, so
+     it reads as the master switch for the column it lines up with. */
+  var SEC_MASTER =
+    '<div class="sec-master"><button id="secAll" type="button">' +
+      '<span class="lbl"></span>' +
+      '<svg class="chev" viewBox="0 0 10 10" aria-hidden="true">' +
+        '<path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+        'stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '</button></div>';
+
+  /* What terraform will do, said as an outcome and marked with the symbol its
+     own plan output uses, so it cannot be mistaken for part of the name. */
+  var ACTION_PHRASE = {
+    create:  ["+",   "will be created"],
+    update:  ["~",   "will be updated in place"],
+    replace: ["-/+", "will be destroyed, then created"],
+    "delete":["-",   "will be destroyed"],
+    read:    ["<=",  "will be read"],
+    "no-op": ["",    "no changes"]
+  };
+
   function detailHeader(r){
     var color = ACTION_COLOR[r.action] || "var(--noop)";
-    var badges =
-      '<span class="badge" style="color:' + color + '; background:color-mix(in srgb, ' +
-        color + ' 14%, transparent)">' + escapeHtml(r.action) + '</span>' +
-      (r.supported ? "" :
-        '<span class="badge" style="color:var(--warn); background:var(--warn-soft)">not implemented yet</span>') +
-      (r.enabled ? "" :
-        '<span class="badge" style="color:var(--destroy); background:var(--err-soft)">disabled</span>') +
-      '<button class="chipbtn' + (r.enabled ? "" : " on") + '" id="toggleNode" style="margin-left:auto" title="' +
-        (r.enabled ? "Hide this resource and flag whatever depends on it" : "Put this resource back") +
-        '">' + (r.enabled ? "Disable" : "Enabled") + '</button>';
+    var phrase = ACTION_PHRASE[r.action] || ["", r.action];
 
-    return '<div class="dhd"><span class="type">' + escapeHtml(r.type) + '</span>' +
-           '<h3>' + escapeHtml(r.name) + '</h3>' +
-           '<div class="badges">' + badges + '</div></div>';
+    var flags =
+      (r.supported ? "" :
+        '<span class="badge" style="color:var(--warn); background:var(--warn-soft)">not implemented</span>') +
+      (r.enabled ? "" :
+        '<span class="badge" style="color:var(--replace); background:var(--warn-soft)">impact source</span>');
+
+    return '<div class="dhd">' +
+             '<div class="dhd-top">' +
+               icoSvg(r.spec, 34) +
+               '<div class="dhd-name">' +
+                 '<span class="type">' + escapeHtml(r.type) + '</span>' +
+                 '<h3>' + escapeHtml(r.name) + '</h3>' +
+               '</div>' +
+               '<span class="act-badge" title="' + escapeHtml(phrase[1]) + '"' +
+                 ' style="color:' + color +
+                 '; background:color-mix(in srgb, ' + color + ' 13%, transparent)">' +
+                 escapeHtml(r.action) +
+                 (phrase[0] ? '<i>' + escapeHtml(phrase[0]) + '</i>' : '') +
+               '</span>' +
+             '</div>' +
+             (flags ? '<div class="badges">' + flags + '</div>' : '') +
+           '</div>';
   }
 
   function renderDetail(){
@@ -2392,7 +2565,7 @@ terraform show -json plan.out &gt; plan.json</pre>
 
     var r = model.byAddr[selected];
     var ctx = {};                                  /* builders stash copy targets here */
-    var html = detailHeader(r) + '<div class="sec-tools"><button id="secAll"></button></div>';
+    var html = detailHeader(r) + SEC_MASTER;
 
     DETAIL_SECTIONS.forEach(function(s){
       var built = s.build(r, ctx);
@@ -2407,6 +2580,7 @@ terraform show -json plan.out &gt; plan.json</pre>
   function wireDetailControls(r, ctx){
     var tb = $("toggleNode");
     if (tb) tb.addEventListener("click", function(){
+      /* "enabled" is the storage for this flag; the UI calls it impact */
       r.enabled = !r.enabled;
       applyDisabledCascade();
       renderDetail();
@@ -2448,6 +2622,108 @@ terraform show -json plan.out &gt; plan.json</pre>
   }
 
   /* ------------------------------------------------------------------
+     Context menu. Actions belong on the resource you are pointing at,
+     so everything that acts on one resource lives here rather than in
+     the detail pane.
+     ------------------------------------------------------------------ */
+
+  var ctxEl = $("ctxMenu"), ctxAddr = null;
+
+  function closeCtx(){ ctxEl.hidden = true; ctxAddr = null; }
+
+  function ctxItem(label, hint, fn){
+    var b = document.createElement("button");
+    b.innerHTML = escapeHtml(label) + (hint ? '<span class="k">' + escapeHtml(hint) + '</span>' : '');
+    b.addEventListener("click", function(e){ e.stopPropagation(); closeCtx(); fn(); });
+    return b;
+  }
+
+  function openCtx(addr, x, y){
+    var r = model.byAddr[addr];
+    if (!r) return;
+    ctxAddr = addr;
+    ctxEl.innerHTML = "";
+
+    var head = document.createElement("div");
+    head.className = "ctx-head";
+    head.innerHTML = icoSvg(r.spec, 18) + '<b>' + escapeHtml(r.addr) + '</b>';
+    ctxEl.appendChild(head);
+
+    ctxEl.appendChild(ctxItem("Open details", "", function(){ select(addr); }));
+
+    ctxEl.appendChild(ctxItem(
+      r.enabled ? "Show impact" : "Clear impact",
+      r.enabled ? (r.dependents || []).length ? "" : "none" : "",
+      function(){
+        r.enabled = !r.enabled;
+        applyDisabledCascade();
+        if (selected === addr) renderDetail();
+      }));
+
+    var hr1 = document.createElement("hr"); ctxEl.appendChild(hr1);
+
+    ctxEl.appendChild(ctxItem("Hide this resource", "", function(){
+      r.hidden = true;
+      if (selected === addr){ selected = null; renderDetail(); }
+      render();
+    }));
+    ctxEl.appendChild(ctxItem("Hide all " + r.type, String(model.typeCounts[r.type] || 1), function(){
+      model.resources.forEach(function(x){ if (x.type === r.type) x.enabledType = false; });
+      render();
+    }));
+
+    var anyHidden = model.resources.some(function(x){ return x.hidden || x.enabledType === false; });
+    if (anyHidden){
+      ctxEl.appendChild(ctxItem("Show everything", "", function(){
+        model.resources.forEach(function(x){ x.hidden = false; x.enabledType = true; });
+        render();
+      }));
+    }
+
+    var hr2 = document.createElement("hr"); ctxEl.appendChild(hr2);
+
+    ctxEl.appendChild(ctxItem("Copy address", "", function(){
+      copyTextSilent(r.addr);
+    }));
+    var cmds = CLI(r, {region: model.region});
+    if (cmds.length){
+      ctxEl.appendChild(ctxItem("Copy " + cmds[0].label.toLowerCase() + " command", "aws", function(){
+        copyTextSilent(cmds[0].cmd);
+      }));
+    }
+
+    /* place it, keeping the whole menu on screen */
+    ctxEl.hidden = false;
+    var w = ctxEl.offsetWidth, hgt = ctxEl.offsetHeight;
+    ctxEl.style.left = Math.min(x, window.innerWidth  - w - 8) + "px";
+    ctxEl.style.top  = Math.min(y, window.innerHeight - hgt - 8) + "px";
+  }
+
+  function copyTextSilent(text){
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text);
+        return;
+      }
+    } catch(e){}
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch(e){}
+    ta.remove();
+  }
+
+  $("canvasWrap").addEventListener("contextmenu", function(e){
+    var el = e.target.closest ? e.target.closest("[data-addr]") : null;
+    if (!el || !model) return;
+    e.preventDefault();
+    openCtx(el.dataset.addr, e.clientX, e.clientY);
+  });
+  document.addEventListener("click", function(){ if (!ctxEl.hidden) closeCtx(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeCtx(); });
+  $("canvasWrap").addEventListener("scroll", closeCtx);
+
+  /* ------------------------------------------------------------------
      Left sidebar. One function per panel, each owning its own DOM ids.
      ------------------------------------------------------------------ */
 
@@ -2481,6 +2757,7 @@ terraform show -json plan.out &gt; plan.json</pre>
 
   function panelChanges(){
     var changed = model.resources.filter(function(r){
+      if (opts.action) return r.action === opts.action;
       return r.action === "update" || r.action === "replace" || r.action === "delete";
     }).sort(function(a, b){
       var d = ACTION_RISK[a.action] - ACTION_RISK[b.action];
@@ -2521,14 +2798,44 @@ terraform show -json plan.out &gt; plan.json</pre>
     var shown = order.filter(function(o){ return S[o[0]]; });
     var total = shown.reduce(function(n, o){ return n + S[o[0]]; }, 0);
     var html = shown.map(function(o){
-      var n = S[o[0]];
-      var pct = total ? (n / total * 100) : 0;
-      return '<span title="' + n + ' ' + o[1] + '" style="flex:' + n +
-             ';background:' + ACTION_COLOR[o[0]] + '"' +
-             (pct < 9 ? ' class="tiny"' : '') + '>' + n + '</span>';
+      var n = S[o[0]], pct = total ? (n / total * 100) : 0;
+      var cls = [];
+      if (pct < 9) cls.push("tiny");
+      if (opts.action === o[0]) cls.push("on");
+      else if (opts.action) cls.push("off");
+      return '<span role="button" tabindex="0" data-action="' + o[0] + '"' +
+             ' title="' + n + ' ' + o[1] +
+             (opts.action === o[0] ? " \u2014 click to clear" : " \u2014 click to show only these") + '"' +
+             ' style="flex:' + n + ';background:' + ACTION_COLOR[o[0]] + '"' +
+             (cls.length ? ' class="' + cls.join(" ") + '"' : '') + '>' + n + '</span>';
     }).join("");
-    html = html ? '<div class="statbar">' + html + '</div>' : "";
-    $("planSum").innerHTML = html || '<span class="ps" style="color:var(--faint)">no changes</span>';
+
+    $("planSum").innerHTML = html
+      ? '<div class="statbar filterable">' + html + '</div>'
+      : '<span class="ps" style="color:var(--faint)">no changes</span>';
+
+    Array.prototype.slice.call($("planSum").querySelectorAll("[data-action]")).forEach(function(seg){
+      function toggle(){
+        opts.action = (opts.action === seg.dataset.action) ? null : seg.dataset.action;
+        render();
+      }
+      seg.addEventListener("click", toggle);
+      seg.addEventListener("keydown", function(e){
+        if (e.key === "Enter" || e.key === " "){ e.preventDefault(); toggle(); }
+      });
+    });
+
+    /* an active filter has to be visible and reversible */
+    var fc = $("filterClear");
+    if (opts.action){
+      fc.hidden = false;
+      fc.innerHTML = 'only <b style="color:' + ACTION_COLOR[opts.action] + '">' +
+                     escapeHtml(opts.action) + '</b><span class="x">clear \u00d7</span>';
+      fc.onclick = function(){ opts.action = null; render(); };
+    } else {
+      fc.hidden = true;
+    }
+
     var outs = model.outputs ? Object.keys(model.outputs).length : 0;
     $("planMeta").textContent = outs ? (outs + " outputs") : "";
   }
@@ -2784,27 +3091,23 @@ terraform show -json plan.out &gt; plan.json</pre>
    "provider_name": "registry.terraform.io/hashicorp/aws",
    "change": {
     "actions": [
-     "create"
+     "no-op"
     ],
-    "before": null,
+    "before": {
+     "name_prefix": "example-ssm-",
+     "path": "/",
+     "tags": null,
+     "id": "example-ssm-profile"
+    },
     "after": {
      "name_prefix": "example-ssm-",
      "path": "/",
-     "tags": null
+     "tags": null,
+     "id": "example-ssm-profile"
     },
-    "after_unknown": {
-     "arn": true,
-     "create_date": true,
-     "id": true,
-     "name": true,
-     "role": true,
-     "tags_all": true,
-     "unique_id": true
-    },
+    "after_unknown": {},
     "before_sensitive": false,
-    "after_sensitive": {
-     "tags_all": {}
-    }
+    "after_sensitive": false
    }
   },
   {
@@ -2815,9 +3118,19 @@ terraform show -json plan.out &gt; plan.json</pre>
    "provider_name": "registry.terraform.io/hashicorp/aws",
    "change": {
     "actions": [
-     "create"
+     "no-op"
     ],
-    "before": null,
+    "before": {
+     "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+     "description": null,
+     "force_detach_policies": false,
+     "max_session_duration": 3600,
+     "name_prefix": "example-ssm-",
+     "path": "/",
+     "permissions_boundary": null,
+     "tags": null,
+     "id": "example-ssm-role"
+    },
     "after": {
      "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
      "description": null,
@@ -2826,24 +3139,12 @@ terraform show -json plan.out &gt; plan.json</pre>
      "name_prefix": "example-ssm-",
      "path": "/",
      "permissions_boundary": null,
-     "tags": null
+     "tags": null,
+     "id": "example-ssm-role"
     },
-    "after_unknown": {
-     "arn": true,
-     "create_date": true,
-     "id": true,
-     "inline_policy": true,
-     "managed_policy_arns": true,
-     "name": true,
-     "tags_all": true,
-     "unique_id": true
-    },
+    "after_unknown": {},
     "before_sensitive": false,
-    "after_sensitive": {
-     "inline_policy": [],
-     "managed_policy_arns": [],
-     "tags_all": {}
-    }
+    "after_sensitive": false
    }
   },
   {
@@ -2943,9 +3244,18 @@ terraform show -json plan.out &gt; plan.json</pre>
    "provider_name": "registry.terraform.io/hashicorp/aws",
    "change": {
     "actions": [
-     "create"
+     "no-op"
     ],
-    "before": null,
+    "before": {
+     "tags": {
+      "Name": "example-igw"
+     },
+     "tags_all": {
+      "Name": "example-igw"
+     },
+     "timeouts": null,
+     "id": "igw-0example00000001"
+    },
     "after": {
      "tags": {
       "Name": "example-igw"
@@ -2953,21 +3263,12 @@ terraform show -json plan.out &gt; plan.json</pre>
      "tags_all": {
       "Name": "example-igw"
      },
-     "timeouts": null
+     "timeouts": null,
+     "id": "igw-0example00000001"
     },
-    "after_unknown": {
-     "arn": true,
-     "id": true,
-     "owner_id": true,
-     "tags": {},
-     "tags_all": {},
-     "vpc_id": true
-    },
+    "after_unknown": {},
     "before_sensitive": false,
-    "after_sensitive": {
-     "tags": {},
-     "tags_all": {}
-    }
+    "after_sensitive": false
    }
   },
   {
@@ -3074,9 +3375,34 @@ terraform show -json plan.out &gt; plan.json</pre>
    "provider_name": "registry.terraform.io/hashicorp/aws",
    "change": {
     "actions": [
-     "create"
+     "no-op"
     ],
-    "before": null,
+    "before": {
+     "route": [
+      {
+       "carrier_gateway_id": "",
+       "cidr_block": "0.0.0.0/0",
+       "core_network_arn": "",
+       "destination_prefix_list_id": "",
+       "egress_only_gateway_id": "",
+       "ipv6_cidr_block": "",
+       "local_gateway_id": "",
+       "nat_gateway_id": "",
+       "network_interface_id": "",
+       "transit_gateway_id": "",
+       "vpc_endpoint_id": "",
+       "vpc_peering_connection_id": ""
+      }
+     ],
+     "tags": {
+      "Name": "example-rt"
+     },
+     "tags_all": {
+      "Name": "example-rt"
+     },
+     "timeouts": null,
+     "id": "rtb-0example00000001"
+    },
     "after": {
      "route": [
       {
@@ -3100,31 +3426,12 @@ terraform show -json plan.out &gt; plan.json</pre>
      "tags_all": {
       "Name": "example-rt"
      },
-     "timeouts": null
+     "timeouts": null,
+     "id": "rtb-0example00000001"
     },
-    "after_unknown": {
-     "arn": true,
-     "id": true,
-     "owner_id": true,
-     "propagating_vgws": true,
-     "route": [
-      {
-       "gateway_id": true
-      }
-     ],
-     "tags": {},
-     "tags_all": {},
-     "vpc_id": true
-    },
+    "after_unknown": {},
     "before_sensitive": false,
-    "after_sensitive": {
-     "propagating_vgws": [],
-     "route": [
-      {}
-     ],
-     "tags": {},
-     "tags_all": {}
-    }
+    "after_sensitive": false
    }
   },
   {
@@ -3135,20 +3442,21 @@ terraform show -json plan.out &gt; plan.json</pre>
    "provider_name": "registry.terraform.io/hashicorp/aws",
    "change": {
     "actions": [
-     "create"
+     "no-op"
     ],
-    "before": null,
+    "before": {
+     "gateway_id": null,
+     "timeouts": null,
+     "id": "rtbassoc-0example00000001"
+    },
     "after": {
      "gateway_id": null,
-     "timeouts": null
+     "timeouts": null,
+     "id": "rtbassoc-0example00000001"
     },
-    "after_unknown": {
-     "id": true,
-     "route_table_id": true,
-     "subnet_id": true
-    },
+    "after_unknown": {},
     "before_sensitive": false,
-    "after_sensitive": {}
+    "after_sensitive": false
    }
   },
   {
@@ -3230,9 +3538,48 @@ terraform show -json plan.out &gt; plan.json</pre>
    "provider_name": "registry.terraform.io/hashicorp/aws",
    "change": {
     "actions": [
-     "create"
+     "no-op"
     ],
-    "before": null,
+    "before": {
+     "description": "Managed by Terraform",
+     "egress": [
+      {
+       "cidr_blocks": [
+        "0.0.0.0/0"
+       ],
+       "description": "",
+       "from_port": 0,
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "protocol": "-1",
+       "security_groups": [],
+       "self": false,
+       "to_port": 0
+      }
+     ],
+     "ingress": [
+      {
+       "cidr_blocks": [],
+       "description": "HTTPS from instance",
+       "from_port": 443,
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "protocol": "tcp",
+       "self": false,
+       "to_port": 443
+      }
+     ],
+     "name_prefix": "example-ssm-ep-sg-",
+     "revoke_rules_on_delete": false,
+     "tags": {
+      "Name": "example-ssm-ep-sg"
+     },
+     "tags_all": {
+      "Name": "example-ssm-ep-sg"
+     },
+     "timeouts": null,
+     "id": "sg-0example00000002"
+    },
     "after": {
      "description": "Managed by Terraform",
      "egress": [
@@ -3270,58 +3617,12 @@ terraform show -json plan.out &gt; plan.json</pre>
      "tags_all": {
       "Name": "example-ssm-ep-sg"
      },
-     "timeouts": null
+     "timeouts": null,
+     "id": "sg-0example00000002"
     },
-    "after_unknown": {
-     "arn": true,
-     "egress": [
-      {
-       "cidr_blocks": [
-        false
-       ],
-       "ipv6_cidr_blocks": [],
-       "prefix_list_ids": [],
-       "security_groups": []
-      }
-     ],
-     "id": true,
-     "ingress": [
-      {
-       "cidr_blocks": [],
-       "ipv6_cidr_blocks": [],
-       "prefix_list_ids": [],
-       "security_groups": true
-      }
-     ],
-     "name": true,
-     "owner_id": true,
-     "tags": {},
-     "tags_all": {},
-     "vpc_id": true
-    },
+    "after_unknown": {},
     "before_sensitive": false,
-    "after_sensitive": {
-     "egress": [
-      {
-       "cidr_blocks": [
-        false
-       ],
-       "ipv6_cidr_blocks": [],
-       "prefix_list_ids": [],
-       "security_groups": []
-      }
-     ],
-     "ingress": [
-      {
-       "cidr_blocks": [],
-       "ipv6_cidr_blocks": [],
-       "prefix_list_ids": [],
-       "security_groups": []
-      }
-     ],
-     "tags": {},
-     "tags_all": {}
-    }
+    "after_sensitive": false
    }
   },
   {
@@ -3472,9 +3773,19 @@ terraform show -json plan.out &gt; plan.json</pre>
    "provider_name": "registry.terraform.io/hashicorp/aws",
    "change": {
     "actions": [
-     "create"
+     "no-op"
     ],
-    "before": null,
+    "before": {
+     "auto_accept": null,
+     "private_dns_enabled": true,
+     "resource_configuration_arn": null,
+     "service_name": "com.amazonaws.us-east-1.ssm",
+     "service_network_arn": null,
+     "tags": null,
+     "timeouts": null,
+     "vpc_endpoint_type": "Interface",
+     "id": "vpce-0example00000002"
+    },
     "after": {
      "auto_accept": null,
      "private_dns_enabled": true,
@@ -3483,41 +3794,12 @@ terraform show -json plan.out &gt; plan.json</pre>
      "service_network_arn": null,
      "tags": null,
      "timeouts": null,
-     "vpc_endpoint_type": "Interface"
+     "vpc_endpoint_type": "Interface",
+     "id": "vpce-0example00000002"
     },
-    "after_unknown": {
-     "arn": true,
-     "cidr_blocks": true,
-     "dns_entry": true,
-     "dns_options": true,
-     "id": true,
-     "ip_address_type": true,
-     "network_interface_ids": true,
-     "owner_id": true,
-     "policy": true,
-     "prefix_list_id": true,
-     "requester_managed": true,
-     "route_table_ids": true,
-     "security_group_ids": true,
-     "service_region": true,
-     "state": true,
-     "subnet_configuration": true,
-     "subnet_ids": true,
-     "tags_all": true,
-     "vpc_id": true
-    },
+    "after_unknown": {},
     "before_sensitive": false,
-    "after_sensitive": {
-     "cidr_blocks": [],
-     "dns_entry": [],
-     "dns_options": [],
-     "network_interface_ids": [],
-     "route_table_ids": [],
-     "security_group_ids": [],
-     "subnet_configuration": [],
-     "subnet_ids": [],
-     "tags_all": {}
-    }
+    "after_sensitive": false
    }
   },
   {
