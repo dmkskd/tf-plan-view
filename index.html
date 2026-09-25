@@ -279,6 +279,47 @@
   .canvas-wrap{cursor:grab; user-select:none;}
   .canvas-wrap.grabbing{cursor:grabbing;}
 
+  /* hover preview of the rules on a security group or network ACL */
+  .rulepop{
+    position:fixed; z-index:45; max-width:330px; padding:9px 11px 10px;
+    background:var(--surface); border:1px solid var(--line); border-radius:9px;
+    box-shadow:0 10px 30px -10px rgba(19,26,34,.35), 0 2px 6px rgba(19,26,34,.1);
+    pointer-events:none;
+  }
+  .rulepop .rp-title{
+    display:flex; align-items:center; gap:7px; margin-bottom:7px;
+    font-family:"Archivo",sans-serif; font-size:10px; font-weight:700;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--muted);
+  }
+  .rulepop .rp-title b{
+    font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:500;
+    letter-spacing:0; text-transform:none; color:var(--ink);
+  }
+  .rulepop .rp-dir{
+    display:flex; align-items:center; gap:6px; margin:7px 0 3px;
+    font-family:"Archivo",sans-serif; font-size:9.5px; font-weight:700;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--faint);
+  }
+  .rulepop .rp-dir::after{content:""; flex:1; height:1px; background:var(--line-soft);}
+  .rulepop .rp-rule{
+    display:grid; grid-template-columns:14px auto auto auto minmax(0,1fr);
+    gap:7px; align-items:baseline; padding:2px 0;
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--body);
+  }
+  .rulepop .rp-svc{color:var(--aws-net); font-size:10.5px; font-weight:600;}
+  .rulepop .rp-arrow{font-weight:700;}
+  .rulepop .rp-port{color:var(--ink); font-weight:600;}
+  .rulepop .rp-proto{color:var(--muted); font-size:10.5px;}
+  .rulepop .rp-peer{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .rulepop .rp-no{color:var(--faint); font-size:10.5px;}
+  .rulepop .rp-none{font-family:"IBM Plex Sans",sans-serif; font-size:11.5px; color:var(--faint); padding:2px 0;}
+  .rulepop .allow .rp-arrow{color:var(--create);}
+  .rulepop .deny .rp-arrow, .rulepop .deny .rp-port{color:var(--deny);}
+  .rulepop .rp-foot{
+    margin-top:8px; padding-top:7px; border-top:1px solid var(--line-soft);
+    font-family:"IBM Plex Sans",sans-serif; font-size:11px; color:var(--faint); line-height:1.45;
+  }
+
   .ctxmenu{
     position:fixed; z-index:50; min-width:210px; padding:5px;
     background:var(--surface); border:1px solid var(--line); border-radius:10px;
@@ -366,13 +407,7 @@
   .grp[data-addr] > .grp-hd{pointer-events:auto;}
   .grp[data-addr] > .grp-hd:hover{text-decoration:underline; text-underline-offset:3px;}
   .grp.sel{box-shadow:0 0 0 2px color-mix(in srgb, var(--aws-net) 45%, transparent);}
-  .grp[data-addr]::after{
-    content:"rules"; position:absolute; top:5px; right:9px;
-    font-family:"Archivo",sans-serif; font-size:9px; font-weight:600;
-    letter-spacing:.09em; text-transform:uppercase; color:var(--faint);
-    opacity:0; transition:opacity .15s ease; pointer-events:none;
-  }
-  .grp[data-addr]:hover::after{opacity:1;}
+
   .grp > .grp-hd em{font-style:normal; font-family:"IBM Plex Mono",monospace; font-size:10.5px;
     font-weight:400; letter-spacing:0; text-transform:none; color:var(--muted);}
   .grp > .grp-hd svg{width:13px; height:13px;}
@@ -661,6 +696,7 @@
   }
   .rules td{padding:5px 6px; border-bottom:1px solid var(--line-soft); color:var(--body); vertical-align:top;}
   .rules tr:last-child td{border-bottom:0;}
+  .rules td.svc{color:var(--aws-net); font-size:10px; font-weight:600;}
   .rules td.deny{color:var(--deny);}
   .rules td.allow{color:var(--create);}
   .rules tr.implicit td{color:var(--deny); background:var(--deny-soft);}
@@ -818,6 +854,7 @@
         <svg id="edges"></svg>
       </div>
       <div class="ctxmenu" id="ctxMenu" hidden></div>
+      <div class="rulepop" id="rulePop" hidden></div>
       <div class="iso-hud" id="isoHud">
         <span class="iso-only">drag <b>orbit</b></span>
         <span class="iso-only">shift-drag <b>pan</b></span>
@@ -2106,6 +2143,30 @@ terraform show -json plan.out &gt; plan.json</pre>
     });
   }
 
+  /* what a port is normally used for: the number is the data, the name is
+     what makes a rule readable at a glance */
+  var PORT_NAME = {
+    20:"ftp-data", 21:"ftp", 22:"ssh", 23:"telnet", 25:"smtp", 53:"dns",
+    67:"dhcp", 68:"dhcp", 80:"http", 110:"pop3", 111:"rpc", 123:"ntp",
+    135:"rpc", 139:"netbios", 143:"imap", 161:"snmp", 389:"ldap", 443:"https",
+    445:"smb", 465:"smtps", 514:"syslog", 587:"smtp", 636:"ldaps", 873:"rsync",
+    993:"imaps", 995:"pop3s", 1194:"openvpn", 1433:"mssql", 1521:"oracle",
+    2049:"nfs", 2375:"docker", 2376:"docker-tls", 3000:"grafana", 3306:"mysql",
+    3389:"rdp", 4369:"epmd", 5000:"flask", 5432:"postgres", 5601:"kibana",
+    5672:"amqp", 6379:"redis", 8000:"http-alt", 8080:"http-alt", 8443:"https-alt",
+    8500:"consul", 9042:"cassandra", 9092:"kafka", 9200:"elasticsearch",
+    9300:"elasticsearch", 11211:"memcached", 15672:"rabbitmq", 27017:"mongodb"
+  };
+
+  function portName(e){
+    if (e.protocol === "-1" || e.protocol === "all") return "";
+    if (e.from_port === e.to_port) return PORT_NAME[e.from_port] || "";
+    if (e.from_port === 1024 && e.to_port === 65535) return "ephemeral";
+    if (e.from_port === 32768 && e.to_port === 65535) return "ephemeral";
+    if (e.from_port === 0 && e.to_port === 65535) return "all ports";
+    return "";
+  }
+
   function portText(r){
     if (r.protocol === "-1" || r.protocol === "all") return "all";
     if (r.from_port === 0 && r.to_port === 0) return "all";
@@ -2141,7 +2202,7 @@ terraform show -json plan.out &gt; plan.json</pre>
       if (isNacl) sorted.sort(function(a,b){ return (a.rule_no||0) - (b.rule_no||0); });
       h += '<table><thead><tr>' +
            (isNacl ? '<th>#</th>' : '') +
-           '<th>Proto</th><th>Ports</th><th>' + peerHd + '</th>' +
+           '<th>Proto</th><th>Ports</th><th></th><th>' + peerHd + '</th>' +
            (isNacl ? '<th>Action</th>' : '') +
            '</tr></thead><tbody>';
       sorted.forEach(function(e){
@@ -2149,13 +2210,14 @@ terraform show -json plan.out &gt; plan.json</pre>
              (isNacl ? '<td>' + escapeHtml(e.rule_no) + '</td>' : '') +
              '<td>' + escapeHtml(protoText(e.protocol)) + '</td>' +
              '<td>' + escapeHtml(portText(e)) + '</td>' +
+             '<td class="svc">' + escapeHtml(portName(e)) + '</td>' +
              '<td>' + escapeHtml(peerText(e)) + (e.description ? '<br><span style="color:var(--faint)">' + escapeHtml(e.description) + '</span>' : '') + '</td>' +
              (isNacl ? '<td class="' + (e.action === "deny" ? "deny" : "allow") + '">' + escapeHtml(e.action) + '</td>' : '') +
              '</tr>';
       });
       /* the implicit rule belongs in the same table, or the columns do not line up */
       if (isNacl){
-        h += '<tr class="implicit"><td>*</td><td>all</td><td>all</td>' +
+        h += '<tr class="implicit"><td>*</td><td>all</td><td>all</td><td></td>' +
              '<td>0.0.0.0/0</td><td class="deny">deny</td></tr>';
       }
       h += '</tbody></table>';
@@ -2627,6 +2689,97 @@ terraform show -json plan.out &gt; plan.json</pre>
       } else fallback();
     } catch(e){ fallback(); }
   }
+
+  /* ------------------------------------------------------------------
+     Rule preview. Security groups and network ACLs are the two things you
+     most often want to read without opening anything, so hovering one
+     shows its rules as direction, port, protocol and peer.
+     ------------------------------------------------------------------ */
+
+  var popEl = $("rulePop"), popTimer = null, popAddr = null;
+
+  function ruleLines(entries, dir, isNacl){
+    if (!entries || !entries.length){
+      return '<div class="rp-none">no ' + dir + ' rules</div>';
+    }
+    var list = entries.slice();
+    if (isNacl) list.sort(function(a, b){ return (a.rule_no || 0) - (b.rule_no || 0); });
+
+    var arrow = dir === "ingress" ? "\u2190" : "\u2192";
+    var out = list.map(function(e){
+      var deny = e.action === "deny";
+      return '<div class="rp-rule ' + (deny ? "deny" : "allow") + '">' +
+               '<span class="rp-arrow">' + arrow + '</span>' +
+               '<span class="rp-port">' + escapeHtml(portText(e)) + '</span>' +
+               '<span class="rp-svc">' + escapeHtml(portName(e)) + '</span>' +
+               '<span class="rp-proto">' + escapeHtml(protoText(e.protocol)) + '</span>' +
+               '<span class="rp-peer">' + escapeHtml(peerText(e)) +
+                 (isNacl ? ' <span class="rp-no">#' + escapeHtml(e.rule_no) + '</span>' : '') +
+               '</span>' +
+             '</div>';
+    }).join("");
+
+    if (isNacl){
+      out += '<div class="rp-rule deny">' +
+               '<span class="rp-arrow">' + arrow + '</span>' +
+               '<span class="rp-port">all</span>' +
+               '<span class="rp-svc"></span>' +
+               '<span class="rp-proto">all</span>' +
+               '<span class="rp-peer">0.0.0.0/0 <span class="rp-no">#*</span></span>' +
+             '</div>';
+    }
+    return out;
+  }
+
+  function showRulePop(addr, x, y){
+    var r = model && model.byAddr[addr];
+    if (!r) return;
+    var isSg = r.type === "aws_security_group";
+    var isNacl = r.type === "aws_network_acl";
+    if (!isSg && !isNacl) return;
+
+    popEl.innerHTML =
+      '<div class="rp-title">' + icoSvg(r.spec, 14) +
+        (isSg ? "security group" : "network acl") + ' <b>' + escapeHtml(r.name) + '</b></div>' +
+      '<div class="rp-dir">inbound</div>' + ruleLines(r.attrs.ingress, "ingress", isNacl) +
+      '<div class="rp-dir">outbound</div>' + ruleLines(r.attrs.egress, "egress", isNacl) +
+      '<div class="rp-foot">' +
+        (isSg ? "Stateful: replies to allowed traffic return without a matching rule."
+              : "Stateless: each direction is evaluated on its own, first match wins.") +
+      '</div>';
+
+    popEl.hidden = false;
+    var w = popEl.offsetWidth, hh = popEl.offsetHeight;
+    popEl.style.left = Math.min(x + 14, window.innerWidth  - w - 8) + "px";
+    popEl.style.top  = Math.min(y + 14, window.innerHeight - hh - 8) + "px";
+    popAddr = addr;
+  }
+
+  function hideRulePop(){
+    clearTimeout(popTimer);
+    popEl.hidden = true;
+    popAddr = null;
+  }
+
+  (function wireRulePop(){
+    var wrap = $("canvasWrap");
+    wrap.addEventListener("mousemove", function(e){
+      var el = e.target.closest ? e.target.closest("[data-addr]") : null;
+      var addr = el ? el.dataset.addr : null;
+      var r = addr && model ? model.byAddr[addr] : null;
+      var wants = r && (r.type === "aws_security_group" || r.type === "aws_network_acl");
+
+      if (!wants){ if (popAddr) hideRulePop(); clearTimeout(popTimer); return; }
+      if (addr === popAddr) return;
+
+      clearTimeout(popTimer);
+      var x = e.clientX, y = e.clientY;
+      popTimer = setTimeout(function(){ showRulePop(addr, x, y); }, 280);
+    });
+    wrap.addEventListener("mouseleave", hideRulePop);
+    wrap.addEventListener("pointerdown", hideRulePop);
+    wrap.addEventListener("scroll", hideRulePop);
+  })();
 
   /* ------------------------------------------------------------------
      Context menu. Actions belong on the resource you are pointing at,
