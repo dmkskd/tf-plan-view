@@ -48,7 +48,10 @@ for (const [addr, ps] of Object.entries(schema.provider_schemas || {})) {
     for (const [name, bt] of Object.entries(block.block_types || {})) {
       if (["set", "list", "map"].includes(bt.nesting_mode)) m[name] = bt.nesting_mode[0];
     }
-    if (Object.keys(m).length) { result.kinds[ty] = m; types++; }
+    // record every type, even with no collections: absence must mean "this
+    // provider version has no such resource", not "it has nothing to record"
+    result.kinds[ty] = m;
+    types++;
   }
   result.meta.providers[short] = { address: addr, version: version, types };
 }

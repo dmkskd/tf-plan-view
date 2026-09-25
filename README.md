@@ -71,10 +71,16 @@ output. `tools/baseline/` holds that output recorded when it was correct, so a
 diff shows exactly what a change altered:
 
 ```sh
+node tools/check-boot.js                                          # does it start?
 node tools/check-pure.js   | diff tools/baseline/check-pure.txt -
 node tools/check-parse.js  | diff tools/baseline/check-parse.txt -
 node tools/check-layout.js | diff tools/baseline/check-layout.txt -
 ```
+
+`check-boot.js` runs the whole script against a shimmed DOM and exits non-zero if
+it throws while starting up. The others only call individual functions, so an
+exception during setup would otherwise pass unnoticed: the page renders its
+static markup and every control silently stops responding.
 
 `check-pure` covers the reconstructed Terraform block, CLI recipes, diffs and rule
 tables; `check-parse` the parser and its validation messages; `check-layout` the
