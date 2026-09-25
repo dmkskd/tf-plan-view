@@ -34,7 +34,7 @@ References come from `expressions[*].references` and `depends_on` in
 
 ## Limits
 
-- AWS only. Other providers are reported, not drawn.
+- AWS only. Other providers are reported, not supported.
 - Topology only. Security group and network ACL reachability are not evaluated.
 - Nested modules are drawn flat.
 - `set`, `list` and `map` elements are matched using a bundled aws 5.100.0

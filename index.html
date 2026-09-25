@@ -148,13 +148,14 @@
   .topbar .btn, .topbar .src{display:inline-flex; align-items:center;}
   /* these two swap their label, so they are sized for the longest one and
      stay put instead of nudging the rest of the bar */
-  #themeBtn{min-width:104px; justify-content:center;}
-  .topbar .iconlink{
-    width:34px; padding:0; justify-content:center; color:var(--muted);
-    text-decoration:none;
+  .seg.icons > *{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:34px; padding:0; border:0; background:var(--surface-2);
+    color:var(--muted); cursor:pointer; text-decoration:none;
   }
-  .topbar .iconlink svg{width:17px; height:17px;}
-  .topbar .iconlink:hover{color:var(--ink); border-color:var(--faint);}
+  .seg.icons > * + *{border-left:1px solid var(--line);}
+  .seg.icons svg{width:16px; height:16px;}
+  .seg.icons > *:hover{color:var(--ink); background:var(--surface-3);}
   .btn:hover{filter:brightness(1.06);}
   .btn-primary{background:var(--aws-net); border-color:transparent; color:#fff;}
   .seg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
@@ -1009,7 +1010,7 @@
   <div class="topbar">
     <div class="brand">
       <h1>tf plan view</h1>
-      <span class="scope" title="AWS only. Other providers are not drawn.">aws</span>
+      <span class="scope" title="AWS only. Other providers are not supported.">aws</span>
       <span id="tfver">—</span>
     </div>
     <button class="src" id="srcName" title="Show the loaded file">no plan loaded</button>
@@ -1026,10 +1027,11 @@
 
     <button class="btn btn-primary" id="loadBtn">Load plan.json</button>
     <button class="btn" id="sampleBtn" title="Load the plan bundled with this file">Sample plan</button>
-    <button class="btn" id="themeBtn" title="Toggle colour theme" aria-label="Toggle colour theme">Theme: auto</button>
-    <a class="btn iconlink" id="ghLink" href="https://github.com/dmkskd/tf-plan-view"
-       target="_blank" rel="noopener noreferrer" title="Source on GitHub"
-       aria-label="Source on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.011.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg></a>
+    <div class="seg icons">
+      <button id="themeBtn" aria-label="Colour theme"></button>
+      <a id="ghLink" href="https://github.com/dmkskd/tf-plan-view" target="_blank"
+         rel="noopener noreferrer" title="Source on GitHub" aria-label="Source on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.011.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg></a>
+    </div>
     <input type="file" id="fileInput" accept=".json,application/json">
   </div>
 
@@ -1116,7 +1118,7 @@
           <h2>Visualise a Terraform plan</h2>
           <p>Draws the AWS infrastructure a Terraform plan describes. Select a
              resource for its changes, Terraform block and CLI commands.</p>
-          <p class="scope-note"><b>AWS only.</b> Other providers are not drawn.</p>
+          <p class="scope-note"><b>AWS only.</b> Other providers are not supported.</p>
 
           <div class="steps">
             <div class="step">
@@ -4363,10 +4365,23 @@ terraform show -json plan.out &gt; plan.json</pre>
     if (!btn) return;
     var modes = ["auto","light","dark"], cur = "auto";
     try { cur = localStorage.getItem("tfplanview-theme") || "auto"; } catch(e){}
+    var ICONS = {
+      auto:  '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" ' +
+             'fill="none" stroke="currentColor" stroke-width="1.6"/>' +
+             '<path d="M8 2.5a5.5 5.5 0 0 0 0 11z" fill="currentColor"/></svg>',
+      light: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2" ' +
+             'fill="currentColor"/><g stroke="currentColor" stroke-width="1.5" ' +
+             'stroke-linecap="round"><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15' +
+             'M3.1 3.1l1.1 1.1M11.8 11.8l1.1 1.1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1"/></g></svg>',
+      dark:  '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" ' +
+             'd="M13.3 9.8A5.8 5.8 0 0 1 6.2 2.7a5.8 5.8 0 1 0 7.1 7.1z"/></svg>'
+    };
+
     function apply(){
       if (cur === "auto") document.documentElement.removeAttribute("data-theme");
       else document.documentElement.setAttribute("data-theme", cur);
-      btn.textContent = "Theme: " + cur;
+      btn.innerHTML = ICONS[cur] || ICONS.auto;
+      btn.title = "Theme: " + cur;
       try { localStorage.setItem("tfplanview-theme", cur); } catch(e){}
     }
     btn.addEventListener("click", function(){
