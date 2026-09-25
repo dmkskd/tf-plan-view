@@ -1847,8 +1847,28 @@ terraform show -json plan.out &gt; plan.json</pre>
     var ctx = {
       vis: visibleResources(model, opts),
       opts: opts,
-      vpcGroups: {}, azGroups: {}, subnetGroups: {}, sgGroups: {}, ownerOf: {}
+      vpcGroups: {}, azGroups: {}, subnetGroups: {}, sgGroups: {}, ownerOf: {},
+      referrers: {}, byAddr: {}
     };
+
+    /* reverse index of expressions[*].references, for resources that name no
+       container themselves — aws_eip is referenced by aws_nat_gateway, never
+       the other way round */
+    ctx.vis.forEach(function(r){
+      ctx.byAddr[r.addr] = r;
+      (r.refs || []).forEach(function(ref){
+        (ctx.referrers[ref] || (ctx.referrers[ref] = [])).push(r);
+      });
+    });
+
+    /* reverse index of expressions[*].references, for resources that name no
+       container themselves — aws_eip is referenced by aws_nat_gateway, never
+       the other way round */
+    ctx.vis.forEach(function(r){
+      (r.refs || []).forEach(function(ref){
+        (ctx.referrers[ref] || (ctx.referrers[ref] = [])).push(r);
+      });
+    });
 
     ctx.cloud  = mkGroup("cloud", "AWS Cloud", "", 1500, true);
     ctx.region = mkGroup("region", "Region", model.region || "region not resolved", 1420);
@@ -1894,6 +1914,39 @@ terraform show -json plan.out &gt; plan.json</pre>
   function subnetOf(ctx, r){
     for (var i = 0; i < r.refs.length; i++){
       if (ctx.subnetGroups[r.refs[i]]) return ctx.subnetGroups[r.refs[i]];
+    }
+    return null;
+  }
+
+  /* The container a resource names itself, from its own scope and refs. */
+  function containerOf(ctx, r){
+    var own = ctx.ownerOf[r.addr];
+    if (own && ctx.sgGroups[own]) return ctx.sgGroups[own];
+
+    var scope = r.spec && r.spec.scope;
+    if (scope === "global") return ctx.global;
+    if (scope === "region") return ctx.region;
+
+    var sg = (scope === "vpc") ? null : subnetOf(ctx, r);
+    if (sg) return sg;
+    var vg = vpcOf(ctx, r);
+    if (vg) return vg;
+    if (scope === "vpc") return ctx.region;
+    return null;
+  }
+
+  /* One hop along a reference edge, either direction: a resource naming no
+     container of its own takes the container of a neighbour. aws_eip is
+     reached from aws_nat_gateway, which references it;
+     aws_iam_role_policy_attachment reaches aws_iam_role, which it references. */
+  function containerOfNeighbour(ctx, r){
+    var hop = (r.refs || []).concat(
+      (ctx.referrers[r.addr] || []).map(function(n){ return n.addr; }));
+    for (var i = 0; i < hop.length; i++){
+      var n = ctx.byAddr[hop[i]];
+      if (!n || n === r) continue;
+      var g = containerOf(ctx, n);
+      if (g) return g;
     }
     return null;
   }
@@ -1965,19 +2018,8 @@ terraform show -json plan.out &gt; plan.json</pre>
       if (ctx.opts.action && r.action !== ctx.opts.action) return;
 
       var leaf = {box:false, res:r};
-      var own = ctx.ownerOf[r.addr];
-      if (own && ctx.sgGroups[own]){ ctx.sgGroups[own].children.push(leaf); return; }
-
-      var scope = r.spec && r.spec.scope;
-      if (scope === "global"){ ctx.global.children.push(leaf); return; }
-      if (scope === "region"){ ctx.region.children.push(leaf); return; }
-
-      var sg = (scope === "vpc") ? null : subnetOf(ctx, r);
-      if (sg){ sg.children.push(leaf); return; }
-      var vg = vpcOf(ctx, r);
-      if (vg){ vg.children.push(leaf); return; }
-      if (scope === "vpc"){ ctx.region.children.push(leaf); return; }
-      ctx.unplaced.children.push(leaf);
+      var g = containerOf(ctx, r) || containerOfNeighbour(ctx, r);
+      (g || ctx.unplaced).children.push(leaf);
     });
   }
 

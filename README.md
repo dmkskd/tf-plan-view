@@ -31,6 +31,8 @@ References come from `expressions[*].references` and `depends_on` in
   it. With no such resources it stays a tile.
 - Every other resource sits in the first `aws_subnet` it references, else the
   `aws_vpc`, else at region or account level.
+- Otherwise it follows a neighbour one reference away. `aws_eip` is placed with
+  the `aws_nat_gateway` that references it.
 
 ## Limits
 

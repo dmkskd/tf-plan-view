@@ -7,6 +7,7 @@ sample plan.
 ## Verifying a change
 
 ```sh
+node tools/test.js                                             # exits non-zero on a failed assertion
 node tools/check-boot.js                                       # exits non-zero if it throws
 node tools/check-pure.js   | diff tools/baseline/check-pure.txt -
 node tools/check-parse.js  | diff tools/baseline/check-parse.txt -
@@ -15,6 +16,7 @@ node tools/check-layout.js | diff tools/baseline/check-layout.txt -
 
 | Script | Covers |
 | --- | --- |
+| `test` | the parse, placement and rule-diff rules, as named assertions over hand-written plans |
 | `check-boot` | runs the whole script against a shimmed DOM; reports thrown exceptions and missing element ids |
 | `check-pure` | rebuilt Terraform block, CLI recipes, diffs, rule tables |
 | `check-parse` | parser and validation messages, including malformed input |
@@ -27,7 +29,11 @@ behaviour change. Re-record when intended:
 node tools/check-layout.js > tools/baseline/check-layout.txt
 ```
 
-The other three call individual functions. An exception during setup leaves the
+`tools/test.js` takes an argument to run one suite: `node tools/test.js placement`.
+It shares `tools/lib/app.js` with the check scripts, which is what cuts the
+DOM-free functions out of `index.html`.
+
+The other four call individual functions. An exception during setup leaves the
 page rendering its markup with every control inert. Only `check-boot` catches
 it.
 
