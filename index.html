@@ -1105,9 +1105,8 @@
       <div class="empty-state" id="emptyState" hidden>
         <div class="intro">
           <h2>Visualise a Terraform plan</h2>
-          <p>Reads <code>plan.json</code> and draws it as an AWS architecture diagram.
-             Select any resource to see what the plan changes, its Terraform block,
-             and CLI commands to inspect it.</p>
+          <p>Draws the AWS infrastructure a Terraform plan describes. Select a
+             resource for its changes, Terraform block and CLI commands.</p>
           <p class="scope-note"><b>AWS only.</b> Other providers are not drawn.</p>
 
           <div class="steps">
@@ -1124,8 +1123,8 @@ terraform show -json plan.out &gt; plan.json</pre>
               <span class="num">2</span>
               <div>
                 <b>Open it here.</b> Drop <code>plan.json</code> anywhere on this page,
-                or use <b>Load plan.json</b> in the top bar. The file is read in your
-                browser and never uploaded.
+                or use <b>Load plan.json</b> in the top bar. Read in your browser, never
+                uploaded.
               </div>
             </div>
           </div>
@@ -2663,10 +2662,9 @@ terraform show -json plan.out &gt; plan.json</pre>
 
     var src = kindSource(type, k);
     var tag = kind
-      ? '<span class="kindtag ok" title="' + escapeHtml(type + "." + k) + ' is a ' + kind +
-        ' \u2014 from ' + escapeHtml(src || "schema") + '">' + escapeHtml(kind) + '</span>'
+      ? '<span class="kindtag ok" title="' + escapeHtml(type + "." + k) + ' is a ' + kind + ' \u2014 ' + escapeHtml(src || "schema") + '">' + escapeHtml(kind) + '</span>'
       : '<span class="kindtag" title="No schema entry for ' + escapeHtml(type + "." + k) +
-        '. Entries are matched by content; drop a provider schema to confirm.">inferred</span>';
+        '. Matched by content. Drop a provider schema to be exact.">inferred</span>';
 
     return '<div class="rdiff">' + tag + rows + '</div>';
   }
@@ -4140,11 +4138,11 @@ terraform show -json plan.out &gt; plan.json</pre>
     var fit = schemaFit();
     if (fit.usingLoaded){
       model.diag("ok", "schema-loaded",
-        "Collection kinds come from the provider schema you loaded.");
+        "Using the provider schema you loaded.");
     } else if (fit.mismatch){
       model.diag("warn", "schema-version",
-        '<span title="If a collection changed between set and list across that boundary, ' +
-        'its diff could be wrong. Drop terraform providers schema -json output to be exact.">' +
+        '<span title="set/list/map can differ between major provider versions. ' +
+        'Drop terraform providers schema -json output to be exact.">' +
         'plan targets <b>' + escapeHtml(fit.constraint) + '</b>, bundled schema is <b>' +
         escapeHtml(fit.bundled) + '</b></span>');
     }
@@ -4236,7 +4234,7 @@ terraform show -json plan.out &gt; plan.json</pre>
       var pr = pruneSchema(plan, Object.keys(model.typeCounts));
       if (!pr.meta.types){
         model.diag("warn", "schema-empty",
-          "That schema has no entry for any type in this plan; diffs stay inferred.");
+          "That schema covers no type in this plan. Diffs stay inferred.");
       } else {
         storeSchema(pr.schema, pr.meta);
         model.diag("ok", "schema",
@@ -4411,7 +4409,7 @@ terraform show -json plan.out &gt; plan.json</pre>
   }
 })();
 </script>
-<!-- Collection kinds for the AWS provider, distilled from
+<!-- set/list/map per attribute for the AWS provider, from
      `terraform providers schema -json` by tools/make-kinds.js. Says whether each
      collection attribute is a set (s), list (l) or map (m), which is all a diff
      needs. 109KB here against 13MB for the full schema. -->
