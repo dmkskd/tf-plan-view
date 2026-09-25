@@ -34,8 +34,9 @@
     --radius:12px;
 
     /* isometric extrusion: south and east faces, and the container slabs */
-    --face-s:color-mix(in srgb, var(--surface) 76%, #000);
-    --face-e:color-mix(in srgb, var(--surface) 60%, #000);
+    --face-s:color-mix(in srgb, var(--surface) 80%, #000);
+    --face-e:color-mix(in srgb, var(--surface) 68%, #000);
+    --face-line:color-mix(in srgb, var(--surface) 56%, #000);
     --gface-s:color-mix(in srgb, var(--bg) 72%, #000);
     --gface-e:color-mix(in srgb, var(--bg) 56%, #000);
   }
@@ -52,7 +53,8 @@
       --warn-soft:#2A2116; --err-soft:#2A1A1F; --ok-soft:#1D2418; --info-soft:#152030;
       --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 28px -16px rgba(0,0,0,.8);
       --face-s:color-mix(in srgb, var(--surface) 84%, #fff);
-      --face-e:color-mix(in srgb, var(--surface) 70%, #fff);
+      --face-e:color-mix(in srgb, var(--surface) 72%, #fff);
+      --face-line:color-mix(in srgb, var(--surface) 58%, #fff);
       --gface-s:color-mix(in srgb, var(--surface-2) 86%, #fff);
       --gface-e:color-mix(in srgb, var(--surface-2) 74%, #fff);
     }
@@ -69,7 +71,8 @@
     --warn-soft:#2A2116; --err-soft:#2A1A1F; --ok-soft:#1D2418; --info-soft:#152030;
     --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 28px -16px rgba(0,0,0,.8);
     --face-s:color-mix(in srgb, var(--surface) 84%, #fff);
-    --face-e:color-mix(in srgb, var(--surface) 70%, #fff);
+    --face-e:color-mix(in srgb, var(--surface) 72%, #fff);
+    --face-line:color-mix(in srgb, var(--surface) 58%, #fff);
     --gface-s:color-mix(in srgb, var(--surface-2) 86%, #fff);
     --gface-e:color-mix(in srgb, var(--surface-2) 74%, #fff);
   }
@@ -560,15 +563,34 @@
   .canvas.iso .node::after{
     content:""; position:absolute; left:0; right:0; top:100%; height:var(--h);
     background:var(--face-s);
-    border:1px solid var(--line); border-top:0;
+    border:1px solid var(--face-line); border-top:0;
     transform-origin:top center; transform:rotateX(-90deg);
+    backface-visibility:hidden;
   }
   /* east face */
   .canvas.iso .node::before{
     content:""; position:absolute; top:0; bottom:0; left:100%; width:var(--h);
     background:var(--face-e);
-    border:1px solid var(--line); border-left:0;
+    border:1px solid var(--face-line); border-left:0;
     transform-origin:center left; transform:rotateY(90deg);
+    backface-visibility:hidden;
+  }
+  .node > .fc{display:none;}
+  .canvas.iso .node > .fc{
+    display:block; position:absolute; pointer-events:none;
+    border:1px solid var(--face-line); backface-visibility:hidden;
+  }
+  /* north face */
+  .canvas.iso .node > .fc.n{
+    left:0; right:0; bottom:100%; height:var(--h);
+    background:var(--face-s); border-bottom:0;
+    transform-origin:bottom center; transform:rotateX(90deg);
+  }
+  /* west face */
+  .canvas.iso .node > .fc.w{
+    top:0; bottom:0; right:100%; width:var(--h);
+    background:var(--face-e); border-right:0;
+    transform-origin:center right; transform:rotateY(-90deg);
   }
   .canvas.iso .node.unsup::after{background:color-mix(in srgb, var(--warn-soft) 80%, var(--face-s));}
   .canvas.iso .node.unsup::before{background:color-mix(in srgb, var(--warn-soft) 66%, var(--face-e));}
@@ -2136,7 +2158,7 @@ terraform show -json plan.out &gt; plan.json</pre>
         /* CSS +Y points down, so a positive rotateZ reads clockwise on screen:
            negate it so the scene follows the pointer */
         ISO.rz = drag.rz - dx * 0.35;
-        ISO.rx = Math.max(0, Math.min(88, drag.rx - dy * 0.3));
+        ISO.rx = Math.max(20, Math.min(72, drag.rx - dy * 0.3));
       }
       applyTransform();
     });
@@ -2291,7 +2313,8 @@ terraform show -json plan.out &gt; plan.json</pre>
               escapeHtml(r.action) + '</span>') +
           icoSvg(r.spec, 24) +
           '<div class="ttl">' + escapeHtml(titleFor(r)) + '</div>' +
-          '<div class="nm" title="' + escapeHtml(r.name + (sub ? "  ·  " + sub : "")) + '">' + line2 + '</div>';
+          '<div class="nm" title="' + escapeHtml(r.name + (sub ? "  ·  " + sub : "")) + '">' + line2 + '</div>' +
+          '<i class="fc n"></i><i class="fc w"></i>';
 
         if (opts.mode === "changes" && model.hasEdits && r.action !== "no-op" && r.action !== "read"){
           var ck = changedKeys(r);
