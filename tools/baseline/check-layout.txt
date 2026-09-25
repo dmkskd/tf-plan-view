@@ -39,16 +39,22 @@
     [loose] Unplaced no vpc or subnet reference  @14,762 287x106
       . aws_iam_role_policy_attachment.ssm  @28,788 178x66
   anc={"aws_vpc.main":[],"aws_subnet.public":["aws_vpc.main"],"aws_security_group.instance":["aws_vpc.main","aws_subnet.public"],"aws_instance.test":["aws_vpc.main","aws_subnet.public","aws_security_group.instance"],"aws_security_group.ssm_endpoints":["aws_vpc.main","aws_subnet.public"],"aws_vpc_endpoint.ec2messages":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_vpc_endpoint.ssm":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_vpc_endpoint.ssmmessages":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_route_table_association.public":["aws_vpc.main","aws_subnet.public"],"aws_internet_gateway.igw":["aws_vpc.main"],"aws_network_acl.main":["aws_vpc.main"],"aws_route_table.public":["aws_vpc.main"],"aws_iam_instance_profile.ssm":[],"aws_iam_role.ssm":[],"aws_iam_role_policy_attachment.ssm":[]}
-### sample mode=changes assoc=false -> 534x498
-  [cloud] AWS Cloud   @0,0 534x498
-    [region] Region us-east-1  @14,26 506x458
-      [vpc] VPC main 10.20.0.0/16  @28,52 478x418
-        [az] Availability Zone us-east-1a  @42,78 450x302
-          [subnet] Public subnet public 10.20.1.0/24  @56,104 422x262
+### sample mode=changes assoc=false -> 638x690
+  [cloud] AWS Cloud   @0,0 638x690
+    [region] Region us-east-1  @14,26 610x534
+      [vpc] VPC main 10.20.0.0/16  @28,52 582x494
+        [az] Availability Zone us-east-1a  @42,78 450x378
+          [subnet] Public subnet public 10.20.1.0/24  @56,104 422x338
             [sg] Security group instance   @70,130 229x106
               . aws_instance.test  @84,156 178x66
-            [sg] Security group ssm_endpoints   @70,246 394x106
+            [sg] Security group ssm_endpoints   @70,246 394x182
               . aws_vpc_endpoint.ec2messages  @84,272 178x66
-              . aws_vpc_endpoint.ssmmessages  @272,272 178x66
-        . aws_network_acl.main  @42,390 178x66
-  anc={"aws_vpc.main":[],"aws_subnet.public":["aws_vpc.main"],"aws_security_group.instance":["aws_vpc.main","aws_subnet.public"],"aws_instance.test":["aws_vpc.main","aws_subnet.public","aws_security_group.instance"],"aws_security_group.ssm_endpoints":["aws_vpc.main","aws_subnet.public"],"aws_vpc_endpoint.ec2messages":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_vpc_endpoint.ssmmessages":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_network_acl.main":["aws_vpc.main"]}
+              . aws_vpc_endpoint.ssm  @272,272 178x66
+              . aws_vpc_endpoint.ssmmessages  @84,348 178x66
+        . aws_internet_gateway.igw  @42,466 178x66
+        . aws_network_acl.main  @230,466 178x66
+        . aws_route_table.public  @418,466 178x66
+    [loose] Global account-level  @14,570 394x106
+      . aws_iam_instance_profile.ssm  @28,596 178x66
+      . aws_iam_role.ssm  @216,596 178x66
+  anc={"aws_vpc.main":[],"aws_subnet.public":["aws_vpc.main"],"aws_security_group.instance":["aws_vpc.main","aws_subnet.public"],"aws_instance.test":["aws_vpc.main","aws_subnet.public","aws_security_group.instance"],"aws_security_group.ssm_endpoints":["aws_vpc.main","aws_subnet.public"],"aws_vpc_endpoint.ec2messages":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_vpc_endpoint.ssm":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_vpc_endpoint.ssmmessages":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_internet_gateway.igw":["aws_vpc.main"],"aws_network_acl.main":["aws_vpc.main"],"aws_route_table.public":["aws_vpc.main"],"aws_iam_instance_profile.ssm":[],"aws_iam_role.ssm":[]}

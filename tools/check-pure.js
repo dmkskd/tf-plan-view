@@ -1,8 +1,24 @@
-// Regression harness for the pure builders: extracts the DOM-free functions from
-// index.html and prints their output. Diff two runs to prove a refactor
-// changed nothing:  node tools/check-pure.js > after.txt && diff before.txt after.txt
-// Extracts the pure functions from index.html and runs them over both plans.
+// check-pure.js — regression check for the functions that do not touch the DOM.
+//
+// WHAT IT CHECKS
+//   The reconstructed Terraform block, the AWS CLI recipes, the before/after
+//   diffs (including rule-list matching) and the security group / network ACL
+//   rule tables, for every resource in the plan bundled in index.html.
+//
+// HOW IT WORKS
+//   Reads index.html as text, cuts the relevant functions out of the inline
+//   <script> and evals them in Node. No browser, no dependencies. Because it
+//   slices on landmark strings, renaming a function or moving a section can
+//   break it — it exits non-zero rather than printing partial output.
+//
+// HOW TO USE IT
+//   node tools/check-pure.js | diff tools/baseline/check-pure.txt -
+//   Any difference is a behaviour change. If it was intended, re-record:
+//   node tools/check-pure.js > tools/baseline/check-pure.txt
+
 const fs = require("fs");
+// a harness that throws must not be mistaken for valid output
+process.on("uncaughtException", e => { console.error(e); process.exit(1); });
 const h = fs.readFileSync(process.argv[2] || __dirname + "/../index.html", "utf8");
 const js = h.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/)[1];
 
@@ -18,7 +34,14 @@ eval(slice("function hclLit", "/* ---- AWS CLI"));
 eval(slice("function q(s)", "var ACTION_COLOR"));
 eval(slice("var ACTION_COLOR", "function actionOf"));
 eval(slice("function actionOf", "function parsePlan"));
-eval(slice("function portText", "/* --- collapsible sections"));
+// the kind lookup lives in the schema section; stub the DOM it reads
+global.document = {
+  getElementById: () => ({
+    textContent: h.match(/id="collection-kinds">([\s\S]*?)<\/script>/)[1]
+  })
+};
+eval(slice("var SCHEMA = null;", "/* ------------------------------------------------------------------\n     Rule preview."));
+eval(slice("var PORT_NAME", "/* --- collapsible sections"));
 eval(slice("function changedKeys", "function titleFor"));
 eval(slice("var REG = {", "var ACTION_COLOR"));
 

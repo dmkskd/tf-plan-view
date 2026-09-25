@@ -1,6 +1,21 @@
-// Regression harness for the layout engine: builds the containment tree
-// headlessly and prints its shape and geometry.
+// check-layout.js — regression check for the layout engine.
+//
+// WHAT IT CHECKS
+//   Builds the containment tree headlessly and prints every box: its kind,
+//   label, position and size, nested to show what contains what, plus the
+//   ancestor chain used to suppress redundant dependency edges.
+//
+//   It runs the bundled plan through three configurations — Topology, Topology
+//   with association resources shown, and Changes — so a change to packing,
+//   tile size or placement rules shows up as a coordinate diff.
+//
+// HOW TO USE IT
+//   node tools/check-layout.js | diff tools/baseline/check-layout.txt -
+//   node tools/check-layout.js > tools/baseline/check-layout.txt  (to re-record)
+
 const fs = require("fs");
+// a harness that throws must not be mistaken for valid output
+process.on("uncaughtException", e => { console.error(e); process.exit(1); });
 const h = fs.readFileSync(process.argv[2] || __dirname + "/../index.html", "utf8");
 const js = h.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/)[1];
 const slice = (a, b) => js.slice(js.indexOf(a), js.indexOf(b));

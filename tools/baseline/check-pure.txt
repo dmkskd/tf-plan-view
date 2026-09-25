@@ -85,43 +85,8 @@ HCL resource "aws_network_acl" "main" {
 }
 CLI [{"label":"Describe","cmd":"aws ec2 describe-network-acls --region us-east-1 --filters \"Name=tag:Name,Values=example-nacl\""},{"label":"Rules as a table","cmd":"aws ec2 describe-network-acls --region us-east-1 --network-acl-ids <acl-id> --query \"NetworkAcls[0].Entries\" --output table"}]
 CHANGED ["ingress"]
-DIFF 1|<div class="diff"><div class="diff-row"><div class="dk">ingress</div><div class="dv old">[
- {
-  &quot;action&quot;: &quot;allow&quot;,
-  &quot;cidr_block&quot;: &quot;10.20.0.0/16&quot;,
-  &quot;from_port&quot;: 443,
-  &quot;icmp_code&quot;: null,
-  &quot;icmp_type&quot;: null,
-  &quot;ipv6_cidr_block&quot;: &quot;&quot;,
-  &quot;protocol&quot;: &quot;tcp&quot;,
-  &quot;rule_no&quot;: 100,
-  &quot;to_port&quot;: 443
- }
-]</div><div class="dv new">[
- {
-  &quot;action&quot;: &quot;allow&quot;,
-  &quot;cidr_block&quot;: &quot;10.20.0.0/16&quot;,
-  &quot;from_port&quot;: 443,
-  &quot;icmp_code&quot;: null,
-  &quot;icmp_type&quot;: null,
-  &quot;ipv6_cidr_block&quot;: &quot;&quot;,
-  &quot;protocol&quot;: &quot;tcp&quot;,
-  &quot;rule_no&quot;: 100,
-  &quot;to_port&quot;: 443
- },
- {
-  &quot;action&quot;: &quot;allow&quot;,
-  &quot;cidr_block&quot;: &quot;0.0.0.0/0&quot;,
-  &quot;from_port&quot;: 1024,
-  &quot;icmp_code&quot;: null,
-  &quot;icmp_type&quot;: null,
-  &quot;ipv6_cidr_block&quot;: null,
-  &quot;protocol&quot;: &quot;tcp&quot;,
-  &quot;rule_no&quot;: 110,
-  &quot;to_port&quot;: 65535
- }
-]</div></div></div>
-RULES Network ACL rules|<div class="rules"><div class="rules-cap">ingress</div><table><thead><tr><th>#</th><th>Proto</th><th>Ports</th><th>Source</th><th>Action</th></tr></thead><tbody><tr><td>100</td><td>tcp</td><td>443</td><td>10.20.0.0/16</td><td class="allow">allow</td></tr><tr><td>110</td><td>tcp</td><td>1024–65535</td><td>0.0.0.0/0</td><td class="allow">allow</td></tr><tr class="implicit"><td>*</td><td>all</td><td>all</td><td>0.0.0.0/0</td><td class="deny">deny</td></tr></tbody></table><div class="rules-cap">egress</div><table><thead><tr><th>#</th><th>Proto</th><th>Ports</th><th>Destination</th><th>Action</th></tr></thead><tbody><tr><td>100</td><td>tcp</td><td>443</td><td>0.0.0.0/0</td><td class="allow">allow</td></tr><tr class="implicit"><td>*</td><td>all</td><td>all</td><td>0.0.0.0/0</td><td class="deny">deny</td></tr></tbody></table><div class="none" style="padding-top:8px">Stateless: each direction is evaluated independently, first match wins.</div></div>
+DIFF 1|<div class="diff"><div class="diff-row"><div class="dk">ingress</div><div class="rdiff"><span class="kindtag ok" title="aws_network_acl.ingress is a set — from aws 5.100.0">set</span><div class="rdiff-row added"><span class="m">+</span><span class="p">1024–65535</span><span class="s">ephemeral</span><span class="pr">tcp</span><span class="pe">0.0.0.0/0 #110</span></div><div class="rdiff-row kept"><span class="m"> </span><span class="p">443</span><span class="s">https</span><span class="pr">tcp</span><span class="pe">10.20.0.0/16 #100</span></div></div></div></div>
+RULES Network ACL rules|<div class="rules"><div class="rules-cap">ingress</div><table><thead><tr><th>#</th><th>Proto</th><th>Ports</th><th></th><th>Source</th><th>Action</th></tr></thead><tbody><tr><td>100</td><td>tcp</td><td>443</td><td class="svc">https</td><td>10.20.0.0/16</td><td class="allow">allow</td></tr><tr><td>110</td><td>tcp</td><td>1024–65535</td><td class="svc">ephemeral</td><td>0.0.0.0/0</td><td class="allow">allow</td></tr><tr class="implicit"><td>*</td><td>all</td><td>all</td><td></td><td>0.0.0.0/0</td><td class="deny">deny</td></tr></tbody></table><div class="rules-cap">egress</div><table><thead><tr><th>#</th><th>Proto</th><th>Ports</th><th></th><th>Destination</th><th>Action</th></tr></thead><tbody><tr><td>100</td><td>tcp</td><td>443</td><td class="svc">https</td><td>0.0.0.0/0</td><td class="allow">allow</td></tr><tr class="implicit"><td>*</td><td>all</td><td>all</td><td></td><td>0.0.0.0/0</td><td class="deny">deny</td></tr></tbody></table><div class="none" style="padding-top:8px">Stateless: each direction is evaluated independently, first match wins.</div></div>
 ### sample aws_route_table.public
 ACTION no-op
 HCL resource "aws_route_table" "public" {
@@ -165,7 +130,7 @@ HCL resource "aws_security_group" "instance" {
 CLI [{"label":"Describe","cmd":"aws ec2 describe-security-groups --region us-east-1 --filters \"Name=tag:Name,Values=example-sg\""},{"label":"Find by prefix","cmd":"aws ec2 describe-security-groups --region us-east-1 --query \"SecurityGroups[?starts_with(GroupName, 'example-sg-')].{Id:GroupId,Name:GroupName}\" --output table"},{"label":"Inbound rules","cmd":"aws ec2 describe-security-groups --region us-east-1 --group-ids <sg-id> --query \"SecurityGroups[0].IpPermissions\" --output json"},{"label":"Outbound rules","cmd":"aws ec2 describe-security-groups --region us-east-1 --group-ids <sg-id> --query \"SecurityGroups[0].IpPermissionsEgress\" --output json"}]
 CHANGED ["description"]
 DIFF 1|<div class="diff"><div class="diff-row"><div class="dk">description</div><div class="dv old">Managed by Terraform (old)</div><div class="dv new">Managed by Terraform</div></div></div>
-RULES Security group rules|<div class="rules"><div class="rules-cap">ingress</div><div class="none">no ingress rules</div><div class="rules-cap">egress</div><table><thead><tr><th>Proto</th><th>Ports</th><th>Destination</th></tr></thead><tbody><tr><td>all</td><td>all</td><td>0.0.0.0/0<br><span style="color:var(--faint)">all outbound</span></td></tr></tbody></table><div class="none" style="padding-top:8px">Stateful: replies to allowed traffic return without a matching rule.</div></div>
+RULES Security group rules|<div class="rules"><div class="rules-cap">ingress</div><div class="none">no ingress rules</div><div class="rules-cap">egress</div><table><thead><tr><th>Proto</th><th>Ports</th><th></th><th>Destination</th></tr></thead><tbody><tr><td>all</td><td>all</td><td class="svc"></td><td>0.0.0.0/0<br><span style="color:var(--faint)">all outbound</span></td></tr></tbody></table><div class="none" style="padding-top:8px">Stateful: replies to allowed traffic return without a matching rule.</div></div>
 ### sample aws_security_group.ssm_endpoints
 ACTION no-op
 HCL resource "aws_security_group" "ssm_endpoints" {
@@ -186,7 +151,7 @@ HCL resource "aws_security_group" "ssm_endpoints" {
 CLI [{"label":"Describe","cmd":"aws ec2 describe-security-groups --region us-east-1 --filters \"Name=tag:Name,Values=example-ssm-ep-sg\""},{"label":"Find by prefix","cmd":"aws ec2 describe-security-groups --region us-east-1 --query \"SecurityGroups[?starts_with(GroupName, 'example-ssm-ep-sg-')].{Id:GroupId,Name:GroupName}\" --output table"},{"label":"Inbound rules","cmd":"aws ec2 describe-security-groups --region us-east-1 --group-ids <sg-id> --query \"SecurityGroups[0].IpPermissions\" --output json"},{"label":"Outbound rules","cmd":"aws ec2 describe-security-groups --region us-east-1 --group-ids <sg-id> --query \"SecurityGroups[0].IpPermissionsEgress\" --output json"}]
 CHANGED []
 DIFF (none)
-RULES Security group rules|<div class="rules"><div class="rules-cap">ingress</div><table><thead><tr><th>Proto</th><th>Ports</th><th>Source</th></tr></thead><tbody><tr><td>tcp</td><td>443</td><td>—<br><span style="color:var(--faint)">HTTPS from instance</span></td></tr></tbody></table><div class="rules-cap">egress</div><table><thead><tr><th>Proto</th><th>Ports</th><th>Destination</th></tr></thead><tbody><tr><td>all</td><td>all</td><td>0.0.0.0/0</td></tr></tbody></table><div class="none" style="padding-top:8px">Stateful: replies to allowed traffic return without a matching rule.</div></div>
+RULES Security group rules|<div class="rules"><div class="rules-cap">ingress</div><table><thead><tr><th>Proto</th><th>Ports</th><th></th><th>Source</th></tr></thead><tbody><tr><td>tcp</td><td>443</td><td class="svc">https</td><td>—<br><span style="color:var(--faint)">HTTPS from instance</span></td></tr></tbody></table><div class="rules-cap">egress</div><table><thead><tr><th>Proto</th><th>Ports</th><th></th><th>Destination</th></tr></thead><tbody><tr><td>all</td><td>all</td><td class="svc"></td><td>0.0.0.0/0</td></tr></tbody></table><div class="none" style="padding-top:8px">Stateful: replies to allowed traffic return without a matching rule.</div></div>
 ### sample aws_subnet.public
 ACTION update
 HCL resource "aws_subnet" "public" {

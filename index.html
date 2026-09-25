@@ -119,6 +119,10 @@
   /* every control in the bar shares one height and one corner radius */
   .topbar .btn, .topbar .src, .topbar .seg{height:34px;}
   .topbar .btn, .topbar .src{display:inline-flex; align-items:center;}
+  /* these two swap their label, so they are sized for the longest one and
+     stay put instead of nudging the rest of the bar */
+  #isoBtn{min-width:132px; justify-content:center;}
+  #themeBtn{min-width:104px; justify-content:center;}
   .btn:hover{filter:brightness(1.06);}
   .btn-primary{background:var(--aws-net); border-color:transparent; color:#fff;}
   .seg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
@@ -223,7 +227,32 @@
   .dg-empty{font-size:12.5px; color:var(--faint);}
 
   /* filters */
+  .h3-tools{display:inline-flex; align-items:center; gap:4px; font-weight:400;}
+  .h3-tools em{
+    font-style:normal; font-family:"IBM Plex Mono",monospace; font-size:11px;
+    color:var(--faint); letter-spacing:0; text-transform:none; margin-right:4px;
+  }
+  .h3-tools i{color:var(--line); font-style:normal;}
+  .h3-tools button{
+    font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--aws-net);
+    background:none; border:0; padding:1px 3px; cursor:pointer; border-radius:4px;
+  }
+  .h3-tools button:hover{background:var(--surface-2);}
+
   .filters{display:flex; flex-direction:column; gap:1px;}
+  .filters .cat{
+    display:flex; align-items:center; gap:7px; width:100%; text-align:left;
+    margin:9px 0 2px; padding:3px 8px 3px 0; background:none; border:0; cursor:pointer;
+    font-family:"Archivo",sans-serif; font-size:9.5px; font-weight:700;
+    letter-spacing:.11em; text-transform:uppercase; color:var(--muted);
+  }
+  .filters .cat:first-child{margin-top:0;}
+  .filters .cat:hover{color:var(--ink);}
+  .filters .cat.off{opacity:.5;}
+  .filters .cat .dot{width:7px; height:7px; border-radius:2px; flex:none;}
+  .filters .cat .ct{margin-left:auto; font-family:"IBM Plex Mono",monospace;
+    font-size:10.5px; font-weight:400; letter-spacing:0; color:var(--faint);}
   .flt{
     display:grid; grid-template-columns:16px 18px 1fr auto; align-items:center; gap:9px;
     padding:6px 8px; border-radius:7px; cursor:pointer; font-size:13px;
@@ -302,10 +331,21 @@
   }
   .rulepop .rp-dir::after{content:""; flex:1; height:1px; background:var(--line-soft);}
   .rulepop .rp-rule{
-    display:grid; grid-template-columns:14px auto auto auto minmax(0,1fr);
-    gap:7px; align-items:baseline; padding:2px 0;
+    display:grid; grid-template-columns:9px 14px auto auto auto minmax(0,1fr);
+    gap:6px; align-items:baseline; padding:2px 4px; border-radius:4px;
     font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--body);
   }
+  .rulepop .rp-mark{font-weight:700;}
+  .rulepop .rp-rule.removed{background:var(--deny-soft); color:var(--destroy);}
+  .rulepop .rp-rule.removed .rp-arrow,
+  .rulepop .rp-rule.removed .rp-port,
+  .rulepop .rp-rule.removed .rp-svc,
+  .rulepop .rp-rule.removed .rp-mark{color:var(--destroy);}
+  .rulepop .rp-rule.added{background:var(--ok-soft); color:var(--create);}
+  .rulepop .rp-rule.added .rp-arrow,
+  .rulepop .rp-rule.added .rp-port,
+  .rulepop .rp-rule.added .rp-svc,
+  .rulepop .rp-rule.added .rp-mark{color:var(--create);}
   .rulepop .rp-svc{color:var(--aws-net); font-size:10.5px; font-weight:600;}
   .rulepop .rp-arrow{font-weight:700;}
   .rulepop .rp-port{color:var(--ink); font-weight:600;}
@@ -398,11 +438,13 @@
     transition:opacity .18s ease;
   }
   .grp > .grp-hd{
-    position:absolute; top:6px; left:11px; display:flex; align-items:center; gap:6px;
+    position:absolute; top:6px; left:11px; right:11px;
+    display:flex; align-items:center; gap:6px;
     font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600;
     letter-spacing:.07em; text-transform:uppercase;
-    white-space:nowrap; pointer-events:none;
+    white-space:nowrap; pointer-events:none; overflow:hidden;
   }
+  .grp > .grp-hd > :first-child{flex:none;}
   .grp[data-addr]{cursor:pointer;}
   .grp[data-addr] > .grp-hd{pointer-events:auto;}
   .grp[data-addr] > .grp-hd:hover{text-decoration:underline; text-underline-offset:3px;}
@@ -460,8 +502,37 @@
   /* Dimming is only useful when there is something to contrast against:
      applied when the plan holds updates, replacements or destroys, so an
      all-creates plan is never greyed out for no reason. */
-  .canvas.mode-changes.emphasise .grp{opacity:.62;}
-  .canvas.mode-changes.emphasise .node.act-create{opacity:.55;}
+  .canvas.mode-changes.emphasise .grp{opacity:.72;}
+  .canvas.mode-changes.emphasise .node.act-no-op{opacity:.4;}
+  .canvas.mode-changes.emphasise .node.act-read{opacity:.4;}
+  /* A slow, low-amplitude outline on whatever the plan touches. Outline is
+     used rather than a pseudo-element because ::before and ::after already
+     draw the isometric side faces. */
+  .canvas.mode-changes.pulse .is-changed{
+    outline:2px solid transparent; outline-offset:2px; border-radius:9px;
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .canvas.mode-changes.pulse .is-changed{
+      animation:chgPulse 3.2s ease-in-out infinite;
+    }
+  }
+  @keyframes chgPulse{
+    0%,100%{outline-color:transparent;}
+    50%    {outline-color:color-mix(in srgb, var(--pulse, var(--aws-net)) 42%, transparent);}
+  }
+
+  /* a container that is itself changing must not recede with the rest */
+  .canvas.mode-changes.emphasise .grp.act-update,
+  .canvas.mode-changes.emphasise .grp.act-replace,
+  .canvas.mode-changes.emphasise .grp.act-delete,
+  .canvas.mode-changes.emphasise .grp.act-create{opacity:1;}
+  .grp-act{
+    margin-left:auto; display:inline-flex; align-items:center; gap:5px;
+    font-family:"Archivo",sans-serif; font-size:8px; font-weight:700;
+    letter-spacing:.08em; text-transform:uppercase;
+    padding:1px 6px; border-radius:3px; white-space:nowrap;
+  }
+
   .canvas.mode-changes.emphasise .grp.rel,
   .canvas.mode-changes.emphasise .grp.sel{opacity:1;}
   .node .actw{
@@ -730,6 +801,35 @@
   .diff-row .dv.new{color:var(--create);} 
   .diff-row .dv.new::before{content:"+"; color:var(--create);}
   .diff-row .dv i{color:var(--faint); font-style:italic;}
+
+  .rdiff{display:flex; flex-direction:column; gap:1px; margin-top:3px; position:relative;}
+  .kindtag{
+    align-self:flex-end; margin-bottom:2px;
+    font-family:"Archivo",sans-serif; font-size:8.5px; font-weight:700;
+    letter-spacing:.09em; text-transform:uppercase;
+    color:var(--faint); background:var(--surface); border:1px solid var(--line);
+    border-radius:4px; padding:1px 5px; cursor:help;
+  }
+  .kindtag.ok{color:var(--create); border-color:color-mix(in srgb, var(--create) 40%, transparent);}
+  .rdiff-row{
+    display:grid; grid-template-columns:12px auto auto auto minmax(0,1fr);
+    gap:7px; align-items:baseline; padding:3px 6px; border-radius:5px;
+    font-family:"IBM Plex Mono",monospace; font-size:11px;
+  }
+  .rdiff-row .m{font-weight:700;}
+  .rdiff-row .p{font-weight:600;}
+  .rdiff-row .s{font-size:10px; font-weight:600; color:var(--aws-net);}
+  .rdiff-row .pr{font-size:10px; color:var(--muted);}
+  .rdiff-row .pe{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .rdiff-row .d{
+    grid-column:2 / -1; font-family:"IBM Plex Sans",sans-serif; font-size:10.5px;
+    color:var(--faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .rdiff-row.removed{background:var(--deny-soft); color:var(--destroy);}
+  .rdiff-row.removed .s,.rdiff-row.removed .pr{color:var(--destroy); opacity:.8;}
+  .rdiff-row.added{background:var(--ok-soft); color:var(--create);}
+  .rdiff-row.added .s,.rdiff-row.added .pr{color:var(--create); opacity:.8;}
+  .rdiff-row.kept{color:var(--muted);}
   .rules-cap{
     font-family:"Archivo",sans-serif; font-size:9.5px; font-weight:600; letter-spacing:.09em;
     text-transform:uppercase; color:var(--muted); padding:8px 0 3px;
@@ -827,7 +927,12 @@
       </div>
 
       <div class="block">
-        <h3>Resource types <em id="typeCount">—</em></h3>
+        <h3>Resource types
+          <span class="h3-tools">
+            <em id="typeCount">—</em>
+            <button id="typesAll">all</button><i>/</i><button id="typesNone">none</button>
+          </span>
+        </h3>
         <div class="filters" id="filters"></div>
       </div>
 
@@ -837,6 +942,7 @@
           <label class="opt"><input type="checkbox" id="optAssoc"> Show association resources</label>
           <label class="opt"><input type="checkbox" id="optUnsup" checked> Show unsupported as tiles</label>
           <label class="opt"><input type="checkbox" id="optActions" checked> Show plan action dots</label>
+          <label class="opt"><input type="checkbox" id="optPulse" checked> Pulse changed resources</label>
           <div class="act-legend" id="actLegend"></div>
           <label class="opt">Dependency edges
             <select id="optEdges">
@@ -891,6 +997,8 @@ terraform show -json plan.out &gt; plan.json</pre>
           </div>
 
           <p class="or">Or click <b>Sample plan</b> to see it with an example.</p>
+          <p class="or">Optional: drop <code>terraform providers schema -json</code> output
+             as well, and collection diffs become schema-verified rather than inferred.</p>
         </div>
       </div>
     </main>
@@ -1341,6 +1449,7 @@ terraform show -json plan.out &gt; plan.json</pre>
           "yet \u2014 only <b>aws</b> resources are drawn.");
         return;
       }
+      out.providerConstraint = pcfg[k].version_constraint || null;
       var rex = pcfg[k].expressions && pcfg[k].expressions.region;
       if (rex && rex.constant_value){ out.region = rex.constant_value; return; }
       if (rex && rex.references){
@@ -1596,8 +1705,9 @@ terraform show -json plan.out &gt; plan.json</pre>
       if (!r.enabledType) return false;
       if (r.kind === "assoc" && !opts.showAssoc) return false;
       if (!r.supported && !opts.showUnsup) return false;
-      if (opts.mode === "changes" && r.kind !== "group" &&
-          (r.action === "no-op" || r.action === "read")) return false;
+      /* Changes shows the same diagram as Topology, with the plan marked on
+         it. Hiding unchanged resources removed the context that makes the
+         picture useful. Only an explicit action filter narrows it. */
       if (opts.action && r.kind !== "group" && r.action !== opts.action) return false;
       return true;
     });
@@ -1726,7 +1836,7 @@ terraform show -json plan.out &gt; plan.json</pre>
   var $ = function(id){ return document.getElementById(id); };
   var canvas = $("canvas"), edgesSvg = $("edges"), detailEl = $("detail"), splitEl = $("split");
   var model = null, selected = null;
-  var opts = {showAssoc:false, showUnsup:true, edges:"select", mode:"all", action:null};
+  var opts = {showAssoc:false, showUnsup:true, edges:"select", mode:"all", action:null, pulse:true};
   var nodeEls = {};
 
   function icoSvg(spec, size){
@@ -1922,6 +2032,7 @@ terraform show -json plan.out &gt; plan.json</pre>
     TH = tileHeight(opts.mode, hasEdits);
     canvas.classList.toggle("mode-changes", opts.mode === "changes");
     canvas.classList.toggle("emphasise", opts.mode === "changes" && hasEdits);
+    canvas.classList.toggle("pulse", opts.pulse && opts.mode === "changes" && hasEdits);
 
     var tree = buildTree(model, opts);
 
@@ -1941,7 +2052,10 @@ terraform show -json plan.out &gt; plan.json</pre>
       depth = depth || 0;
       if (g.box){
         var d = document.createElement("div");
-        d.className = "grp " + g.cls;
+        var gChanged = g.res && g.res.action !== "no-op" && g.res.action !== "read";
+        d.className = "grp " + g.cls + (g.res ? " act-" + g.res.action : "") +
+                      (gChanged ? " is-changed" : "");
+        if (gChanged) d.style.setProperty("--pulse", ACTION_COLOR[g.res.action]);
         d.style.setProperty("--z", depth * 3);
         d.style.left = g.x + "px"; d.style.top = g.y + "px";
         d.style.width = g.w + "px"; d.style.height = g.h + "px";
@@ -1956,8 +2070,19 @@ terraform show -json plan.out &gt; plan.json</pre>
           ic = '<svg class="tile" viewBox="0 0 48 48" aria-hidden="true" style="color:' +
                CAT[g.res.spec.cat] + '"><use href="#' + g.res.spec.icon + '"/></svg>';
         }
+        var gAct = "";
+        if (g.res && opts.mode === "changes" &&
+            g.res.action !== "no-op" && g.res.action !== "read"){
+          var gc = ACTION_COLOR[g.res.action] || "var(--noop)";
+          var gk = changedKeys(g.res);
+          gAct = '<span class="grp-act" style="color:' + gc +
+                 '; background:color-mix(in srgb, ' + gc + ' 15%, var(--surface))"' +
+                 ' title="' + escapeHtml(g.res.addr + (gk.length ? " \u2014 " + gk.join(", ") : "")) + '">' +
+                 escapeHtml(g.res.action) + '</span>';
+        }
         d.innerHTML = '<div class="grp-hd">' + ic +
-          escapeHtml(g.label) + (g.meta ? ' <em>' + escapeHtml(g.meta) + '</em>' : '') + '</div>';
+          escapeHtml(g.label) + (g.meta ? ' <em>' + escapeHtml(g.meta) + '</em>' : '') +
+          gAct + '</div>';
         if (g.res){
           d.dataset.addr = g.res.addr;
           d.style.cursor = "pointer";
@@ -1969,7 +2094,10 @@ terraform show -json plan.out &gt; plan.json</pre>
       } else {
         var r = g.res;
         var n = document.createElement("div");
-        n.className = "node act-" + r.action + (r.supported ? "" : " unsup") + (r.enabled ? "" : " disabled");
+        var isChanged = r.action !== "no-op" && r.action !== "read";
+        n.className = "node act-" + r.action + (isChanged ? " is-changed" : "") +
+                      (r.supported ? "" : " unsup") + (r.enabled ? "" : " impact-src");
+        if (isChanged) n.style.setProperty("--pulse", ACTION_COLOR[r.action]);
         n.style.left = g.x + "px"; n.style.top = g.y + "px";
         n.style.width = TW + "px"; n.style.height = TH + "px";
         n.style.setProperty("--h", blockHeight(r) + "px");
@@ -1992,7 +2120,7 @@ terraform show -json plan.out &gt; plan.json</pre>
           '<div class="ttl">' + escapeHtml(titleFor(r)) + '</div>' +
           '<div class="nm" title="' + escapeHtml(r.name + (sub ? "  ·  " + sub : "")) + '">' + line2 + '</div>';
 
-        if (opts.mode === "changes" && model.hasEdits){
+        if (opts.mode === "changes" && model.hasEdits && r.action !== "no-op" && r.action !== "read"){
           var ck = changedKeys(r);
           var forced = (r.replacePaths || []).map(function(pp){ return Array.isArray(pp) ? pp[0] : pp; });
           var body;
@@ -2292,6 +2420,83 @@ terraform show -json plan.out &gt; plan.json</pre>
     return escapeHtml(base);
   }
 
+  /* A rule list is one attribute holding many rules, so a whole-value diff
+     prints both lists in full. Match the entries instead and show only what
+     moved, in the same shape as the hover preview. */
+  function isRuleAttr(k, a, b){
+    if (k !== "ingress" && k !== "egress") return false;
+    return (Array.isArray(a) || a == null) && (Array.isArray(b) || b == null);
+  }
+
+  function ruleKey(e){
+    return [e.action || "", e.protocol, e.from_port, e.to_port,
+            peerText(e), e.rule_no == null ? "" : e.rule_no].join("|");
+  }
+
+  function ruleRow(e, mark, dir){
+    var cls = mark === "+" ? "added" : (mark === "-" ? "removed" : "kept");
+    return '<div class="rdiff-row ' + cls + '">' +
+             '<span class="m">' + (mark || "\u00a0") + '</span>' +
+             '<span class="p">' + escapeHtml(portText(e)) + '</span>' +
+             '<span class="s">' + escapeHtml(portName(e)) + '</span>' +
+             '<span class="pr">' + escapeHtml(protoText(e.protocol)) + '</span>' +
+             '<span class="pe">' + escapeHtml(peerText(e)) +
+               (e.rule_no != null ? ' #' + escapeHtml(e.rule_no) : '') + '</span>' +
+             (e.description ? '<span class="d">' + escapeHtml(e.description) + '</span>' : '') +
+           '</div>';
+  }
+
+  /* A set is matched by content, a list by position. Without a schema the
+     kind is unknown, so content matching is assumed and labelled as such. */
+  /* Match two rule lists and return [{rule, mark}], where mark is
+     "+", "-" or "". A set matches by content, a list by position. */
+  function matchRules(before, after, kind){
+    var b = Array.isArray(before) ? before : [];
+    var a = Array.isArray(after) ? after : [];
+    var out = [];
+
+    if (kind === "list"){
+      var n = Math.max(b.length, a.length);
+      for (var i = 0; i < n; i++){
+        var ob = b[i], oa = a[i];
+        if (ob && oa && ruleKey(ob) === ruleKey(oa)) out.push({rule:oa, mark:""});
+        else {
+          if (ob) out.push({rule:ob, mark:"-"});
+          if (oa) out.push({rule:oa, mark:"+"});
+        }
+      }
+      return out;
+    }
+
+    var bk = {}, ak = {};
+    b.forEach(function(e){ bk[ruleKey(e)] = e; });
+    a.forEach(function(e){ ak[ruleKey(e)] = e; });
+    b.forEach(function(e){ if (!(ruleKey(e) in ak)) out.push({rule:e, mark:"-"}); });
+    a.forEach(function(e){ if (!(ruleKey(e) in bk)) out.push({rule:e, mark:"+"}); });
+    a.filter(function(e){ return ruleKey(e) in bk; })
+     .forEach(function(e){ out.push({rule:e, mark:""}); });
+    return out;
+  }
+
+  function ruleDiffHtml(k, before, after, type){
+    var kind = attrKind(type, k);
+    var rows = matchRules(before, after, kind).map(function(m){
+      return ruleRow(m.rule, m.mark, k);
+    }).join("");
+
+    if (!rows) rows = '<div class="rdiff-row kept"><span class="m">&nbsp;</span>' +
+                      '<span class="p">no rules</span></div>';
+
+    var src = kindSource(type, k);
+    var tag = kind
+      ? '<span class="kindtag ok" title="' + escapeHtml(type + "." + k) + ' is a ' + kind +
+        ' \u2014 from ' + escapeHtml(src || "schema") + '">' + escapeHtml(kind) + '</span>'
+      : '<span class="kindtag" title="No schema entry for ' + escapeHtml(type + "." + k) +
+        '. Entries are matched by content; drop a provider schema to confirm.">inferred</span>';
+
+    return '<div class="rdiff">' + tag + rows + '</div>';
+  }
+
   function changeHtml(r){
     if (r.action === "create" || r.action === "no-op") return null;
 
@@ -2321,7 +2526,9 @@ terraform show -json plan.out &gt; plan.json</pre>
       b += '<div class="diff-row' + (forced ? " forced" : "") + '">' +
              '<div class="dk">' + escapeHtml(k) +
                (forced ? '<span class="tagf">forces replacement</span>' : '') + '</div>';
-      if (r.action !== "delete"){
+      if (isRuleAttr(k, before[k], after[k]) && !isUnknown){
+        b += ruleDiffHtml(k, before[k], after[k], r.type);
+      } else if (r.action !== "delete"){
         b += '<div class="dv old">' + escapeHtml(valText(before[k], sens)) + '</div>' +
              '<div class="dv new">' + (isUnknown ? '<i>known after apply</i>' : escapeHtml(valText(after[k], sens))) + '</div>';
       } else {
@@ -2691,6 +2898,98 @@ terraform show -json plan.out &gt; plan.json</pre>
   }
 
   /* ------------------------------------------------------------------
+     Provider schema (optional).
+
+     The plan says what changed; only the provider schema says whether a
+     collection is a set (order meaningless, match by content) or a list
+     (order significant, match by position). Drop the output of
+
+         terraform providers schema -json > schema.json
+
+     on the page and diffs switch from inferred to schema-verified. The
+     full AWS schema is ~13MB, so it is pruned to the types in the loaded
+     plan (tens of KB) and kept in localStorage.
+     ------------------------------------------------------------------ */
+
+  var SCHEMA = null;                    /* {type: resource_schema}, from a dropped file */
+  var SCHEMA_META = null;               /* {provider, version, types}                   */
+  var KINDS = null, KINDS_META = null;  /* bundled collection-kind table                */
+
+  function loadKinds(){
+    if (KINDS) return;
+    try {
+      var el = document.getElementById("collection-kinds");
+      var doc = JSON.parse(el.textContent);
+      KINDS = doc.kinds || {};
+      KINDS_META = doc.meta || {};
+    } catch(e){ KINDS = {}; KINDS_META = {}; }
+  }
+
+  var KIND_WORD = {s:"set", l:"list", m:"map"};
+
+  function isSchemaFile(doc){
+    return !!(doc && doc.provider_schemas);
+  }
+
+  function pruneSchema(doc, types){
+    var out = {}, meta = {provider:null, version:doc.format_version || null, types:0};
+    Object.keys(doc.provider_schemas || {}).forEach(function(prov){
+      var rs = (doc.provider_schemas[prov] || {}).resource_schemas || {};
+      types.forEach(function(t){
+        if (rs[t] && !out[t]){ out[t] = rs[t]; meta.types++; }
+      });
+      if (meta.types && !meta.provider) meta.provider = prov.split("/").pop();
+    });
+    return {schema:out, meta:meta};
+  }
+
+  function storeSchema(schema, meta){
+    SCHEMA = schema; SCHEMA_META = meta;
+    try {
+      localStorage.setItem("tfplanview-schema", JSON.stringify({s:schema, m:meta}));
+    } catch(e){ /* too large, or storage unavailable: keep it in memory only */ }
+  }
+
+  function restoreSchema(){
+    try {
+      var raw = localStorage.getItem("tfplanview-schema");
+      if (!raw) return;
+      var v = JSON.parse(raw);
+      SCHEMA = v.s || null; SCHEMA_META = v.m || null;
+    } catch(e){ SCHEMA = null; SCHEMA_META = null; }
+  }
+
+  /* A schema the user dropped is exact for their provider version, so it wins.
+     Otherwise fall back to the bundled table. Returns
+     "set" | "list" | "map" | "single" | "scalar", plus where it came from. */
+  function attrKind(type, key){
+    var rs = SCHEMA && SCHEMA[type];
+    if (rs && rs.block){
+      var a = (rs.block.attributes || {})[key];
+      if (a) return Array.isArray(a.type) ? a.type[0] : "scalar";
+      var bt = (rs.block.block_types || {})[key];
+      if (bt) return bt.nesting_mode;
+    }
+    loadKinds();
+    var k = KINDS && KINDS[type] && KINDS[type][key];
+    return k ? KIND_WORD[k] : null;
+  }
+
+  function kindSource(type, key){
+    var rs = SCHEMA && SCHEMA[type];
+    if (rs && rs.block &&
+        (((rs.block.attributes || {})[key]) || ((rs.block.block_types || {})[key]))) {
+      return "loaded schema";
+    }
+    loadKinds();
+    if (KINDS && KINDS[type] && KINDS[type][key]){
+      var m = (KINDS_META.providers || {}).aws || {};
+      return "aws " + (m.version || "bundled");
+    }
+    return null;
+  }
+
+  /* ------------------------------------------------------------------
      Rule preview. Security groups and network ACLs are the two things you
      most often want to read without opening anything, so hovering one
      shows its rules as direction, port, protocol and peer.
@@ -2698,35 +2997,47 @@ terraform show -json plan.out &gt; plan.json</pre>
 
   var popEl = $("rulePop"), popTimer = null, popAddr = null;
 
-  function ruleLines(entries, dir, isNacl){
-    if (!entries || !entries.length){
-      return '<div class="rp-none">no ' + dir + ' rules</div>';
-    }
-    var list = entries.slice();
-    if (isNacl) list.sort(function(a, b){ return (a.rule_no || 0) - (b.rule_no || 0); });
-
+  function popRow(e, dir, isNacl, mark){
     var arrow = dir === "ingress" ? "\u2190" : "\u2192";
-    var out = list.map(function(e){
-      var deny = e.action === "deny";
-      return '<div class="rp-rule ' + (deny ? "deny" : "allow") + '">' +
-               '<span class="rp-arrow">' + arrow + '</span>' +
-               '<span class="rp-port">' + escapeHtml(portText(e)) + '</span>' +
-               '<span class="rp-svc">' + escapeHtml(portName(e)) + '</span>' +
-               '<span class="rp-proto">' + escapeHtml(protoText(e.protocol)) + '</span>' +
-               '<span class="rp-peer">' + escapeHtml(peerText(e)) +
-                 (isNacl ? ' <span class="rp-no">#' + escapeHtml(e.rule_no) + '</span>' : '') +
-               '</span>' +
-             '</div>';
-    }).join("");
+    var deny = e.action === "deny";
+    var cls = mark === "+" ? "added" : mark === "-" ? "removed" : (deny ? "deny" : "allow");
+    return '<div class="rp-rule ' + cls + '">' +
+             '<span class="rp-mark">' + (mark || "") + '</span>' +
+             '<span class="rp-arrow">' + arrow + '</span>' +
+             '<span class="rp-port">' + escapeHtml(portText(e)) + '</span>' +
+             '<span class="rp-svc">' + escapeHtml(portName(e)) + '</span>' +
+             '<span class="rp-proto">' + escapeHtml(protoText(e.protocol)) + '</span>' +
+             '<span class="rp-peer">' + escapeHtml(peerText(e)) +
+               (isNacl && e.rule_no != null ? ' <span class="rp-no">#' + escapeHtml(e.rule_no) + '</span>' : '') +
+             '</span>' +
+           '</div>';
+  }
+
+  function ruleLines(r, dir, isNacl){
+    var after = (r.attrs || {})[dir];
+    var before = (r.before || {})[dir];
+    /* Topology shows the rules as they will be; only Changes marks the diff,
+       so the card matches whichever mode the diagram is in */
+    var changed = opts.mode === "changes" &&
+                  r.action !== "create" && r.action !== "no-op" &&
+                  Array.isArray(before) && !sameVal(before, after);
+
+    var out;
+    if (changed){
+      out = matchRules(before, after, attrKind(r.type, dir))
+              .map(function(m){ return popRow(m.rule, dir, isNacl, m.mark); }).join("");
+    } else {
+      var entries = Array.isArray(after) ? after : [];
+      if (!entries.length) return '<div class="rp-none">no ' + dir + ' rules</div>';
+      var list = entries.slice();
+      if (isNacl) list.sort(function(a, b){ return (a.rule_no || 0) - (b.rule_no || 0); });
+      out = list.map(function(e){ return popRow(e, dir, isNacl, ""); }).join("");
+    }
+    if (!out) return '<div class="rp-none">no ' + dir + ' rules</div>';
 
     if (isNacl){
-      out += '<div class="rp-rule deny">' +
-               '<span class="rp-arrow">' + arrow + '</span>' +
-               '<span class="rp-port">all</span>' +
-               '<span class="rp-svc"></span>' +
-               '<span class="rp-proto">all</span>' +
-               '<span class="rp-peer">0.0.0.0/0 <span class="rp-no">#*</span></span>' +
-             '</div>';
+      out += popRow({action:"deny", protocol:"-1", from_port:0, to_port:0,
+                     cidr_block:"0.0.0.0/0"}, dir, false, "");
     }
     return out;
   }
@@ -2741,8 +3052,8 @@ terraform show -json plan.out &gt; plan.json</pre>
     popEl.innerHTML =
       '<div class="rp-title">' + icoSvg(r.spec, 14) +
         (isSg ? "security group" : "network acl") + ' <b>' + escapeHtml(r.name) + '</b></div>' +
-      '<div class="rp-dir">inbound</div>' + ruleLines(r.attrs.ingress, "ingress", isNacl) +
-      '<div class="rp-dir">outbound</div>' + ruleLines(r.attrs.egress, "egress", isNacl) +
+      '<div class="rp-dir">inbound</div>' + ruleLines(r, "ingress", isNacl) +
+      '<div class="rp-dir">outbound</div>' + ruleLines(r, "egress", isNacl) +
       '<div class="rp-foot">' +
         (isSg ? "Stateful: replies to allowed traffic return without a matching rule."
               : "Stateless: each direction is evaluated on its own, first match wins.") +
@@ -2888,12 +3199,12 @@ terraform show -json plan.out &gt; plan.json</pre>
      ------------------------------------------------------------------ */
 
   function renderSidebar(){
-    panelModeCounts();
-    panelChanges();
-    panelPlanSummary();
-    panelCoverage();
-    panelTypes();
-    panelDiagnostics();
+    /* one broken panel should not blank the others */
+    [panelModeCounts, panelChanges, panelPlanSummary,
+     panelCoverage, panelTypes, panelDiagnostics].forEach(function(panel){
+      try { panel(); }
+      catch(e){ console.error("panel failed:", panel.name, e); }
+    });
   }
 
   /* The tabs are a mode switch, not a readout: counts live in the sidebar.
@@ -2905,7 +3216,7 @@ terraform show -json plan.out &gt; plan.json</pre>
     var chg = $("modeChg");
     chg.disabled = nChg === 0;
     chg.title = nChg
-      ? "Only what this plan alters, with the changed attributes on each tile"
+      ? "The same diagram, with the plan's changes marked on it"
       : "This plan alters nothing";
     if (!nChg && opts.mode === "changes") setMode("all");
   }
@@ -3041,33 +3352,122 @@ terraform show -json plan.out &gt; plan.json</pre>
     $("covLegend").innerHTML = parts.join("");
   }
 
+  /* AWS's own service grouping, in the order the console lists them */
+  var CAT_LABEL = [
+    ["compute", "Compute"],
+    ["net",     "Networking"],
+    ["sec",     "Security & identity"],
+    ["storage", "Storage"],
+    ["db",      "Database"],
+    ["mgmt",    "Management"],
+    ["other",   "Not implemented"]
+  ];
+
+  function setTypes(types, on){
+    model.resources.forEach(function(r){
+      if (types.indexOf(r.type) >= 0) r.enabledType = on;
+    });
+    render();
+  }
+
   function panelTypes(){
     var types = Object.keys(model.typeCounts).sort();
     $("typeCount").textContent = types.length + " types";
 
-    var f = $("filters");
-    f.innerHTML = "";
+    var buckets = {};
     types.forEach(function(t){
       var spec = REG[t];
-      var any = model.resources.filter(function(r){ return r.type === t; });
-      var on = any.length ? any[0].enabledType !== false : true;
+      var cat = spec ? spec.cat : "other";
+      (buckets[cat] = buckets[cat] || []).push(t);
+    });
 
-      var row = document.createElement("label");
-      row.className = "flt" + (spec ? "" : " unsup");
-      row.innerHTML = '<input type="checkbox"' + (on ? " checked" : "") + '>' +
-        icoSvg(spec, 18) +
-        '<span class="nm">' + escapeHtml(t) + '</span>' +
-        '<span class="ct">' + model.typeCounts[t] + '</span>';
-      row.querySelector("input").addEventListener("change", function(e){
-        var v = e.target.checked;
-        model.resources.forEach(function(r){ if (r.type === t) r.enabledType = v; });
-        render();
+    var f = $("filters");
+    f.innerHTML = "";
+
+    CAT_LABEL.forEach(function(c){
+      var list = buckets[c[0]];
+      if (!list || !list.length) return;
+
+      var n = list.reduce(function(sum, t){ return sum + model.typeCounts[t]; }, 0);
+      var allOn = list.every(function(t){
+        return model.resources.some(function(r){ return r.type === t && r.enabledType !== false; });
       });
-      f.appendChild(row);
+
+      var head = document.createElement("button");
+      head.className = "cat" + (allOn ? "" : " off");
+      head.innerHTML = '<span class="dot" style="background:' +
+          (c[0] === "other" ? "var(--warn)" : CAT[c[0]]) + '"></span>' +
+        escapeHtml(c[1]) + '<span class="ct">' + n + '</span>';
+      head.title = (allOn ? "Hide" : "Show") + " every " + c[1].toLowerCase() + " resource";
+      head.addEventListener("click", function(){ setTypes(list, !allOn); });
+      f.appendChild(head);
+
+      list.forEach(function(t){
+        var spec = REG[t];
+        var on = model.resources.some(function(r){ return r.type === t && r.enabledType !== false; });
+        var row = document.createElement("label");
+        row.className = "flt" + (spec ? "" : " unsup");
+        row.title = t;
+        row.innerHTML = '<input type="checkbox"' + (on ? " checked" : "") + '>' +
+          icoSvg(spec, 18) +
+          '<span class="nm">' + escapeHtml(t.replace(/^aws_/, "")) + '</span>' +
+          '<span class="ct">' + model.typeCounts[t] + '</span>';
+        row.querySelector("input").addEventListener("change", function(e){
+          setTypes([t], e.target.checked);
+        });
+        f.appendChild(row);
+      });
     });
   }
 
+  /* The bundled table was distilled from one provider version. A type or
+     attribute it does not know degrades to "inferred", which is visible and
+     safe. A kind that CHANGED between versions would be silently wrong, so
+     a major-version mismatch is called out. */
+  function schemaFit(){
+    loadKinds();
+    var meta = (KINDS_META && KINDS_META.providers && KINDS_META.providers.aws) || {};
+    var bundled = meta.version || null;
+
+    var types = Object.keys(model.typeCounts || {});
+    var unknown = types.filter(function(t){
+      return t.indexOf("aws_") === 0 && !(KINDS && KINDS[t]);
+    });
+
+    var constraint = model.providerConstraint;
+    var wantMajor = constraint && (constraint.match(/(\d+)/) || [])[1];
+    var haveMajor = bundled && bundled.split(".")[0];
+
+    return {bundled:bundled, unknown:unknown, constraint:constraint,
+            mismatch: !!(wantMajor && haveMajor && wantMajor !== haveMajor),
+            usingLoaded: !!SCHEMA};
+  }
+
   function panelDiagnostics(){
+    /* these are recomputed every render, so drop the previous round first */
+    model.diagnostics = (model.diagnostics || []).filter(function(g){
+      return g.code.indexOf("schema-") !== 0;
+    });
+    var fit = schemaFit();
+    if (fit.usingLoaded){
+      model.diag("ok", "schema-loaded",
+        "Collection kinds come from the provider schema you loaded.");
+    } else if (fit.mismatch){
+      model.diag("warn", "schema-version",
+        "This plan targets provider <b>" + escapeHtml(fit.constraint) + "</b>, but the " +
+        "bundled collection kinds are from <b>aws " + escapeHtml(fit.bundled) + "</b>. " +
+        "If an attribute changed between set and list across that boundary the diff " +
+        "would be wrong. Drop <b>terraform providers schema -json</b> output to be exact.");
+    }
+    if (fit.unknown.length){
+      model.diag("info", "schema-unknown",
+        "<b>" + fit.unknown.length + "</b> resource type" +
+        (fit.unknown.length > 1 ? "s are" : " is") + " not in the bundled table (" +
+        escapeHtml(fit.unknown.slice(0, 3).join(", ")) +
+        (fit.unknown.length > 3 ? ", \u2026" : "") +
+        "). Their collection diffs are matched by content and marked <b>inferred</b>.");
+    }
+
     var d = $("diag");
     d.innerHTML = "";
     if (!model.diagnostics.length){
@@ -3112,6 +3512,28 @@ terraform show -json plan.out &gt; plan.json</pre>
       Array.prototype.slice.call(canvas.querySelectorAll(".grp,.node")).forEach(function(n){ n.remove(); });
       edgesSvg.innerHTML = "";
       renderSidebar();
+      return;
+    }
+    if (isSchemaFile(plan)){
+      if (!model){
+        $("diag").innerHTML =
+          '<div class="dg warn"><span class="ic">!</span><span>That is a provider ' +
+          'schema. Load a plan first, then drop it again so it can be pruned to ' +
+          'the types the plan uses.</span></div>';
+        return;
+      }
+      var pr = pruneSchema(plan, Object.keys(model.typeCounts));
+      if (!pr.meta.types){
+        model.diag("warn", "schema-empty",
+          "That schema has no entry for any type in this plan; diffs stay inferred.");
+      } else {
+        storeSchema(pr.schema, pr.meta);
+        model.diag("ok", "schema",
+          "Provider schema loaded for <b>" + pr.meta.types + "</b> of this plan\u2019s types. " +
+          "Collection diffs are now schema-verified.");
+      }
+      render();
+      if (selected) renderDetail();
       return;
     }
     load(plan, name, text);
@@ -3163,6 +3585,17 @@ terraform show -json plan.out &gt; plan.json</pre>
   $("modeAll").addEventListener("click", function(){ setMode("all"); });
   $("modeChg").addEventListener("click", function(){ setMode("changes"); });
 
+  $("typesAll").addEventListener("click", function(){
+    setTypes(Object.keys(model.typeCounts), true);
+  });
+  $("typesNone").addEventListener("click", function(){
+    setTypes(Object.keys(model.typeCounts), false);
+  });
+
+  $("optPulse").addEventListener("change", function(e){
+    opts.pulse = e.target.checked;
+    canvas.classList.toggle("pulse", opts.pulse && opts.mode === "changes" && model && model.hasEdits);
+  });
   $("optAssoc").addEventListener("change", function(e){ opts.showAssoc = e.target.checked; render(); });
   $("optUnsup").addEventListener("change", function(e){ opts.showUnsup = e.target.checked; render(); });
   $("optEdges").addEventListener("change", function(e){ opts.edges = e.target.value; drawEdges(); });
@@ -3212,6 +3645,7 @@ terraform show -json plan.out &gt; plan.json</pre>
   });
 
   function boot(){
+    restoreSchema();
     var has = !!sampleText();
     setEmpty(true);
     $("sampleBtn").disabled = !has;
@@ -3227,6 +3661,12 @@ terraform show -json plan.out &gt; plan.json</pre>
   }
 })();
 </script>
+<!-- Collection kinds for the AWS provider, distilled from
+     `terraform providers schema -json` by tools/make-kinds.js. Says whether each
+     collection attribute is a set (s), list (l) or map (m), which is all a diff
+     needs. 109KB here against 13MB for the full schema. -->
+<script type="application/json" id="collection-kinds">{"meta":{"format":"1.0","providers":{"aws":{"address":"registry.terraform.io/hashicorp/aws","version":"5.100.0","types":1099}}},"kinds":{"aws_accessanalyzer_analyzer":{"tags":"m","tags_all":"m","configuration":"l"},"aws_accessanalyzer_archive_rule":{"filter":"s"},"aws_acm_certificate":{"domain_validation_options":"s","renewal_summary":"l","subject_alternative_names":"s","tags":"m","tags_all":"m","validation_emails":"l","options":"l","validation_option":"s"},"aws_acm_certificate_validation":{"validation_record_fqdns":"s"},"aws_acmpca_certificate":{"validity":"l"},"aws_acmpca_certificate_authority":{"tags":"m","tags_all":"m","certificate_authority_configuration":"l","revocation_configuration":"l"},"aws_acmpca_permission":{"actions":"s"},"aws_alb":{"security_groups":"s","subnets":"s","tags":"m","tags_all":"m","access_logs":"l","connection_logs":"l","ipam_pools":"l","minimum_load_balancer_capacity":"l","subnet_mapping":"s"},"aws_alb_listener":{"tags":"m","tags_all":"m","default_action":"l","mutual_authentication":"l"},"aws_alb_listener_rule":{"tags":"m","tags_all":"m","action":"l","condition":"s"},"aws_alb_target_group":{"load_balancer_arns":"s","tags":"m","tags_all":"m","health_check":"l","stickiness":"l","target_failover":"l","target_group_health":"l","target_health_state":"l"},"aws_ami":{"tags":"m","tags_all":"m","ebs_block_device":"s","ephemeral_block_device":"s"},"aws_ami_copy":{"tags":"m","tags_all":"m","ebs_block_device":"s","ephemeral_block_device":"s"},"aws_ami_from_instance":{"tags":"m","tags_all":"m","ebs_block_device":"s","ephemeral_block_device":"s"},"aws_amplify_app":{"auto_branch_creation_patterns":"s","environment_variables":"m","production_branch":"l","tags":"m","tags_all":"m","auto_branch_creation_config":"l","cache_config":"l","custom_rule":"l"},"aws_amplify_branch":{"associated_resources":"l","custom_domains":"l","environment_variables":"m","tags":"m","tags_all":"m"},"aws_amplify_domain_association":{"certificate_settings":"l","sub_domain":"s"},"aws_api_gateway_account":{"features":"s","throttle_settings":"l"},"aws_api_gateway_api_key":{"tags":"m","tags_all":"m"},"aws_api_gateway_authorizer":{"provider_arns":"s"},"aws_api_gateway_client_certificate":{"tags":"m","tags_all":"m"},"aws_api_gateway_deployment":{"triggers":"m","variables":"m","canary_settings":"l"},"aws_api_gateway_documentation_part":{"location":"l"},"aws_api_gateway_domain_name":{"tags":"m","tags_all":"m","endpoint_configuration":"l","mutual_tls_authentication":"l"},"aws_api_gateway_domain_name_access_association":{"tags":"m","tags_all":"m"},"aws_api_gateway_gateway_response":{"response_parameters":"m","response_templates":"m"},"aws_api_gateway_integration":{"cache_key_parameters":"s","request_parameters":"m","request_templates":"m","tls_config":"l"},"aws_api_gateway_integration_response":{"response_parameters":"m","response_templates":"m"},"aws_api_gateway_method":{"authorization_scopes":"s","request_models":"m","request_parameters":"m"},"aws_api_gateway_method_response":{"response_models":"m","response_parameters":"m"},"aws_api_gateway_method_settings":{"settings":"l"},"aws_api_gateway_rest_api":{"binary_media_types":"l","parameters":"m","tags":"m","tags_all":"m","endpoint_configuration":"l"},"aws_api_gateway_rest_api_put":{"parameters":"m","triggers":"m"},"aws_api_gateway_stage":{"tags":"m","tags_all":"m","variables":"m","access_log_settings":"l","canary_settings":"l"},"aws_api_gateway_usage_plan":{"tags":"m","tags_all":"m","api_stages":"s","quota_settings":"l","throttle_settings":"l"},"aws_api_gateway_vpc_link":{"tags":"m","tags_all":"m","target_arns":"l"},"aws_apigatewayv2_api":{"tags":"m","tags_all":"m","cors_configuration":"l"},"aws_apigatewayv2_authorizer":{"identity_sources":"s","jwt_configuration":"l"},"aws_apigatewayv2_deployment":{"triggers":"m"},"aws_apigatewayv2_domain_name":{"tags":"m","tags_all":"m","domain_name_configuration":"l","mutual_tls_authentication":"l"},"aws_apigatewayv2_integration":{"request_parameters":"m","request_templates":"m","response_parameters":"s","tls_config":"l"},"aws_apigatewayv2_integration_response":{"response_templates":"m"},"aws_apigatewayv2_route":{"authorization_scopes":"s","request_models":"m","request_parameter":"s"},"aws_apigatewayv2_route_response":{"response_models":"m"},"aws_apigatewayv2_stage":{"stage_variables":"m","tags":"m","tags_all":"m","access_log_settings":"l","default_route_settings":"l","route_settings":"s"},"aws_apigatewayv2_vpc_link":{"security_group_ids":"s","subnet_ids":"s","tags":"m","tags_all":"m"},"aws_appautoscaling_policy":{"alarm_arns":"l","step_scaling_policy_configuration":"l","target_tracking_scaling_policy_configuration":"l"},"aws_appautoscaling_scheduled_action":{"scalable_target_action":"l"},"aws_appautoscaling_target":{"tags":"m","tags_all":"m","suspended_state":"l"},"aws_appconfig_application":{"tags":"m","tags_all":"m"},"aws_appconfig_configuration_profile":{"tags":"m","tags_all":"m","validator":"s"},"aws_appconfig_deployment":{"tags":"m","tags_all":"m"},"aws_appconfig_deployment_strategy":{"tags":"m","tags_all":"m"},"aws_appconfig_environment":{"tags":"m","tags_all":"m","monitor":"s"},"aws_appconfig_extension":{"tags":"m","tags_all":"m","action_point":"s","parameter":"s"},"aws_appconfig_extension_association":{"parameters":"m"},"aws_appfabric_app_authorization":{"tags":"m","tags_all":"m","credential":"l","tenant":"l"},"aws_appfabric_app_authorization_connection":{"tenant":"l","auth_request":"l"},"aws_appfabric_app_bundle":{"tags":"m","tags_all":"m"},"aws_appfabric_ingestion":{"tags":"m","tags_all":"m"},"aws_appfabric_ingestion_destination":{"tags":"m","tags_all":"m","destination_configuration":"l","processing_configuration":"l"},"aws_appflow_connector_profile":{"connector_profile_config":"l"},"aws_appflow_flow":{"tags":"m","tags_all":"m","destination_flow_config":"l","metadata_catalog_config":"l","source_flow_config":"l","task":"s","trigger_config":"l"},"aws_appintegrations_data_integration":{"tags":"m","tags_all":"m","schedule_config":"l"},"aws_appintegrations_event_integration":{"tags":"m","tags_all":"m","event_filter":"l"},"aws_applicationinsights_application":{"tags":"m","tags_all":"m"},"aws_appmesh_gateway_route":{"tags":"m","tags_all":"m","spec":"l"},"aws_appmesh_mesh":{"tags":"m","tags_all":"m","spec":"l"},"aws_appmesh_route":{"tags":"m","tags_all":"m","spec":"l"},"aws_appmesh_virtual_gateway":{"tags":"m","tags_all":"m","spec":"l"},"aws_appmesh_virtual_node":{"tags":"m","tags_all":"m","spec":"l"},"aws_appmesh_virtual_router":{"tags":"m","tags_all":"m","spec":"l"},"aws_appmesh_virtual_service":{"tags":"m","tags_all":"m","spec":"l"},"aws_apprunner_auto_scaling_configuration_version":{"tags":"m","tags_all":"m"},"aws_apprunner_connection":{"tags":"m","tags_all":"m"},"aws_apprunner_custom_domain_association":{"certificate_validation_records":"s"},"aws_apprunner_observability_configuration":{"tags":"m","tags_all":"m","trace_configuration":"l"},"aws_apprunner_service":{"tags":"m","tags_all":"m","encryption_configuration":"l","health_check_configuration":"l","instance_configuration":"l","network_configuration":"l","observability_configuration":"l","source_configuration":"l"},"aws_apprunner_vpc_connector":{"security_groups":"s","subnets":"s","tags":"m","tags_all":"m"},"aws_apprunner_vpc_ingress_connection":{"tags":"m","tags_all":"m","ingress_vpc_configuration":"l"},"aws_appstream_directory_config":{"organizational_unit_distinguished_names":"s","service_account_credentials":"l"},"aws_appstream_fleet":{"tags":"m","tags_all":"m","compute_capacity":"l","domain_join_info":"l","vpc_config":"l"},"aws_appstream_image_builder":{"tags":"m","tags_all":"m","access_endpoint":"s","domain_join_info":"l","vpc_config":"l"},"aws_appstream_stack":{"embed_host_domains":"s","tags":"m","tags_all":"m","access_endpoints":"s","application_settings":"l","storage_connectors":"s","streaming_experience_settings":"l","user_settings":"s"},"aws_appsync_datasource":{"dynamodb_config":"l","elasticsearch_config":"l","event_bridge_config":"l","http_config":"l","lambda_config":"l","opensearchservice_config":"l","relational_database_config":"l"},"aws_appsync_function":{"runtime":"l","sync_config":"l"},"aws_appsync_graphql_api":{"tags":"m","tags_all":"m","uris":"m","additional_authentication_provider":"l","enhanced_metrics_config":"l","lambda_authorizer_config":"l","log_config":"l","openid_connect_config":"l","user_pool_config":"l"},"aws_appsync_resolver":{"caching_config":"l","pipeline_config":"l","runtime":"l","sync_config":"l"},"aws_appsync_source_api_association":{"source_api_association_config":"l"},"aws_athena_capacity_reservation":{"tags":"m","tags_all":"m"},"aws_athena_data_catalog":{"parameters":"m","tags":"m","tags_all":"m"},"aws_athena_database":{"properties":"m","acl_configuration":"l","encryption_configuration":"l"},"aws_athena_workgroup":{"tags":"m","tags_all":"m","configuration":"l"},"aws_auditmanager_assessment":{"roles":"s","roles_all":"s","tags":"m","tags_all":"m","assessment_reports_destination":"l","scope":"l"},"aws_auditmanager_control":{"tags":"m","tags_all":"m","control_mapping_sources":"s"},"aws_auditmanager_framework":{"tags":"m","tags_all":"m","control_sets":"s"},"aws_autoscaling_group":{"availability_zones":"s","enabled_metrics":"s","load_balancers":"s","suspended_processes":"s","target_group_arns":"s","termination_policies":"l","vpc_zone_identifier":"s","availability_zone_distribution":"l","capacity_reservation_specification":"l","initial_lifecycle_hook":"s","instance_maintenance_policy":"l","instance_refresh":"l","launch_template":"l","mixed_instances_policy":"l","tag":"s","traffic_source":"s","warm_pool":"l"},"aws_autoscaling_group_tag":{"tag":"l"},"aws_autoscaling_notification":{"group_names":"s","notifications":"s"},"aws_autoscaling_policy":{"predictive_scaling_configuration":"l","step_adjustment":"s","target_tracking_configuration":"l"},"aws_autoscaling_traffic_source_attachment":{"traffic_source":"l"},"aws_autoscalingplans_scaling_plan":{"application_source":"l","scaling_instruction":"s"},"aws_backup_framework":{"tags":"m","tags_all":"m","control":"s"},"aws_backup_global_settings":{"global_settings":"m"},"aws_backup_logically_air_gapped_vault":{"tags":"m","tags_all":"m"},"aws_backup_plan":{"tags":"m","tags_all":"m","advanced_backup_setting":"s","rule":"s"},"aws_backup_region_settings":{"resource_type_management_preference":"m","resource_type_opt_in_preference":"m"},"aws_backup_report_plan":{"tags":"m","tags_all":"m","report_delivery_channel":"l","report_setting":"l"},"aws_backup_restore_testing_plan":{"tags":"m","tags_all":"m","recovery_point_selection":"l"},"aws_backup_restore_testing_selection":{"protected_resource_arns":"s","restore_metadata_overrides":"m","protected_resource_conditions":"l"},"aws_backup_selection":{"not_resources":"s","resources":"s","condition":"s","selection_tag":"s"},"aws_backup_vault":{"tags":"m","tags_all":"m"},"aws_backup_vault_notifications":{"backup_vault_events":"s"},"aws_batch_compute_environment":{"tags":"m","tags_all":"m","compute_resources":"l","eks_configuration":"l","update_policy":"l"},"aws_batch_job_definition":{"parameters":"m","platform_capabilities":"s","tags":"m","tags_all":"m","eks_properties":"l","retry_strategy":"l","timeout":"l"},"aws_batch_job_queue":{"compute_environments":"l","tags":"m","tags_all":"m","compute_environment_order":"l","job_state_time_limit_action":"l"},"aws_batch_scheduling_policy":{"tags":"m","tags_all":"m","fair_share_policy":"l"},"aws_bcmdataexports_export":{"tags":"m","tags_all":"m","export":"l"},"aws_bedrock_custom_model":{"hyperparameters":"m","tags":"m","tags_all":"m","training_metrics":"l","validation_metrics":"l","output_data_config":"l","training_data_config":"l","validation_data_config":"l","vpc_config":"l"},"aws_bedrock_guardrail":{"tags":"m","tags_all":"m","content_policy_config":"l","contextual_grounding_policy_config":"l","sensitive_information_policy_config":"l","topic_policy_config":"l","word_policy_config":"l"},"aws_bedrock_inference_profile":{"models":"l","tags":"m","tags_all":"m","model_source":"l"},"aws_bedrock_provisioned_model_throughput":{"tags":"m","tags_all":"m"},"aws_bedrockagent_agent":{"guardrail_configuration":"l","memory_configuration":"l","prompt_override_configuration":"l","tags":"m","tags_all":"m"},"aws_bedrockagent_agent_action_group":{"action_group_executor":"l","api_schema":"l","function_schema":"l"},"aws_bedrockagent_agent_alias":{"routing_configuration":"l","tags":"m","tags_all":"m"},"aws_bedrockagent_agent_collaborator":{"agent_descriptor":"l"},"aws_bedrockagent_data_source":{"data_source_configuration":"l","server_side_encryption_configuration":"l","vector_ingestion_configuration":"l"},"aws_bedrockagent_knowledge_base":{"failure_reasons":"l","tags":"m","tags_all":"m","knowledge_base_configuration":"l","storage_configuration":"l"},"aws_bedrockagent_prompt":{"tags":"m","tags_all":"m","variant":"l"},"aws_budgets_budget":{"tags":"m","tags_all":"m","auto_adjust_data":"l","cost_filter":"s","cost_types":"l","notification":"s","planned_limit":"s"},"aws_budgets_budget_action":{"tags":"m","tags_all":"m","action_threshold":"l","definition":"l","subscriber":"s"},"aws_ce_anomaly_monitor":{"tags":"m","tags_all":"m"},"aws_ce_anomaly_subscription":{"monitor_arn_list":"l","tags":"m","tags_all":"m","subscriber":"s","threshold_expression":"l"},"aws_ce_cost_category":{"tags":"m","tags_all":"m","rule":"l","split_charge_rule":"s"},"aws_chatbot_slack_channel_configuration":{"guardrail_policy_arns":"l","sns_topic_arns":"s","tags":"m","tags_all":"m"},"aws_chatbot_teams_channel_configuration":{"guardrail_policy_arns":"l","sns_topic_arns":"s","tags":"m","tags_all":"m"},"aws_chime_voice_connector":{"tags":"m","tags_all":"m"},"aws_chime_voice_connector_group":{"connector":"s"},"aws_chime_voice_connector_origination":{"route":"s"},"aws_chime_voice_connector_streaming":{"streaming_notification_targets":"s","media_insights_configuration":"l"},"aws_chime_voice_connector_termination":{"calling_regions":"s","cidr_allow_list":"s"},"aws_chime_voice_connector_termination_credentials":{"credentials":"s"},"aws_chimesdkmediapipelines_media_insights_pipeline_configuration":{"tags":"m","tags_all":"m","elements":"l","real_time_alert_configuration":"l"},"aws_chimesdkvoice_global_settings":{"voice_connector":"l"},"aws_chimesdkvoice_sip_media_application":{"tags":"m","tags_all":"m","endpoints":"l"},"aws_chimesdkvoice_sip_rule":{"target_applications":"s"},"aws_chimesdkvoice_voice_profile_domain":{"tags":"m","tags_all":"m","server_side_encryption_configuration":"l"},"aws_cleanrooms_collaboration":{"creator_member_abilities":"l","tags":"m","tags_all":"m","data_encryption_metadata":"l","member":"s"},"aws_cleanrooms_configured_table":{"allowed_columns":"s","tags":"m","tags_all":"m","table_reference":"l"},"aws_cleanrooms_membership":{"member_abilities":"l","tags":"m","tags_all":"m","default_result_configuration":"l","payment_configuration":"l"},"aws_cloud9_environment_ec2":{"tags":"m","tags_all":"m"},"aws_cloudformation_stack":{"capabilities":"s","notification_arns":"s","outputs":"m","parameters":"m","tags":"m","tags_all":"m"},"aws_cloudformation_stack_instances":{"accounts":"s","parameter_overrides":"m","regions":"s","stack_instance_summaries":"l","deployment_targets":"l","operation_preferences":"l"},"aws_cloudformation_stack_set":{"capabilities":"s","parameters":"m","tags":"m","tags_all":"m","auto_deployment":"l","managed_execution":"l","operation_preferences":"l"},"aws_cloudformation_stack_set_instance":{"parameter_overrides":"m","stack_instance_summaries":"l","deployment_targets":"l","operation_preferences":"l"},"aws_cloudformation_type":{"logging_config":"l"},"aws_cloudfront_cache_policy":{"parameters_in_cache_key_and_forwarded_to_origin":"l"},"aws_cloudfront_continuous_deployment_policy":{"staging_distribution_dns_names":"l","traffic_config":"l"},"aws_cloudfront_distribution":{"aliases":"s","tags":"m","tags_all":"m","trusted_key_groups":"l","trusted_signers":"l","custom_error_response":"s","default_cache_behavior":"l","logging_config":"l","ordered_cache_behavior":"l","origin":"s","origin_group":"s","restrictions":"l","viewer_certificate":"l"},"aws_cloudfront_field_level_encryption_config":{"content_type_profile_config":"l","query_arg_profile_config":"l"},"aws_cloudfront_field_level_encryption_profile":{"encryption_entities":"l"},"aws_cloudfront_function":{"key_value_store_associations":"s"},"aws_cloudfront_key_group":{"items":"s"},"aws_cloudfront_monitoring_subscription":{"monitoring_subscription":"l"},"aws_cloudfront_origin_request_policy":{"cookies_config":"l","headers_config":"l","query_strings_config":"l"},"aws_cloudfront_realtime_log_config":{"fields":"s","endpoint":"l"},"aws_cloudfront_response_headers_policy":{"cors_config":"l","custom_headers_config":"l","remove_headers_config":"l","security_headers_config":"l","server_timing_headers_config":"l"},"aws_cloudfront_vpc_origin":{"tags":"m","tags_all":"m","vpc_origin_endpoint_config":"l"},"aws_cloudfrontkeyvaluestore_keys_exclusive":{"resource_key_value_pair":"s"},"aws_cloudhsm_v2_cluster":{"cluster_certificates":"l","subnet_ids":"s","tags":"m","tags_all":"m"},"aws_cloudsearch_domain":{"endpoint_options":"l","index_field":"s","scaling_parameters":"l"},"aws_cloudtrail":{"tags":"m","tags_all":"m","advanced_event_selector":"l","event_selector":"l","insight_selector":"s"},"aws_cloudtrail_event_data_store":{"tags":"m","tags_all":"m","advanced_event_selector":"l"},"aws_cloudwatch_composite_alarm":{"alarm_actions":"s","insufficient_data_actions":"s","ok_actions":"s","tags":"m","tags_all":"m","actions_suppressor":"l"},"aws_cloudwatch_contributor_insight_rule":{"tags":"m","tags_all":"m"},"aws_cloudwatch_contributor_managed_insight_rule":{"tags":"m","tags_all":"m"},"aws_cloudwatch_event_bus":{"tags":"m","tags_all":"m","dead_letter_config":"l"},"aws_cloudwatch_event_connection":{"auth_parameters":"l","invocation_connectivity_parameters":"l"},"aws_cloudwatch_event_endpoint":{"event_bus":"l","replication_config":"l","routing_config":"l"},"aws_cloudwatch_event_permission":{"condition":"l"},"aws_cloudwatch_event_rule":{"tags":"m","tags_all":"m"},"aws_cloudwatch_event_target":{"appsync_target":"l","batch_target":"l","dead_letter_config":"l","ecs_target":"l","http_target":"l","input_transformer":"l","kinesis_target":"l","redshift_target":"l","retry_policy":"l","run_command_targets":"l","sagemaker_pipeline_target":"l","sqs_target":"l"},"aws_cloudwatch_log_anomaly_detector":{"log_group_arn_list":"l","tags":"m","tags_all":"m"},"aws_cloudwatch_log_delivery":{"record_fields":"l","s3_delivery_configuration":"l","tags":"m","tags_all":"m"},"aws_cloudwatch_log_delivery_destination":{"tags":"m","tags_all":"m","delivery_destination_configuration":"l"},"aws_cloudwatch_log_delivery_source":{"tags":"m","tags_all":"m"},"aws_cloudwatch_log_destination":{"tags":"m","tags_all":"m"},"aws_cloudwatch_log_group":{"tags":"m","tags_all":"m"},"aws_cloudwatch_log_metric_filter":{"metric_transformation":"l"},"aws_cloudwatch_metric_alarm":{"alarm_actions":"s","dimensions":"m","insufficient_data_actions":"s","ok_actions":"s","tags":"m","tags_all":"m","metric_query":"s"},"aws_cloudwatch_metric_stream":{"tags":"m","tags_all":"m","exclude_filter":"s","include_filter":"s","statistics_configuration":"s"},"aws_cloudwatch_query_definition":{"log_group_names":"l"},"aws_codeartifact_domain":{"tags":"m","tags_all":"m"},"aws_codeartifact_repository":{"tags":"m","tags_all":"m","external_connections":"l","upstream":"l"},"aws_codebuild_fleet":{"status":"s","tags":"m","tags_all":"m","compute_configuration":"l","scaling_configuration":"l","vpc_config":"l"},"aws_codebuild_project":{"tags":"m","tags_all":"m","artifacts":"l","build_batch_config":"l","cache":"l","environment":"l","file_system_locations":"s","logs_config":"l","secondary_artifacts":"s","secondary_source_version":"s","secondary_sources":"s","source":"l","vpc_config":"l"},"aws_codebuild_report_group":{"tags":"m","tags_all":"m","export_config":"l"},"aws_codebuild_webhook":{"filter_group":"s","scope_configuration":"l"},"aws_codecatalyst_dev_environment":{"ides":"l","persistent_storage":"l","repositories":"l"},"aws_codecommit_repository":{"tags":"m","tags_all":"m"},"aws_codecommit_trigger":{"trigger":"s"},"aws_codeconnections_connection":{"tags":"m","tags_all":"m"},"aws_codeconnections_host":{"tags":"m","tags_all":"m","vpc_configuration":"l"},"aws_codedeploy_app":{"tags":"m","tags_all":"m"},"aws_codedeploy_deployment_config":{"minimum_healthy_hosts":"l","traffic_routing_config":"l","zonal_config":"l"},"aws_codedeploy_deployment_group":{"autoscaling_groups":"s","tags":"m","tags_all":"m","alarm_configuration":"l","auto_rollback_configuration":"l","blue_green_deployment_config":"l","deployment_style":"l","ec2_tag_filter":"s","ec2_tag_set":"s","ecs_service":"l","load_balancer_info":"l","on_premises_instance_tag_filter":"s","trigger_configuration":"s"},"aws_codeguruprofiler_profiling_group":{"tags":"m","tags_all":"m","agent_orchestration_config":"l"},"aws_codegurureviewer_repository_association":{"s3_repository_details":"l","tags":"m","tags_all":"m","kms_key_details":"l","repository":"l"},"aws_codepipeline":{"tags":"m","tags_all":"m","trigger_all":"l","artifact_store":"s","stage":"l","trigger":"l","variable":"l"},"aws_codepipeline_custom_action_type":{"tags":"m","tags_all":"m","configuration_property":"l","input_artifact_details":"l","output_artifact_details":"l","settings":"l"},"aws_codepipeline_webhook":{"tags":"m","tags_all":"m","authentication_configuration":"l","filter":"s"},"aws_codestarconnections_connection":{"tags":"m","tags_all":"m"},"aws_codestarconnections_host":{"vpc_configuration":"l"},"aws_codestarnotifications_notification_rule":{"event_type_ids":"s","tags":"m","tags_all":"m","target":"s"},"aws_cognito_identity_pool":{"openid_connect_provider_arns":"s","saml_provider_arns":"l","supported_login_providers":"m","tags":"m","tags_all":"m","cognito_identity_providers":"s"},"aws_cognito_identity_pool_provider_principal_tag":{"principal_tags":"m"},"aws_cognito_identity_pool_roles_attachment":{"roles":"m","role_mapping":"s"},"aws_cognito_identity_provider":{"attribute_mapping":"m","idp_identifiers":"l","provider_details":"m"},"aws_cognito_managed_user_pool_client":{"allowed_oauth_flows":"s","allowed_oauth_scopes":"s","callback_urls":"s","explicit_auth_flows":"s","logout_urls":"s","read_attributes":"s","supported_identity_providers":"s","write_attributes":"s","analytics_configuration":"l","refresh_token_rotation":"l","token_validity_units":"l"},"aws_cognito_resource_server":{"scope_identifiers":"l","scope":"s"},"aws_cognito_risk_configuration":{"account_takeover_risk_configuration":"l","compromised_credentials_risk_configuration":"l","risk_exception_configuration":"l"},"aws_cognito_user":{"attributes":"m","client_metadata":"m","desired_delivery_mediums":"s","mfa_setting_list":"s","validation_data":"m"},"aws_cognito_user_pool":{"alias_attributes":"s","auto_verified_attributes":"s","tags":"m","tags_all":"m","username_attributes":"s","account_recovery_setting":"l","admin_create_user_config":"l","device_configuration":"l","email_configuration":"l","email_mfa_configuration":"l","lambda_config":"l","password_policy":"l","schema":"s","sign_in_policy":"l","sms_configuration":"l","software_token_mfa_configuration":"l","user_attribute_update_settings":"l","user_pool_add_ons":"l","username_configuration":"l","verification_message_template":"l","web_authn_configuration":"l"},"aws_cognito_user_pool_client":{"allowed_oauth_flows":"s","allowed_oauth_scopes":"s","callback_urls":"s","explicit_auth_flows":"s","logout_urls":"s","read_attributes":"s","supported_identity_providers":"s","write_attributes":"s","analytics_configuration":"l","refresh_token_rotation":"l","token_validity_units":"l"},"aws_comprehend_document_classifier":{"tags":"m","tags_all":"m","input_data_config":"l","output_data_config":"l","vpc_config":"l"},"aws_comprehend_entity_recognizer":{"tags":"m","tags_all":"m","input_data_config":"l","vpc_config":"l"},"aws_computeoptimizer_recommendation_preferences":{"external_metrics_preference":"l","preferred_resource":"l","scope":"l","utilization_preference":"l"},"aws_config_aggregate_authorization":{"tags":"m","tags_all":"m"},"aws_config_config_rule":{"tags":"m","tags_all":"m","evaluation_mode":"s","scope":"l","source":"l"},"aws_config_configuration_aggregator":{"tags":"m","tags_all":"m","account_aggregation_source":"l","organization_aggregation_source":"l"},"aws_config_configuration_recorder":{"recording_group":"l","recording_mode":"l"},"aws_config_conformance_pack":{"input_parameter":"s"},"aws_config_delivery_channel":{"snapshot_delivery_properties":"l"},"aws_config_organization_conformance_pack":{"excluded_accounts":"s","input_parameter":"s"},"aws_config_organization_custom_policy_rule":{"debug_log_delivery_accounts":"s","excluded_accounts":"s","resource_types_scope":"s","trigger_types":"s"},"aws_config_organization_custom_rule":{"excluded_accounts":"s","resource_types_scope":"s","trigger_types":"s"},"aws_config_organization_managed_rule":{"excluded_accounts":"s","resource_types_scope":"s"},"aws_config_remediation_configuration":{"execution_controls":"l","parameter":"l"},"aws_connect_bot_association":{"lex_bot":"l"},"aws_connect_contact_flow":{"tags":"m","tags_all":"m"},"aws_connect_contact_flow_module":{"tags":"m","tags_all":"m"},"aws_connect_hours_of_operation":{"tags":"m","tags_all":"m","config":"s"},"aws_connect_instance":{"tags":"m","tags_all":"m"},"aws_connect_instance_storage_config":{"storage_config":"l"},"aws_connect_phone_number":{"status":"l","tags":"m","tags_all":"m"},"aws_connect_queue":{"quick_connect_ids":"s","tags":"m","tags_all":"m","outbound_caller_config":"l"},"aws_connect_quick_connect":{"tags":"m","tags_all":"m","quick_connect_config":"l"},"aws_connect_routing_profile":{"tags":"m","tags_all":"m","media_concurrencies":"s","queue_configs":"s"},"aws_connect_security_profile":{"permissions":"s","tags":"m","tags_all":"m"},"aws_connect_user":{"security_profile_ids":"s","tags":"m","tags_all":"m","identity_info":"l","phone_config":"l"},"aws_connect_user_hierarchy_group":{"hierarchy_path":"l","tags":"m","tags_all":"m"},"aws_connect_user_hierarchy_structure":{"hierarchy_structure":"l"},"aws_connect_vocabulary":{"tags":"m","tags_all":"m"},"aws_controltower_control":{"parameters":"s"},"aws_controltower_landing_zone":{"drift_status":"l","tags":"m","tags_all":"m"},"aws_cur_report_definition":{"additional_artifacts":"s","additional_schema_elements":"s","tags":"m","tags_all":"m"},"aws_customer_gateway":{"tags":"m","tags_all":"m"},"aws_customerprofiles_domain":{"tags":"m","tags_all":"m","matching":"l","rule_based_matching":"l"},"aws_customerprofiles_profile":{"attributes":"m","address":"l","billing_address":"l","mailing_address":"l","shipping_address":"l"},"aws_dataexchange_data_set":{"tags":"m","tags_all":"m"},"aws_dataexchange_event_action":{"action":"l","event":"l"},"aws_dataexchange_revision":{"tags":"m","tags_all":"m"},"aws_dataexchange_revision_assets":{"tags":"m","tags_all":"m","asset":"s"},"aws_datapipeline_pipeline":{"tags":"m","tags_all":"m"},"aws_datapipeline_pipeline_definition":{"parameter_object":"s","parameter_value":"s","pipeline_object":"s"},"aws_datasync_agent":{"security_group_arns":"s","subnet_arns":"s","tags":"m","tags_all":"m"},"aws_datasync_location_azure_blob":{"agent_arns":"s","tags":"m","tags_all":"m","sas_configuration":"l"},"aws_datasync_location_efs":{"tags":"m","tags_all":"m","ec2_config":"l"},"aws_datasync_location_fsx_lustre_file_system":{"security_group_arns":"s","tags":"m","tags_all":"m"},"aws_datasync_location_fsx_ontap_file_system":{"security_group_arns":"s","tags":"m","tags_all":"m","protocol":"l"},"aws_datasync_location_fsx_openzfs_file_system":{"security_group_arns":"s","tags":"m","tags_all":"m","protocol":"l"},"aws_datasync_location_fsx_windows_file_system":{"security_group_arns":"s","tags":"m","tags_all":"m"},"aws_datasync_location_hdfs":{"agent_arns":"s","tags":"m","tags_all":"m","name_node":"s","qop_configuration":"l"},"aws_datasync_location_nfs":{"tags":"m","tags_all":"m","mount_options":"l","on_prem_config":"l"},"aws_datasync_location_object_storage":{"agent_arns":"s","tags":"m","tags_all":"m"},"aws_datasync_location_s3":{"agent_arns":"s","tags":"m","tags_all":"m","s3_config":"l"},"aws_datasync_location_smb":{"agent_arns":"s","tags":"m","tags_all":"m","mount_options":"l"},"aws_datasync_task":{"tags":"m","tags_all":"m","excludes":"l","includes":"l","options":"l","schedule":"l","task_report_config":"l"},"aws_datazone_asset_type":{"forms_input":"s"},"aws_datazone_domain":{"tags":"m","tags_all":"m","single_sign_on":"l"},"aws_datazone_environment":{"glossary_terms":"l","last_deployment":"l","provisioned_resources":"l","user_parameters":"l"},"aws_datazone_environment_blueprint_configuration":{"enabled_regions":"l","regional_parameters":"m"},"aws_datazone_environment_profile":{"user_parameters":"l"},"aws_datazone_form_type":{"imports":"l","model":"l"},"aws_datazone_glossary_term":{"term_relations":"l"},"aws_datazone_project":{"failure_reasons":"l","glossary_terms":"l"},"aws_datazone_user_profile":{"details":"l"},"aws_dax_cluster":{"availability_zones":"s","nodes":"l","security_group_ids":"s","tags":"m","tags_all":"m","server_side_encryption":"l"},"aws_dax_parameter_group":{"parameters":"s"},"aws_dax_subnet_group":{"subnet_ids":"s"},"aws_db_cluster_snapshot":{"availability_zones":"l","shared_accounts":"s","tags":"m","tags_all":"m"},"aws_db_event_subscription":{"event_categories":"s","source_ids":"s","tags":"m","tags_all":"m"},"aws_db_instance":{"domain_dns_ips":"l","enabled_cloudwatch_logs_exports":"s","listener_endpoint":"l","master_user_secret":"l","replicas":"l","tags":"m","tags_all":"m","vpc_security_group_ids":"s","blue_green_update":"l","restore_to_point_in_time":"l","s3_import":"l"},"aws_db_option_group":{"tags":"m","tags_all":"m","option":"s"},"aws_db_parameter_group":{"tags":"m","tags_all":"m","parameter":"s"},"aws_db_proxy":{"tags":"m","tags_all":"m","vpc_security_group_ids":"s","vpc_subnet_ids":"s","auth":"s"},"aws_db_proxy_default_target_group":{"connection_pool_config":"l"},"aws_db_proxy_endpoint":{"tags":"m","tags_all":"m","vpc_security_group_ids":"s","vpc_subnet_ids":"s"},"aws_db_snapshot":{"shared_accounts":"s","tags":"m","tags_all":"m"},"aws_db_snapshot_copy":{"shared_accounts":"s","tags":"m","tags_all":"m"},"aws_db_subnet_group":{"subnet_ids":"s","supported_network_types":"s","tags":"m","tags_all":"m"},"aws_default_network_acl":{"subnet_ids":"s","tags":"m","tags_all":"m","egress":"s","ingress":"s"},"aws_default_route_table":{"propagating_vgws":"s","route":"s","tags":"m","tags_all":"m"},"aws_default_security_group":{"egress":"s","ingress":"s","tags":"m","tags_all":"m"},"aws_default_subnet":{"tags":"m","tags_all":"m"},"aws_default_vpc":{"tags":"m","tags_all":"m"},"aws_default_vpc_dhcp_options":{"tags":"m","tags_all":"m"},"aws_detective_graph":{"tags":"m","tags_all":"m"},"aws_devicefarm_device_pool":{"tags":"m","tags_all":"m","rule":"s"},"aws_devicefarm_instance_profile":{"exclude_app_packages_from_cleanup":"s","tags":"m","tags_all":"m"},"aws_devicefarm_network_profile":{"tags":"m","tags_all":"m"},"aws_devicefarm_project":{"tags":"m","tags_all":"m"},"aws_devicefarm_test_grid_project":{"tags":"m","tags_all":"m","vpc_config":"l"},"aws_devopsguru_event_sources_config":{"event_sources":"l"},"aws_devopsguru_notification_channel":{"filters":"l","sns":"l"},"aws_devopsguru_resource_collection":{"cloudformation":"l","tags":"l"},"aws_devopsguru_service_integration":{"kms_server_side_encryption":"l","logs_anomaly_detection":"l","ops_center":"l"},"aws_directory_service_conditional_forwarder":{"dns_ips":"l"},"aws_directory_service_directory":{"dns_ip_addresses":"s","tags":"m","tags_all":"m","connect_settings":"l","vpc_settings":"l"},"aws_directory_service_radius_settings":{"radius_servers":"s"},"aws_directory_service_region":{"tags":"m","tags_all":"m","vpc_settings":"l"},"aws_directory_service_shared_directory":{"target":"l"},"aws_directory_service_trust":{"conditional_forwarder_ip_addrs":"s"},"aws_dlm_lifecycle_policy":{"tags":"m","tags_all":"m","policy_details":"l"},"aws_dms_certificate":{"tags":"m","tags_all":"m"},"aws_dms_endpoint":{"tags":"m","tags_all":"m","elasticsearch_settings":"l","kafka_settings":"l","kinesis_settings":"l","mongodb_settings":"l","postgres_settings":"l","redis_settings":"l","redshift_settings":"l","s3_settings":"l"},"aws_dms_event_subscription":{"event_categories":"s","source_ids":"s","tags":"m","tags_all":"m"},"aws_dms_replication_config":{"tags":"m","tags_all":"m","compute_config":"l"},"aws_dms_replication_instance":{"replication_instance_private_ips":"l","replication_instance_public_ips":"l","tags":"m","tags_all":"m","vpc_security_group_ids":"s"},"aws_dms_replication_subnet_group":{"subnet_ids":"s","tags":"m","tags_all":"m"},"aws_dms_replication_task":{"tags":"m","tags_all":"m"},"aws_dms_s3_endpoint":{"tags":"m","tags_all":"m"},"aws_docdb_cluster":{"availability_zones":"s","cluster_members":"s","enabled_cloudwatch_logs_exports":"l","master_user_secret":"l","tags":"m","tags_all":"m","vpc_security_group_ids":"s","restore_to_point_in_time":"l"},"aws_docdb_cluster_instance":{"tags":"m","tags_all":"m"},"aws_docdb_cluster_parameter_group":{"tags":"m","tags_all":"m","parameter":"s"},"aws_docdb_cluster_snapshot":{"availability_zones":"l"},"aws_docdb_event_subscription":{"event_categories":"s","source_ids":"s","tags":"m","tags_all":"m"},"aws_docdb_global_cluster":{"global_cluster_members":"s"},"aws_docdb_subnet_group":{"subnet_ids":"s","tags":"m","tags_all":"m"},"aws_docdbelastic_cluster":{"subnet_ids":"s","tags":"m","tags_all":"m","vpc_security_group_ids":"s"},"aws_drs_replication_configuration_template":{"replication_servers_security_groups_ids":"l","staging_area_tags":"m","tags":"m","tags_all":"m","pit_policy":"l"},"aws_dsql_cluster":{"encryption_details":"l","tags":"m","tags_all":"m","multi_region_properties":"l"},"aws_dsql_cluster_peering":{"clusters":"s"},"aws_dx_connection":{"tags":"m","tags_all":"m"},"aws_dx_gateway_association":{"allowed_prefixes":"s"},"aws_dx_gateway_association_proposal":{"allowed_prefixes":"s"},"aws_dx_hosted_private_virtual_interface_accepter":{"tags":"m","tags_all":"m"},"aws_dx_hosted_public_virtual_interface":{"route_filter_prefixes":"s"},"aws_dx_hosted_public_virtual_interface_accepter":{"tags":"m","tags_all":"m"},"aws_dx_hosted_transit_virtual_interface_accepter":{"tags":"m","tags_all":"m"},"aws_dx_lag":{"tags":"m","tags_all":"m"},"aws_dx_private_virtual_interface":{"tags":"m","tags_all":"m"},"aws_dx_public_virtual_interface":{"route_filter_prefixes":"s","tags":"m","tags_all":"m"},"aws_dx_transit_virtual_interface":{"tags":"m","tags_all":"m"},"aws_dynamodb_global_table":{"replica":"s"},"aws_dynamodb_table":{"tags":"m","tags_all":"m","attribute":"s","global_secondary_index":"s","import_table":"l","local_secondary_index":"s","on_demand_throughput":"l","point_in_time_recovery":"l","replica":"s","server_side_encryption":"l","ttl":"l"},"aws_dynamodb_table_export":{"incremental_export_specification":"l"},"aws_dynamodb_table_replica":{"tags":"m","tags_all":"m"},"aws_ebs_snapshot":{"tags":"m","tags_all":"m"},"aws_ebs_snapshot_copy":{"tags":"m","tags_all":"m"},"aws_ebs_snapshot_import":{"tags":"m","tags_all":"m","client_data":"l","disk_container":"l"},"aws_ebs_volume":{"tags":"m","tags_all":"m"},"aws_ec2_capacity_block_reservation":{"tags":"m","tags_all":"m"},"aws_ec2_capacity_reservation":{"tags":"m","tags_all":"m"},"aws_ec2_carrier_gateway":{"tags":"m","tags_all":"m"},"aws_ec2_client_vpn_endpoint":{"dns_servers":"l","security_group_ids":"s","tags":"m","tags_all":"m","authentication_options":"s","client_connect_options":"l","client_login_banner_options":"l","client_route_enforcement_options":"l","connection_log_options":"l"},"aws_ec2_fleet":{"tags":"m","tags_all":"m","fleet_instance_set":"l","launch_template_config":"l","on_demand_options":"l","spot_options":"l","target_capacity_specification":"l"},"aws_ec2_host":{"tags":"m","tags_all":"m"},"aws_ec2_instance_connect_endpoint":{"network_interface_ids":"l","security_group_ids":"s","tags":"m","tags_all":"m"},"aws_ec2_local_gateway_route_table_vpc_association":{"tags":"m","tags_all":"m"},"aws_ec2_managed_prefix_list":{"tags":"m","tags_all":"m","entry":"s"},"aws_ec2_network_insights_analysis":{"alternate_path_hints":"l","explanations":"l","filter_in_arns":"s","forward_path_components":"l","return_path_components":"l","tags":"m","tags_all":"m"},"aws_ec2_network_insights_path":{"tags":"m","tags_all":"m","filter_at_destination":"l","filter_at_source":"l"},"aws_ec2_traffic_mirror_filter":{"network_services":"s","tags":"m","tags_all":"m"},"aws_ec2_traffic_mirror_filter_rule":{"destination_port_range":"l","source_port_range":"l"},"aws_ec2_traffic_mirror_session":{"tags":"m","tags_all":"m"},"aws_ec2_traffic_mirror_target":{"tags":"m","tags_all":"m"},"aws_ec2_transit_gateway":{"tags":"m","tags_all":"m","transit_gateway_cidr_blocks":"s"},"aws_ec2_transit_gateway_connect":{"tags":"m","tags_all":"m"},"aws_ec2_transit_gateway_connect_peer":{"bgp_transit_gateway_addresses":"s","inside_cidr_blocks":"s","tags":"m","tags_all":"m"},"aws_ec2_transit_gateway_multicast_domain":{"tags":"m","tags_all":"m"},"aws_ec2_transit_gateway_peering_attachment":{"tags":"m","tags_all":"m","options":"l"},"aws_ec2_transit_gateway_peering_attachment_accepter":{"tags":"m","tags_all":"m"},"aws_ec2_transit_gateway_policy_table":{"tags":"m","tags_all":"m"},"aws_ec2_transit_gateway_route_table":{"tags":"m","tags_all":"m"},"aws_ec2_transit_gateway_vpc_attachment":{"subnet_ids":"s","tags":"m","tags_all":"m"},"aws_ec2_transit_gateway_vpc_attachment_accepter":{"subnet_ids":"s","tags":"m","tags_all":"m"},"aws_ecr_registry_scanning_configuration":{"rule":"s"},"aws_ecr_replication_configuration":{"replication_configuration":"l"},"aws_ecr_repository":{"tags":"m","tags_all":"m","encryption_configuration":"l","image_scanning_configuration":"l"},"aws_ecr_repository_creation_template":{"applied_for":"s","resource_tags":"m","encryption_configuration":"l"},"aws_ecrpublic_repository":{"tags":"m","tags_all":"m","catalog_data":"l"},"aws_ecs_capacity_provider":{"tags":"m","tags_all":"m","auto_scaling_group_provider":"l"},"aws_ecs_cluster":{"tags":"m","tags_all":"m","configuration":"l","service_connect_defaults":"l","setting":"s"},"aws_ecs_cluster_capacity_providers":{"capacity_providers":"s","default_capacity_provider_strategy":"s"},"aws_ecs_service":{"tags":"m","tags_all":"m","triggers":"m","alarms":"l","capacity_provider_strategy":"s","deployment_circuit_breaker":"l","deployment_controller":"l","load_balancer":"s","network_configuration":"l","ordered_placement_strategy":"l","placement_constraints":"s","service_connect_configuration":"l","service_registries":"l","volume_configuration":"l","vpc_lattice_configurations":"s"},"aws_ecs_task_definition":{"requires_compatibilities":"s","tags":"m","tags_all":"m","ephemeral_storage":"l","inference_accelerator":"s","placement_constraints":"s","proxy_configuration":"l","runtime_platform":"l","volume":"s"},"aws_ecs_task_set":{"tags":"m","tags_all":"m","capacity_provider_strategy":"s","load_balancer":"s","network_configuration":"l","scale":"l","service_registries":"l"},"aws_efs_access_point":{"tags":"m","tags_all":"m","posix_user":"l","root_directory":"l"},"aws_efs_backup_policy":{"backup_policy":"l"},"aws_efs_file_system":{"size_in_bytes":"l","tags":"m","tags_all":"m","lifecycle_policy":"l","protection":"l"},"aws_efs_mount_target":{"security_groups":"s"},"aws_efs_replication_configuration":{"destination":"l"},"aws_egress_only_internet_gateway":{"tags":"m","tags_all":"m"},"aws_eip":{"tags":"m","tags_all":"m"},"aws_eks_access_entry":{"kubernetes_groups":"s","tags":"m","tags_all":"m"},"aws_eks_access_policy_association":{"access_scope":"l"},"aws_eks_addon":{"tags":"m","tags_all":"m","pod_identity_association":"s"},"aws_eks_cluster":{"certificate_authority":"l","enabled_cluster_log_types":"s","identity":"l","tags":"m","tags_all":"m","access_config":"l","compute_config":"l","encryption_config":"l","kubernetes_network_config":"l","outpost_config":"l","remote_network_config":"l","storage_config":"l","upgrade_policy":"l","vpc_config":"l","zonal_shift_config":"l"},"aws_eks_fargate_profile":{"subnet_ids":"s","tags":"m","tags_all":"m","selector":"s"},"aws_eks_identity_provider_config":{"tags":"m","tags_all":"m","oidc":"l"},"aws_eks_node_group":{"instance_types":"l","labels":"m","resources":"l","subnet_ids":"s","tags":"m","tags_all":"m","launch_template":"l","node_repair_config":"l","remote_access":"l","scaling_config":"l","taint":"s","update_config":"l"},"aws_eks_pod_identity_association":{"tags":"m","tags_all":"m"},"aws_elastic_beanstalk_application":{"tags":"m","tags_all":"m","appversion_lifecycle":"l"},"aws_elastic_beanstalk_application_version":{"tags":"m","tags_all":"m"},"aws_elastic_beanstalk_configuration_template":{"setting":"s"},"aws_elastic_beanstalk_environment":{"all_settings":"s","autoscaling_groups":"l","instances":"l","launch_configurations":"l","load_balancers":"l","queues":"l","tags":"m","tags_all":"m","triggers":"l","setting":"s"},"aws_elasticache_cluster":{"cache_nodes":"l","preferred_availability_zones":"l","security_group_ids":"s","snapshot_arns":"l","tags":"m","tags_all":"m","log_delivery_configuration":"s"},"aws_elasticache_global_replication_group":{"global_node_groups":"s"},"aws_elasticache_parameter_group":{"tags":"m","tags_all":"m","parameter":"s"},"aws_elasticache_replication_group":{"member_clusters":"s","preferred_cache_cluster_azs":"l","security_group_ids":"s","security_group_names":"s","snapshot_arns":"s","tags":"m","tags_all":"m","user_group_ids":"s","log_delivery_configuration":"s"},"aws_elasticache_reserved_cache_node":{"recurring_charges":"l","tags":"m","tags_all":"m"},"aws_elasticache_serverless_cache":{"endpoint":"l","reader_endpoint":"l","security_group_ids":"s","snapshot_arns_to_restore":"l","subnet_ids":"s","tags":"m","tags_all":"m","cache_usage_limits":"l"},"aws_elasticache_subnet_group":{"subnet_ids":"s","tags":"m","tags_all":"m"},"aws_elasticache_user":{"passwords":"s","tags":"m","tags_all":"m","authentication_mode":"l"},"aws_elasticache_user_group":{"tags":"m","tags_all":"m","user_ids":"s"},"aws_elasticsearch_domain":{"advanced_options":"m","tags":"m","tags_all":"m","advanced_security_options":"l","auto_tune_options":"l","cluster_config":"l","cognito_options":"l","domain_endpoint_options":"l","ebs_options":"l","encrypt_at_rest":"l","log_publishing_options":"s","node_to_node_encryption":"l","snapshot_options":"l","vpc_options":"l"},"aws_elasticsearch_domain_saml_options":{"saml_options":"l"},"aws_elasticsearch_vpc_endpoint":{"vpc_options":"l"},"aws_elastictranscoder_pipeline":{"content_config":"l","content_config_permissions":"s","notifications":"l","thumbnail_config":"l","thumbnail_config_permissions":"s"},"aws_elastictranscoder_preset":{"video_codec_options":"m","audio":"l","audio_codec_options":"l","thumbnails":"l","video":"l","video_watermarks":"s"},"aws_elb":{"availability_zones":"s","instances":"s","security_groups":"s","subnets":"s","tags":"m","tags_all":"m","access_logs":"l","health_check":"l","listener":"s"},"aws_emr_block_public_access_configuration":{"permitted_public_security_group_rule_range":"l"},"aws_emr_cluster":{"applications":"s","list_steps_states":"s","placement_group_config":"l","step":"l","tags":"m","tags_all":"m","auto_termination_policy":"l","bootstrap_action":"l","core_instance_fleet":"l","core_instance_group":"l","ec2_attributes":"l","kerberos_attributes":"l","master_instance_fleet":"l","master_instance_group":"l"},"aws_emr_instance_fleet":{"instance_type_configs":"s","launch_specifications":"l"},"aws_emr_instance_group":{"ebs_config":"s"},"aws_emr_managed_scaling_policy":{"compute_limits":"s"},"aws_emr_studio":{"subnet_ids":"s","tags":"m","tags_all":"m"},"aws_emrcontainers_job_template":{"tags":"m","tags_all":"m","job_template_data":"l"},"aws_emrcontainers_virtual_cluster":{"tags":"m","tags_all":"m","container_provider":"l"},"aws_emrserverless_application":{"tags":"m","tags_all":"m","auto_start_configuration":"l","auto_stop_configuration":"l","image_configuration":"l","initial_capacity":"s","interactive_configuration":"l","maximum_capacity":"l","network_configuration":"l"},"aws_evidently_feature":{"entity_overrides":"m","evaluation_rules":"s","tags":"m","tags_all":"m","variations":"s"},"aws_evidently_launch":{"execution":"l","tags":"m","tags_all":"m","groups":"l","metric_monitors":"l","scheduled_splits_config":"l"},"aws_evidently_project":{"tags":"m","tags_all":"m","data_delivery":"l"},"aws_evidently_segment":{"tags":"m","tags_all":"m"},"aws_finspace_kx_cluster":{"command_line_arguments":"m","tags":"m","tags_all":"m","auto_scaling_configuration":"l","cache_storage_configurations":"l","capacity_configuration":"l","code":"l","database":"l","savedown_storage_configuration":"l","scaling_group_configuration":"l","tickerplant_log_configuration":"l","vpc_configuration":"l"},"aws_finspace_kx_database":{"tags":"m","tags_all":"m"},"aws_finspace_kx_dataview":{"tags":"m","tags_all":"m","segment_configurations":"l"},"aws_finspace_kx_environment":{"availability_zones":"l","tags":"m","tags_all":"m","custom_dns_configuration":"l","transit_gateway_configuration":"l"},"aws_finspace_kx_scaling_group":{"clusters":"l","tags":"m","tags_all":"m"},"aws_finspace_kx_user":{"tags":"m","tags_all":"m"},"aws_finspace_kx_volume":{"attached_clusters":"l","availability_zones":"l","tags":"m","tags_all":"m","nas1_configuration":"l"},"aws_fis_experiment_template":{"tags":"m","tags_all":"m","action":"s","experiment_options":"l","experiment_report_configuration":"l","log_configuration":"l","stop_condition":"s","target":"s"},"aws_flow_log":{"tags":"m","tags_all":"m","destination_options":"l"},"aws_fms_policy":{"resource_set_ids":"s","resource_tags":"m","resource_type_list":"s","tags":"m","tags_all":"m","exclude_map":"l","include_map":"l","security_service_policy_data":"l"},"aws_fms_resource_set":{"tags":"m","tags_all":"m","resource_set":"l"},"aws_fsx_backup":{"tags":"m","tags_all":"m"},"aws_fsx_data_repository_association":{"tags":"m","tags_all":"m","s3":"l"},"aws_fsx_file_cache":{"data_repository_association_ids":"s","network_interface_ids":"s","security_group_ids":"s","subnet_ids":"l","tags":"m","tags_all":"m","data_repository_association":"s","lustre_configuration":"s"},"aws_fsx_lustre_file_system":{"final_backup_tags":"m","network_interface_ids":"l","security_group_ids":"s","subnet_ids":"l","tags":"m","tags_all":"m","data_read_cache_configuration":"l","log_configuration":"l","metadata_configuration":"l","root_squash_configuration":"l"},"aws_fsx_ontap_file_system":{"endpoints":"l","network_interface_ids":"l","route_table_ids":"s","security_group_ids":"s","subnet_ids":"l","tags":"m","tags_all":"m","disk_iops_configuration":"l"},"aws_fsx_ontap_storage_virtual_machine":{"endpoints":"l","tags":"m","tags_all":"m","active_directory_configuration":"l"},"aws_fsx_ontap_volume":{"final_backup_tags":"m","tags":"m","tags_all":"m","aggregate_configuration":"l","snaplock_configuration":"l","tiering_policy":"l"},"aws_fsx_openzfs_file_system":{"delete_options":"s","final_backup_tags":"m","network_interface_ids":"l","route_table_ids":"s","security_group_ids":"s","subnet_ids":"l","tags":"m","tags_all":"m","disk_iops_configuration":"l","root_volume_configuration":"l"},"aws_fsx_openzfs_snapshot":{"tags":"m","tags_all":"m"},"aws_fsx_openzfs_volume":{"delete_volume_options":"l","tags":"m","tags_all":"m","nfs_exports":"l","origin_snapshot":"l","user_and_group_quotas":"s"},"aws_fsx_windows_file_system":{"aliases":"s","final_backup_tags":"m","network_interface_ids":"s","security_group_ids":"s","subnet_ids":"l","tags":"m","tags_all":"m","audit_log_configuration":"l","disk_iops_configuration":"l","self_managed_active_directory":"l"},"aws_gamelift_alias":{"tags":"m","tags_all":"m","routing_strategy":"l"},"aws_gamelift_build":{"tags":"m","tags_all":"m","storage_location":"l"},"aws_gamelift_fleet":{"log_paths":"l","metric_groups":"l","tags":"m","tags_all":"m","certificate_configuration":"l","ec2_inbound_permission":"s","resource_creation_limit_policy":"l","runtime_configuration":"l"},"aws_gamelift_game_server_group":{"tags":"m","tags_all":"m","vpc_subnets":"s","auto_scaling_policy":"l","instance_definition":"s","launch_template":"l"},"aws_gamelift_game_session_queue":{"destinations":"l","tags":"m","tags_all":"m","player_latency_policy":"l"},"aws_gamelift_script":{"tags":"m","tags_all":"m","storage_location":"l"},"aws_glacier_vault":{"tags":"m","tags_all":"m","notification":"l"},"aws_globalaccelerator_accelerator":{"ip_addresses":"l","ip_sets":"l","tags":"m","tags_all":"m","attributes":"l"},"aws_globalaccelerator_cross_account_attachment":{"principals":"s","tags":"m","tags_all":"m","resource":"s"},"aws_globalaccelerator_custom_routing_accelerator":{"ip_addresses":"l","ip_sets":"l","tags":"m","tags_all":"m","attributes":"l"},"aws_globalaccelerator_custom_routing_endpoint_group":{"destination_configuration":"s","endpoint_configuration":"s"},"aws_globalaccelerator_custom_routing_listener":{"port_range":"s"},"aws_globalaccelerator_endpoint_group":{"endpoint_configuration":"s","port_override":"s"},"aws_globalaccelerator_listener":{"port_range":"s"},"aws_glue_catalog_database":{"parameters":"m","tags":"m","tags_all":"m","create_table_default_permission":"l","federated_database":"l","target_database":"l"},"aws_glue_catalog_table":{"parameters":"m","open_table_format_input":"l","partition_index":"l","partition_keys":"l","storage_descriptor":"l","target_table":"l"},"aws_glue_catalog_table_optimizer":{"configuration":"l"},"aws_glue_classifier":{"csv_classifier":"l","grok_classifier":"l","json_classifier":"l","xml_classifier":"l"},"aws_glue_connection":{"athena_properties":"m","connection_properties":"m","match_criteria":"l","tags":"m","tags_all":"m","physical_connection_requirements":"l"},"aws_glue_crawler":{"classifiers":"l","tags":"m","tags_all":"m","catalog_target":"l","delta_target":"l","dynamodb_target":"l","hudi_target":"l","iceberg_target":"l","jdbc_target":"l","lake_formation_configuration":"l","lineage_configuration":"l","mongodb_target":"l","recrawl_policy":"l","s3_target":"l","schema_change_policy":"l"},"aws_glue_data_catalog_encryption_settings":{"data_catalog_encryption_settings":"l"},"aws_glue_data_quality_ruleset":{"tags":"m","tags_all":"m","target_table":"l"},"aws_glue_dev_endpoint":{"arguments":"m","public_keys":"s","security_group_ids":"s","tags":"m","tags_all":"m"},"aws_glue_job":{"connections":"l","default_arguments":"m","non_overridable_arguments":"m","tags":"m","tags_all":"m","command":"l","execution_property":"l","notification_property":"l","source_control_details":"l"},"aws_glue_ml_transform":{"schema":"l","tags":"m","tags_all":"m","input_record_tables":"l","parameters":"l"},"aws_glue_partition":{"parameters":"m","partition_values":"l","storage_descriptor":"l"},"aws_glue_partition_index":{"partition_index":"l"},"aws_glue_registry":{"tags":"m","tags_all":"m"},"aws_glue_schema":{"tags":"m","tags_all":"m"},"aws_glue_security_configuration":{"encryption_configuration":"l"},"aws_glue_trigger":{"tags":"m","tags_all":"m","actions":"l","event_batching_condition":"l","predicate":"l"},"aws_glue_user_defined_function":{"resource_uris":"s"},"aws_glue_workflow":{"default_run_properties":"m","tags":"m","tags_all":"m"},"aws_grafana_role_association":{"group_ids":"s","user_ids":"s"},"aws_grafana_workspace":{"authentication_providers":"l","data_sources":"l","notification_destinations":"l","organizational_units":"l","tags":"m","tags_all":"m","network_access_control":"l","vpc_configuration":"l"},"aws_grafana_workspace_saml_configuration":{"admin_role_values":"l","allowed_organizations":"l","editor_role_values":"l"},"aws_guardduty_detector":{"tags":"m","tags_all":"m","datasources":"l"},"aws_guardduty_detector_feature":{"additional_configuration":"l"},"aws_guardduty_filter":{"tags":"m","tags_all":"m","finding_criteria":"l"},"aws_guardduty_ipset":{"tags":"m","tags_all":"m"},"aws_guardduty_malware_protection_plan":{"actions":"l","tags":"m","tags_all":"m","protected_resource":"l"},"aws_guardduty_member_detector_feature":{"additional_configuration":"l"},"aws_guardduty_organization_configuration":{"datasources":"l"},"aws_guardduty_organization_configuration_feature":{"additional_configuration":"l"},"aws_guardduty_threatintelset":{"tags":"m","tags_all":"m"},"aws_iam_group_membership":{"users":"s"},"aws_iam_group_policies_exclusive":{"policy_names":"s"},"aws_iam_group_policy_attachments_exclusive":{"policy_arns":"s"},"aws_iam_instance_profile":{"tags":"m","tags_all":"m"},"aws_iam_openid_connect_provider":{"client_id_list":"s","tags":"m","tags_all":"m","thumbprint_list":"l"},"aws_iam_organizations_features":{"enabled_features":"s"},"aws_iam_policy":{"tags":"m","tags_all":"m"},"aws_iam_policy_attachment":{"groups":"s","roles":"s","users":"s"},"aws_iam_role":{"managed_policy_arns":"s","tags":"m","tags_all":"m","inline_policy":"s"},"aws_iam_role_policies_exclusive":{"policy_names":"s"},"aws_iam_role_policy_attachments_exclusive":{"policy_arns":"s"},"aws_iam_saml_provider":{"tags":"m","tags_all":"m"},"aws_iam_server_certificate":{"tags":"m","tags_all":"m"},"aws_iam_service_linked_role":{"tags":"m","tags_all":"m"},"aws_iam_user":{"tags":"m","tags_all":"m"},"aws_iam_user_group_membership":{"groups":"s"},"aws_iam_user_policies_exclusive":{"policy_names":"s"},"aws_iam_user_policy_attachments_exclusive":{"policy_arns":"s"},"aws_iam_virtual_mfa_device":{"tags":"m","tags_all":"m"},"aws_identitystore_group":{"external_ids":"l"},"aws_identitystore_user":{"external_ids":"l","addresses":"l","emails":"l","name":"l","phone_numbers":"l"},"aws_imagebuilder_component":{"supported_os_versions":"s","tags":"m","tags_all":"m"},"aws_imagebuilder_container_recipe":{"tags":"m","tags_all":"m","component":"l","instance_configuration":"l","target_repository":"l"},"aws_imagebuilder_distribution_configuration":{"tags":"m","tags_all":"m","distribution":"s"},"aws_imagebuilder_image":{"output_resources":"l","tags":"m","tags_all":"m","image_scanning_configuration":"l","image_tests_configuration":"l","workflow":"s"},"aws_imagebuilder_image_pipeline":{"tags":"m","tags_all":"m","image_scanning_configuration":"l","image_tests_configuration":"l","schedule":"l","workflow":"l"},"aws_imagebuilder_image_recipe":{"tags":"m","tags_all":"m","block_device_mapping":"s","component":"l","systems_manager_agent":"l"},"aws_imagebuilder_infrastructure_configuration":{"instance_types":"s","resource_tags":"m","security_group_ids":"s","tags":"m","tags_all":"m","instance_metadata_options":"l","logging":"l","placement":"l"},"aws_imagebuilder_lifecycle_policy":{"tags":"m","tags_all":"m","policy_detail":"s","resource_selection":"l"},"aws_imagebuilder_workflow":{"tags":"m","tags_all":"m"},"aws_inspector2_enabler":{"account_ids":"s","resource_types":"s"},"aws_inspector2_filter":{"tags":"m","tags_all":"m","filter_criteria":"l"},"aws_inspector2_organization_configuration":{"auto_enable":"l"},"aws_inspector_assessment_template":{"rules_package_arns":"s","tags":"m","tags_all":"m","event_subscription":"s"},"aws_inspector_resource_group":{"tags":"m"},"aws_instance":{"ipv6_addresses":"l","secondary_private_ips":"s","security_groups":"s","tags":"m","tags_all":"m","volume_tags":"m","vpc_security_group_ids":"s","capacity_reservation_specification":"l","cpu_options":"l","credit_specification":"l","ebs_block_device":"s","enclave_options":"l","ephemeral_block_device":"s","instance_market_options":"l","launch_template":"l","maintenance_options":"l","metadata_options":"l","network_interface":"s","private_dns_name_options":"l","root_block_device":"l"},"aws_internet_gateway":{"tags":"m","tags_all":"m"},"aws_internetmonitor_monitor":{"resources":"s","tags":"m","tags_all":"m","health_events_config":"l","internet_measurements_log_delivery":"l"},"aws_iot_authorizer":{"tags":"m","tags_all":"m","token_signing_public_keys":"m"},"aws_iot_billing_group":{"metadata":"l","tags":"m","tags_all":"m","properties":"l"},"aws_iot_ca_certificate":{"tags":"m","tags_all":"m","validity":"l","registration_config":"l"},"aws_iot_domain_configuration":{"server_certificate_arns":"s","tags":"m","tags_all":"m","authorizer_config":"l","tls_config":"l"},"aws_iot_event_configurations":{"event_configurations":"m"},"aws_iot_indexing_configuration":{"thing_group_indexing_configuration":"l","thing_indexing_configuration":"l"},"aws_iot_policy":{"tags":"m","tags_all":"m"},"aws_iot_provisioning_template":{"tags":"m","tags_all":"m","pre_provisioning_hook":"l"},"aws_iot_role_alias":{"tags":"m","tags_all":"m"},"aws_iot_thing":{"attributes":"m"},"aws_iot_thing_group":{"metadata":"l","tags":"m","tags_all":"m","properties":"l"},"aws_iot_thing_type":{"tags":"m","tags_all":"m","properties":"l"},"aws_iot_topic_rule":{"tags":"m","tags_all":"m","cloudwatch_alarm":"s","cloudwatch_logs":"s","cloudwatch_metric":"s","dynamodb":"s","dynamodbv2":"s","elasticsearch":"s","error_action":"l","firehose":"s","http":"s","iot_analytics":"s","iot_events":"s","kafka":"s","kinesis":"s","lambda":"s","republish":"s","s3":"s","sns":"s","sqs":"s","step_functions":"s","timestream":"s"},"aws_iot_topic_rule_destination":{"vpc_configuration":"l"},"aws_ivs_channel":{"tags":"m","tags_all":"m"},"aws_ivs_playback_key_pair":{"tags":"m","tags_all":"m"},"aws_ivs_recording_configuration":{"tags":"m","tags_all":"m","destination_configuration":"l","thumbnail_configuration":"l"},"aws_ivschat_logging_configuration":{"tags":"m","tags_all":"m","destination_configuration":"l"},"aws_ivschat_room":{"logging_configuration_identifiers":"l","tags":"m","tags_all":"m","message_review_handler":"l"},"aws_kendra_data_source":{"tags":"m","tags_all":"m","configuration":"l","custom_document_enrichment_configuration":"l"},"aws_kendra_experience":{"endpoints":"s","configuration":"l"},"aws_kendra_faq":{"tags":"m","tags_all":"m","s3_path":"l"},"aws_kendra_index":{"index_statistics":"l","tags":"m","tags_all":"m","capacity_units":"l","document_metadata_configuration_updates":"s","server_side_encryption_configuration":"l","user_group_resolution_configuration":"l","user_token_configurations":"l"},"aws_kendra_query_suggestions_block_list":{"tags":"m","tags_all":"m","source_s3_path":"l"},"aws_kendra_thesaurus":{"tags":"m","tags_all":"m","source_s3_path":"l"},"aws_key_pair":{"tags":"m","tags_all":"m"},"aws_keyspaces_keyspace":{"tags":"m","tags_all":"m","replication_specification":"l"},"aws_keyspaces_table":{"tags":"m","tags_all":"m","capacity_specification":"l","client_side_timestamps":"l","comment":"l","encryption_specification":"l","point_in_time_recovery":"l","schema_definition":"l","ttl":"l"},"aws_kinesis_analytics_application":{"tags":"m","tags_all":"m","cloudwatch_logging_options":"l","inputs":"l","outputs":"s","reference_data_sources":"l"},"aws_kinesis_firehose_delivery_stream":{"tags":"m","tags_all":"m","elasticsearch_configuration":"l","extended_s3_configuration":"l","http_endpoint_configuration":"l","iceberg_configuration":"l","kinesis_source_configuration":"l","msk_source_configuration":"l","opensearch_configuration":"l","opensearchserverless_configuration":"l","redshift_configuration":"l","server_side_encryption":"l","snowflake_configuration":"l","splunk_configuration":"l"},"aws_kinesis_stream":{"shard_level_metrics":"s","tags":"m","tags_all":"m","stream_mode_details":"l"},"aws_kinesis_video_stream":{"tags":"m","tags_all":"m"},"aws_kinesisanalyticsv2_application":{"tags":"m","tags_all":"m","application_configuration":"l","cloudwatch_logging_options":"l"},"aws_kms_ciphertext":{"context":"m"},"aws_kms_custom_key_store":{"xks_proxy_authentication_credential":"l"},"aws_kms_external_key":{"tags":"m","tags_all":"m"},"aws_kms_grant":{"grant_creation_tokens":"s","operations":"s","constraints":"s"},"aws_kms_key":{"tags":"m","tags_all":"m"},"aws_kms_replica_external_key":{"tags":"m","tags_all":"m"},"aws_kms_replica_key":{"tags":"m","tags_all":"m"},"aws_lakeformation_data_cells_filter":{"table_data":"l"},"aws_lakeformation_data_lake_settings":{"admins":"s","authorized_session_tag_value_list":"l","external_data_filtering_allow_list":"s","parameters":"m","read_only_admins":"s","trusted_resource_owners":"l","create_database_default_permissions":"l","create_table_default_permissions":"l"},"aws_lakeformation_lf_tag":{"values":"s"},"aws_lakeformation_opt_in":{"condition":"l","principal":"l","resource_data":"l"},"aws_lakeformation_permissions":{"permissions":"s","permissions_with_grant_option":"s","data_cells_filter":"l","data_location":"l","database":"l","lf_tag":"l","lf_tag_policy":"l","table":"l","table_with_columns":"l"},"aws_lakeformation_resource_lf_tag":{"database":"l","lf_tag":"l","table":"l","table_with_columns":"l"},"aws_lakeformation_resource_lf_tags":{"database":"l","lf_tag":"s","table":"l","table_with_columns":"l"},"aws_lambda_alias":{"routing_config":"l"},"aws_lambda_code_signing_config":{"tags":"m","tags_all":"m","allowed_publishers":"l","policies":"l"},"aws_lambda_event_source_mapping":{"function_response_types":"s","queues":"l","tags":"m","tags_all":"m","topics":"s","amazon_managed_kafka_event_source_config":"l","destination_config":"l","document_db_event_source_config":"l","filter_criteria":"l","metrics_config":"l","provisioned_poller_config":"l","scaling_config":"l","self_managed_event_source":"l","self_managed_kafka_event_source_config":"l","source_access_configuration":"s"},"aws_lambda_function":{"architectures":"l","layers":"l","replacement_security_group_ids":"s","tags":"m","tags_all":"m","dead_letter_config":"l","environment":"l","ephemeral_storage":"l","file_system_config":"l","image_config":"l","logging_config":"l","snap_start":"l","tracing_config":"l","vpc_config":"l"},"aws_lambda_function_event_invoke_config":{"destination_config":"l"},"aws_lambda_function_url":{"cors":"l"},"aws_lambda_invocation":{"triggers":"m"},"aws_lambda_layer_version":{"compatible_architectures":"s","compatible_runtimes":"s"},"aws_launch_configuration":{"security_groups":"s","ebs_block_device":"s","ephemeral_block_device":"s","metadata_options":"l","root_block_device":"l"},"aws_launch_template":{"security_group_names":"s","tags":"m","tags_all":"m","vpc_security_group_ids":"s","block_device_mappings":"l","capacity_reservation_specification":"l","cpu_options":"l","credit_specification":"l","elastic_gpu_specifications":"l","elastic_inference_accelerator":"l","enclave_options":"l","hibernation_options":"l","iam_instance_profile":"l","instance_market_options":"l","instance_requirements":"l","license_specification":"s","maintenance_options":"l","metadata_options":"l","monitoring":"l","network_interfaces":"l","placement":"l","private_dns_name_options":"l","tag_specifications":"l"},"aws_lb":{"security_groups":"s","subnets":"s","tags":"m","tags_all":"m","access_logs":"l","connection_logs":"l","ipam_pools":"l","minimum_load_balancer_capacity":"l","subnet_mapping":"s"},"aws_lb_listener":{"tags":"m","tags_all":"m","default_action":"l","mutual_authentication":"l"},"aws_lb_listener_rule":{"tags":"m","tags_all":"m","action":"l","condition":"s"},"aws_lb_ssl_negotiation_policy":{"triggers":"m","attribute":"s"},"aws_lb_target_group":{"load_balancer_arns":"s","tags":"m","tags_all":"m","health_check":"l","stickiness":"l","target_failover":"l","target_group_health":"l","target_health_state":"l"},"aws_lb_trust_store":{"tags":"m","tags_all":"m"},"aws_lex_bot":{"abort_statement":"l","clarification_prompt":"l","intent":"s"},"aws_lex_bot_alias":{"conversation_logs":"l"},"aws_lex_intent":{"sample_utterances":"s","conclusion_statement":"l","confirmation_prompt":"l","dialog_code_hook":"l","follow_up_prompt":"l","fulfillment_activity":"l","rejection_statement":"l","slot":"s"},"aws_lex_slot_type":{"enumeration_value":"s"},"aws_lexv2models_bot":{"tags":"m","tags_all":"m","test_bot_alias_tags":"m","data_privacy":"l","members":"l"},"aws_lexv2models_bot_locale":{"voice_settings":"l"},"aws_lexv2models_bot_version":{"locale_specification":"m"},"aws_lexv2models_intent":{"closing_setting":"l","confirmation_setting":"l","dialog_code_hook":"l","fulfillment_code_hook":"l","initial_response_setting":"l","input_context":"l","kendra_configuration":"l","output_context":"l","sample_utterance":"l","slot_priority":"l"},"aws_lexv2models_slot":{"multiple_values_setting":"l","obfuscation_setting":"l","sub_slot_setting":"l","value_elicitation_setting":"l"},"aws_lexv2models_slot_type":{"composite_slot_type_setting":"l","external_source_setting":"l","slot_type_values":"l","value_selection_setting":"l"},"aws_licensemanager_grant":{"allowed_operations":"s"},"aws_licensemanager_grant_accepter":{"allowed_operations":"s"},"aws_licensemanager_license_configuration":{"license_rules":"l","tags":"m","tags_all":"m"},"aws_lightsail_bucket":{"tags":"m","tags_all":"m"},"aws_lightsail_certificate":{"domain_validation_options":"s","subject_alternative_names":"s","tags":"m","tags_all":"m"},"aws_lightsail_container_service":{"tags":"m","tags_all":"m","private_registry_access":"l","public_domain_names":"l"},"aws_lightsail_container_service_deployment_version":{"container":"s","public_endpoint":"l"},"aws_lightsail_database":{"tags":"m","tags_all":"m"},"aws_lightsail_disk":{"tags":"m","tags_all":"m"},"aws_lightsail_distribution":{"alternative_domain_names":"l","location":"l","tags":"m","tags_all":"m","cache_behavior":"s","cache_behavior_settings":"l","default_cache_behavior":"l","origin":"l"},"aws_lightsail_instance":{"ipv6_addresses":"l","tags":"m","tags_all":"m","add_on":"l"},"aws_lightsail_instance_public_ports":{"port_info":"s"},"aws_lightsail_key_pair":{"tags":"m","tags_all":"m"},"aws_lightsail_lb":{"public_ports":"l","tags":"m","tags_all":"m"},"aws_lightsail_lb_certificate":{"domain_validation_records":"s","subject_alternative_names":"s"},"aws_load_balancer_backend_server_policy":{"policy_names":"s"},"aws_load_balancer_listener_policy":{"policy_names":"s","triggers":"m"},"aws_load_balancer_policy":{"policy_attribute":"s"},"aws_location_geofence_collection":{"tags":"m","tags_all":"m"},"aws_location_map":{"tags":"m","tags_all":"m","configuration":"l"},"aws_location_place_index":{"tags":"m","tags_all":"m","data_source_configuration":"l"},"aws_location_route_calculator":{"tags":"m","tags_all":"m"},"aws_location_tracker":{"tags":"m","tags_all":"m"},"aws_m2_application":{"tags":"m","tags_all":"m","definition":"l"},"aws_m2_environment":{"security_group_ids":"s","subnet_ids":"s","tags":"m","tags_all":"m","high_availability_config":"l","storage_configuration":"l"},"aws_macie2_classification_export_configuration":{"s3_destination":"l"},"aws_macie2_classification_job":{"custom_data_identifier_ids":"l","tags":"m","tags_all":"m","user_paused_details":"l","s3_job_definition":"l","schedule_frequency":"l"},"aws_macie2_custom_data_identifier":{"ignore_words":"s","keywords":"s","tags":"m","tags_all":"m"},"aws_macie2_findings_filter":{"tags":"m","tags_all":"m","finding_criteria":"l"},"aws_macie2_member":{"tags":"m","tags_all":"m"},"aws_media_convert_queue":{"tags":"m","tags_all":"m","reservation_plan_settings":"l"},"aws_media_package_channel":{"hls_ingest":"l","tags":"m","tags_all":"m"},"aws_media_packagev2_channel_group":{"tags":"m","tags_all":"m"},"aws_media_store_container":{"tags":"m","tags_all":"m"},"aws_medialive_channel":{"tags":"m","tags_all":"m","cdi_input_specification":"l","destinations":"s","encoder_settings":"l","input_attachments":"s","input_specification":"l","maintenance":"l","vpc":"l"},"aws_medialive_input":{"attached_channels":"l","input_partner_ids":"l","input_security_groups":"l","tags":"m","tags_all":"m","destinations":"s","input_devices":"s","media_connect_flows":"s","sources":"s","vpc":"l"},"aws_medialive_input_security_group":{"inputs":"l","tags":"m","tags_all":"m","whitelist_rules":"s"},"aws_medialive_multiplex":{"availability_zones":"l","tags":"m","tags_all":"m","multiplex_settings":"l"},"aws_medialive_multiplex_program":{"multiplex_program_settings":"l"},"aws_memorydb_acl":{"tags":"m","tags_all":"m","user_names":"s"},"aws_memorydb_cluster":{"cluster_endpoint":"l","security_group_ids":"s","shards":"s","snapshot_arns":"l","tags":"m","tags_all":"m"},"aws_memorydb_multi_region_cluster":{"tags":"m","tags_all":"m"},"aws_memorydb_parameter_group":{"tags":"m","tags_all":"m","parameter":"s"},"aws_memorydb_snapshot":{"cluster_configuration":"l","tags":"m","tags_all":"m"},"aws_memorydb_subnet_group":{"subnet_ids":"s","tags":"m","tags_all":"m"},"aws_memorydb_user":{"tags":"m","tags_all":"m","authentication_mode":"l"},"aws_mq_broker":{"instances":"l","security_groups":"s","subnet_ids":"s","tags":"m","tags_all":"m","configuration":"l","encryption_options":"l","ldap_server_metadata":"l","logs":"l","maintenance_window_start_time":"l","user":"s"},"aws_mq_configuration":{"tags":"m","tags_all":"m"},"aws_msk_cluster":{"tags":"m","tags_all":"m","broker_node_group_info":"l","client_authentication":"l","configuration_info":"l","encryption_info":"l","logging_info":"l","open_monitoring":"l"},"aws_msk_configuration":{"kafka_versions":"s"},"aws_msk_replicator":{"tags":"m","tags_all":"m","kafka_cluster":"l","replication_info_list":"l"},"aws_msk_scram_secret_association":{"secret_arn_list":"s"},"aws_msk_serverless_cluster":{"tags":"m","tags_all":"m","client_authentication":"l","vpc_config":"l"},"aws_msk_vpc_connection":{"client_subnets":"s","security_groups":"s","tags":"m","tags_all":"m"},"aws_mskconnect_connector":{"connector_configuration":"m","tags":"m","tags_all":"m","capacity":"l","kafka_cluster":"l","kafka_cluster_client_authentication":"l","kafka_cluster_encryption_in_transit":"l","log_delivery":"l","plugin":"s","worker_configuration":"l"},"aws_mskconnect_custom_plugin":{"tags":"m","tags_all":"m","location":"l"},"aws_mskconnect_worker_configuration":{"tags":"m","tags_all":"m"},"aws_mwaa_environment":{"airflow_configuration_options":"m","last_updated":"l","tags":"m","tags_all":"m","logging_configuration":"l","network_configuration":"l"},"aws_nat_gateway":{"secondary_allocation_ids":"s","secondary_private_ip_addresses":"s","tags":"m","tags_all":"m"},"aws_neptune_cluster":{"availability_zones":"s","cluster_members":"s","enable_cloudwatch_logs_exports":"s","iam_roles":"s","tags":"m","tags_all":"m","vpc_security_group_ids":"s","serverless_v2_scaling_configuration":"l"},"aws_neptune_cluster_endpoint":{"excluded_members":"s","static_members":"s","tags":"m","tags_all":"m"},"aws_neptune_cluster_instance":{"tags":"m","tags_all":"m"},"aws_neptune_cluster_parameter_group":{"tags":"m","tags_all":"m","parameter":"s"},"aws_neptune_cluster_snapshot":{"availability_zones":"l"},"aws_neptune_event_subscription":{"event_categories":"s","source_ids":"s","tags":"m","tags_all":"m"},"aws_neptune_global_cluster":{"global_cluster_members":"s"},"aws_neptune_parameter_group":{"tags":"m","tags_all":"m","parameter":"s"},"aws_neptune_subnet_group":{"subnet_ids":"s","tags":"m","tags_all":"m"},"aws_neptunegraph_graph":{"tags":"m","tags_all":"m","vector_search_configuration":"l"},"aws_network_acl":{"egress":"s","ingress":"s","subnet_ids":"s","tags":"m","tags_all":"m"},"aws_network_interface":{"ipv4_prefixes":"s","ipv6_address_list":"l","ipv6_addresses":"s","ipv6_prefixes":"s","private_ip_list":"l","private_ips":"s","security_groups":"s","tags":"m","tags_all":"m","attachment":"s"},"aws_networkfirewall_firewall":{"enabled_analysis_types":"s","firewall_status":"l","tags":"m","tags_all":"m","encryption_configuration":"l","subnet_mapping":"s"},"aws_networkfirewall_firewall_policy":{"tags":"m","tags_all":"m","encryption_configuration":"l","firewall_policy":"l"},"aws_networkfirewall_logging_configuration":{"logging_configuration":"l"},"aws_networkfirewall_rule_group":{"tags":"m","tags_all":"m","encryption_configuration":"l","rule_group":"l"},"aws_networkfirewall_tls_inspection_configuration":{"certificate_authority":"l","certificates":"l","encryption_configuration":"l","tags":"m","tags_all":"m","tls_inspection_configuration":"l"},"aws_networkmanager_attachment_accepter":{"edge_locations":"l"},"aws_networkmanager_connect_attachment":{"tags":"m","tags_all":"m","options":"l"},"aws_networkmanager_connect_peer":{"configuration":"l","inside_cidr_blocks":"l","tags":"m","tags_all":"m","bgp_options":"l"},"aws_networkmanager_connection":{"tags":"m","tags_all":"m"},"aws_networkmanager_core_network":{"base_policy_regions":"s","edges":"l","segments":"l","tags":"m","tags_all":"m"},"aws_networkmanager_device":{"tags":"m","tags_all":"m","aws_location":"l","location":"l"},"aws_networkmanager_dx_gateway_attachment":{"edge_locations":"l","tags":"m","tags_all":"m"},"aws_networkmanager_global_network":{"tags":"m","tags_all":"m"},"aws_networkmanager_link":{"tags":"m","tags_all":"m","bandwidth":"l"},"aws_networkmanager_site":{"tags":"m","tags_all":"m","location":"l"},"aws_networkmanager_site_to_site_vpn_attachment":{"tags":"m","tags_all":"m"},"aws_networkmanager_transit_gateway_peering":{"tags":"m","tags_all":"m"},"aws_networkmanager_transit_gateway_route_table_attachment":{"tags":"m","tags_all":"m"},"aws_networkmanager_vpc_attachment":{"subnet_arns":"s","tags":"m","tags_all":"m","options":"l"},"aws_networkmonitor_monitor":{"tags":"m","tags_all":"m"},"aws_networkmonitor_probe":{"tags":"m","tags_all":"m"},"aws_notifications_event_rule":{"regions":"s"},"aws_notifications_notification_configuration":{"tags":"m","tags_all":"m"},"aws_notificationscontacts_email_contact":{"tags":"m","tags_all":"m"},"aws_oam_link":{"resource_types":"s","tags":"m","tags_all":"m","link_configuration":"l"},"aws_oam_sink":{"tags":"m","tags_all":"m"},"aws_opensearch_authorize_vpc_endpoint_access":{"authorized_principal":"l"},"aws_opensearch_domain":{"advanced_options":"m","tags":"m","tags_all":"m","advanced_security_options":"l","auto_tune_options":"l","cluster_config":"l","cognito_options":"l","domain_endpoint_options":"l","ebs_options":"l","encrypt_at_rest":"l","log_publishing_options":"s","node_to_node_encryption":"l","off_peak_window_options":"l","snapshot_options":"l","software_update_options":"l","vpc_options":"l"},"aws_opensearch_domain_saml_options":{"saml_options":"l"},"aws_opensearch_outbound_connection":{"connection_properties":"l","local_domain_info":"l","remote_domain_info":"l"},"aws_opensearch_package":{"package_source":"l"},"aws_opensearch_vpc_endpoint":{"vpc_options":"l"},"aws_opensearchserverless_collection":{"tags":"m","tags_all":"m"},"aws_opensearchserverless_vpc_endpoint":{"security_group_ids":"s","subnet_ids":"s"},"aws_opsworks_application":{"domains":"l","app_source":"l","environment":"s","ssl_configuration":"l"},"aws_opsworks_custom_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_opsworks_ecs_cluster_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_opsworks_ganglia_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_opsworks_haproxy_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_opsworks_instance":{"layer_ids":"l","security_group_ids":"l","ebs_block_device":"s","ephemeral_block_device":"s","root_block_device":"s"},"aws_opsworks_java_app_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_opsworks_memcached_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_opsworks_mysql_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_opsworks_nodejs_app_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_opsworks_php_app_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_opsworks_rails_app_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_opsworks_stack":{"tags":"m","tags_all":"m","custom_cookbooks_source":"l"},"aws_opsworks_static_web_layer":{"custom_configure_recipes":"l","custom_deploy_recipes":"l","custom_security_group_ids":"s","custom_setup_recipes":"l","custom_shutdown_recipes":"l","custom_undeploy_recipes":"l","system_packages":"s","tags":"m","tags_all":"m","cloudwatch_configuration":"l","ebs_volume":"s","load_based_auto_scaling":"l"},"aws_organizations_account":{"tags":"m","tags_all":"m"},"aws_organizations_organization":{"accounts":"l","aws_service_access_principals":"s","enabled_policy_types":"s","non_master_accounts":"l","roots":"l"},"aws_organizations_organizational_unit":{"accounts":"l","tags":"m","tags_all":"m"},"aws_organizations_policy":{"tags":"m","tags_all":"m"},"aws_organizations_resource_policy":{"tags":"m","tags_all":"m"},"aws_osis_pipeline":{"ingest_endpoint_urls":"s","tags":"m","tags_all":"m","buffer_options":"l","encryption_at_rest_options":"l","log_publishing_options":"l","vpc_options":"l"},"aws_paymentcryptography_key":{"tags":"m","tags_all":"m"},"aws_pinpoint_app":{"tags":"m","tags_all":"m","campaign_hook":"l","limits":"l","quiet_time":"l"},"aws_pinpoint_email_template":{"tags":"m","tags_all":"m","email_template":"l"},"aws_pinpointsmsvoicev2_configuration_set":{"tags":"m","tags_all":"m"},"aws_pinpointsmsvoicev2_opt_out_list":{"tags":"m","tags_all":"m"},"aws_pinpointsmsvoicev2_phone_number":{"number_capabilities":"s","tags":"m","tags_all":"m"},"aws_pipes_pipe":{"tags":"m","tags_all":"m","enrichment_parameters":"l","log_configuration":"l","source_parameters":"l","target_parameters":"l"},"aws_placement_group":{"tags":"m","tags_all":"m"},"aws_prometheus_rule_group_namespace":{"tags":"m","tags_all":"m"},"aws_prometheus_scraper":{"tags":"m","tags_all":"m","destination":"l","role_configuration":"l","source":"l"},"aws_prometheus_workspace":{"tags":"m","tags_all":"m","logging_configuration":"l"},"aws_prometheus_workspace_configuration":{"limits_per_label_set":"l"},"aws_proxy_protocol_policy":{"instance_ports":"s"},"aws_qbusiness_application":{"tags":"m","tags_all":"m","attachments_configuration":"l","encryption_configuration":"l"},"aws_qldb_ledger":{"tags":"m","tags_all":"m"},"aws_qldb_stream":{"tags":"m","tags_all":"m","kinesis_configuration":"l"},"aws_quicksight_account_subscription":{"admin_group":"l","author_group":"l","reader_group":"l"},"aws_quicksight_analysis":{"tags":"m","tags_all":"m","definition":"l","parameters":"l","permissions":"s","source_entity":"l"},"aws_quicksight_dashboard":{"tags":"m","tags_all":"m","dashboard_publish_options":"l","definition":"l","parameters":"l","permissions":"s","source_entity":"l"},"aws_quicksight_data_set":{"output_columns":"l","tags":"m","tags_all":"m","column_groups":"l","column_level_permission_rules":"l","data_set_usage_configuration":"l","field_folders":"s","logical_table_map":"s","permissions":"s","physical_table_map":"s","refresh_properties":"l","row_level_permission_data_set":"l","row_level_permission_tag_configuration":"l"},"aws_quicksight_data_source":{"tags":"m","tags_all":"m","credentials":"l","parameters":"l","permission":"s","ssl_properties":"l","vpc_connection_properties":"l"},"aws_quicksight_folder":{"folder_path":"l","tags":"m","tags_all":"m","permissions":"s"},"aws_quicksight_iam_policy_assignment":{"identities":"l"},"aws_quicksight_namespace":{"tags":"m","tags_all":"m"},"aws_quicksight_refresh_schedule":{"schedule":"l"},"aws_quicksight_template":{"tags":"m","tags_all":"m","definition":"l","permissions":"s","source_entity":"l"},"aws_quicksight_theme":{"tags":"m","tags_all":"m","configuration":"l","permissions":"s"},"aws_quicksight_vpc_connection":{"dns_resolvers":"s","security_group_ids":"s","subnet_ids":"s","tags":"m","tags_all":"m"},"aws_ram_resource_share":{"permission_arns":"s","tags":"m","tags_all":"m"},"aws_ram_resource_share_accepter":{"resources":"l"},"aws_rbin_rule":{"tags":"m","tags_all":"m","lock_configuration":"l","resource_tags":"s","retention_period":"l"},"aws_rds_cluster":{"availability_zones":"s","cluster_members":"s","enabled_cloudwatch_logs_exports":"s","iam_roles":"s","master_user_secret":"l","tags":"m","tags_all":"m","vpc_security_group_ids":"s","restore_to_point_in_time":"l","s3_import":"l","scaling_configuration":"l","serverlessv2_scaling_configuration":"l"},"aws_rds_cluster_endpoint":{"excluded_members":"s","static_members":"s","tags":"m","tags_all":"m"},"aws_rds_cluster_instance":{"tags":"m","tags_all":"m"},"aws_rds_cluster_parameter_group":{"tags":"m","tags_all":"m","parameter":"s"},"aws_rds_cluster_snapshot_copy":{"shared_accounts":"s","tags":"m","tags_all":"m"},"aws_rds_custom_db_engine_version":{"tags":"m","tags_all":"m"},"aws_rds_export_task":{"export_only":"l"},"aws_rds_global_cluster":{"global_cluster_members":"s","tags":"m","tags_all":"m"},"aws_rds_integration":{"additional_encryption_context":"m","tags":"m","tags_all":"m"},"aws_rds_reserved_instance":{"recurring_charges":"l","tags":"m","tags_all":"m"},"aws_rds_shard_group":{"tags":"m","tags_all":"m"},"aws_redshift_cluster":{"cluster_nodes":"l","iam_roles":"s","tags":"m","tags_all":"m","vpc_security_group_ids":"s","logging":"l","snapshot_copy":"l"},"aws_redshift_cluster_iam_roles":{"iam_role_arns":"s"},"aws_redshift_cluster_snapshot":{"tags":"m","tags_all":"m"},"aws_redshift_endpoint_access":{"vpc_endpoint":"l","vpc_security_group_ids":"s"},"aws_redshift_endpoint_authorization":{"vpc_ids":"s"},"aws_redshift_event_subscription":{"event_categories":"s","source_ids":"s","tags":"m","tags_all":"m"},"aws_redshift_hsm_client_certificate":{"tags":"m","tags_all":"m"},"aws_redshift_hsm_configuration":{"tags":"m","tags_all":"m"},"aws_redshift_integration":{"additional_encryption_context":"m","tags":"m","tags_all":"m"},"aws_redshift_logging":{"log_exports":"s"},"aws_redshift_parameter_group":{"tags":"m","tags_all":"m","parameter":"s"},"aws_redshift_scheduled_action":{"target_action":"l"},"aws_redshift_snapshot_copy_grant":{"tags":"m","tags_all":"m"},"aws_redshift_snapshot_schedule":{"definitions":"s","tags":"m","tags_all":"m"},"aws_redshift_subnet_group":{"subnet_ids":"s","tags":"m","tags_all":"m"},"aws_redshift_usage_limit":{"tags":"m","tags_all":"m"},"aws_redshiftdata_statement":{"parameters":"l"},"aws_redshiftserverless_endpoint_access":{"subnet_ids":"s","vpc_endpoint":"l","vpc_security_group_ids":"s"},"aws_redshiftserverless_namespace":{"iam_roles":"s","log_exports":"s","tags":"m","tags_all":"m"},"aws_redshiftserverless_snapshot":{"accounts_with_provisioned_restore_access":"s","accounts_with_restore_access":"s"},"aws_redshiftserverless_workgroup":{"endpoint":"l","security_group_ids":"s","subnet_ids":"s","tags":"m","tags_all":"m","config_parameter":"s","price_performance_target":"l"},"aws_rekognition_collection":{"tags":"m","tags_all":"m"},"aws_rekognition_project":{"tags":"m","tags_all":"m"},"aws_rekognition_stream_processor":{"tags":"m","tags_all":"m","data_sharing_preference":"l","input":"l","notification_channel":"l","output":"l","regions_of_interest":"l","settings":"l"},"aws_resiliencehub_resiliency_policy":{"tags":"m","tags_all":"m"},"aws_resourceexplorer2_index":{"tags":"m","tags_all":"m"},"aws_resourceexplorer2_view":{"tags":"m","tags_all":"m","filters":"l","included_property":"l"},"aws_resourcegroups_group":{"tags":"m","tags_all":"m","configuration":"s","resource_query":"l"},"aws_rolesanywhere_profile":{"managed_policy_arns":"s","role_arns":"s","tags":"m","tags_all":"m"},"aws_rolesanywhere_trust_anchor":{"tags":"m","tags_all":"m","notification_settings":"s","source":"l"},"aws_route53_cidr_location":{"cidr_blocks":"s"},"aws_route53_delegation_set":{"name_servers":"l"},"aws_route53_health_check":{"child_healthchecks":"s","regions":"s","tags":"m","tags_all":"m","triggers":"m"},"aws_route53_record":{"records":"s","alias":"l","cidr_routing_policy":"l","failover_routing_policy":"l","geolocation_routing_policy":"l","geoproximity_routing_policy":"l","latency_routing_policy":"l","weighted_routing_policy":"l"},"aws_route53_records_exclusive":{"resource_record_set":"s"},"aws_route53_resolver_endpoint":{"protocols":"s","security_group_ids":"s","tags":"m","tags_all":"m","ip_address":"s"},"aws_route53_resolver_firewall_domain_list":{"domains":"s","tags":"m","tags_all":"m"},"aws_route53_resolver_firewall_rule_group":{"tags":"m","tags_all":"m"},"aws_route53_resolver_firewall_rule_group_association":{"tags":"m","tags_all":"m"},"aws_route53_resolver_query_log_config":{"tags":"m","tags_all":"m"},"aws_route53_resolver_rule":{"tags":"m","tags_all":"m","target_ip":"s"},"aws_route53_zone":{"name_servers":"l","tags":"m","tags_all":"m","vpc":"s"},"aws_route53domains_delegation_signer_record":{"signing_attributes":"l"},"aws_route53domains_domain":{"billing_contact":"l","name_server":"l","status_list":"l","tags":"m","tags_all":"m","admin_contact":"l","registrant_contact":"l","tech_contact":"l"},"aws_route53domains_registered_domain":{"status_list":"l","tags":"m","tags_all":"m","admin_contact":"l","billing_contact":"l","name_server":"l","registrant_contact":"l","tech_contact":"l"},"aws_route53profiles_association":{"tags":"m","tags_all":"m"},"aws_route53profiles_profile":{"tags":"m","tags_all":"m"},"aws_route53recoverycontrolconfig_cluster":{"cluster_endpoints":"l"},"aws_route53recoverycontrolconfig_safety_rule":{"asserted_controls":"l","gating_controls":"l","target_controls":"l","rule_config":"l"},"aws_route53recoveryreadiness_cell":{"cells":"l","parent_readiness_scopes":"l","tags":"m","tags_all":"m"},"aws_route53recoveryreadiness_readiness_check":{"tags":"m","tags_all":"m"},"aws_route53recoveryreadiness_recovery_group":{"cells":"l","tags":"m","tags_all":"m"},"aws_route53recoveryreadiness_resource_set":{"tags":"m","tags_all":"m","resources":"l"},"aws_route_table":{"propagating_vgws":"s","route":"s","tags":"m","tags_all":"m"},"aws_rum_app_monitor":{"domain_list":"l","tags":"m","tags_all":"m","app_monitor_configuration":"l","custom_events":"l"},"aws_s3_access_point":{"endpoints":"m","public_access_block_configuration":"l","vpc_configuration":"l"},"aws_s3_bucket":{"tags":"m","tags_all":"m","cors_rule":"l","grant":"s","lifecycle_rule":"l","logging":"l","object_lock_configuration":"l","replication_configuration":"l","server_side_encryption_configuration":"l","versioning":"l","website":"l"},"aws_s3_bucket_acl":{"access_control_policy":"l"},"aws_s3_bucket_analytics_configuration":{"filter":"l","storage_class_analysis":"l"},"aws_s3_bucket_cors_configuration":{"cors_rule":"s"},"aws_s3_bucket_intelligent_tiering_configuration":{"filter":"l","tiering":"s"},"aws_s3_bucket_inventory":{"optional_fields":"s","destination":"l","filter":"l","schedule":"l"},"aws_s3_bucket_lifecycle_configuration":{"rule":"l"},"aws_s3_bucket_logging":{"target_grant":"s","target_object_key_format":"l"},"aws_s3_bucket_metric":{"filter":"l"},"aws_s3_bucket_notification":{"lambda_function":"l","queue":"l","topic":"l"},"aws_s3_bucket_object":{"metadata":"m","tags":"m","tags_all":"m"},"aws_s3_bucket_object_lock_configuration":{"rule":"l"},"aws_s3_bucket_ownership_controls":{"rule":"l"},"aws_s3_bucket_replication_configuration":{"rule":"l"},"aws_s3_bucket_server_side_encryption_configuration":{"rule":"s"},"aws_s3_bucket_versioning":{"versioning_configuration":"l"},"aws_s3_bucket_website_configuration":{"error_document":"l","index_document":"l","redirect_all_requests_to":"l","routing_rule":"l"},"aws_s3_directory_bucket":{"location":"l"},"aws_s3_object":{"metadata":"m","tags":"m","tags_all":"m","override_provider":"l"},"aws_s3_object_copy":{"metadata":"m","tags":"m","tags_all":"m","grant":"s","override_provider":"l"},"aws_s3control_access_grant":{"tags":"m","tags_all":"m","access_grants_location_configuration":"l","grantee":"l"},"aws_s3control_access_grants_instance":{"tags":"m","tags_all":"m"},"aws_s3control_access_grants_location":{"tags":"m","tags_all":"m"},"aws_s3control_bucket":{"tags":"m","tags_all":"m"},"aws_s3control_bucket_lifecycle_configuration":{"rule":"s"},"aws_s3control_directory_bucket_access_point_scope":{"scope":"l"},"aws_s3control_multi_region_access_point":{"details":"l"},"aws_s3control_multi_region_access_point_policy":{"details":"l"},"aws_s3control_object_lambda_access_point":{"configuration":"l"},"aws_s3control_storage_lens_configuration":{"tags":"m","tags_all":"m","storage_lens_configuration":"l"},"aws_s3outposts_endpoint":{"network_interfaces":"s"},"aws_sagemaker_app":{"tags":"m","tags_all":"m","resource_spec":"l"},"aws_sagemaker_app_image_config":{"tags":"m","tags_all":"m","code_editor_app_image_config":"l","jupyter_lab_image_config":"l","kernel_gateway_image_config":"l"},"aws_sagemaker_code_repository":{"tags":"m","tags_all":"m","git_config":"l"},"aws_sagemaker_data_quality_job_definition":{"tags":"m","tags_all":"m","data_quality_app_specification":"l","data_quality_baseline_config":"l","data_quality_job_input":"l","data_quality_job_output_config":"l","job_resources":"l","network_config":"l","stopping_condition":"l"},"aws_sagemaker_device":{"device":"l"},"aws_sagemaker_device_fleet":{"tags":"m","tags_all":"m","output_config":"l"},"aws_sagemaker_domain":{"subnet_ids":"s","tags":"m","tags_all":"m","default_space_settings":"l","default_user_settings":"l","domain_settings":"l","retention_policy":"l"},"aws_sagemaker_endpoint":{"tags":"m","tags_all":"m","deployment_config":"l"},"aws_sagemaker_endpoint_configuration":{"tags":"m","tags_all":"m","async_inference_config":"l","data_capture_config":"l","production_variants":"l","shadow_production_variants":"l"},"aws_sagemaker_feature_group":{"tags":"m","tags_all":"m","feature_definition":"l","offline_store_config":"l","online_store_config":"l","throughput_config":"l"},"aws_sagemaker_flow_definition":{"tags":"m","tags_all":"m","human_loop_activation_config":"l","human_loop_config":"l","human_loop_request_source":"l","output_config":"l"},"aws_sagemaker_hub":{"hub_search_keywords":"s","tags":"m","tags_all":"m","s3_storage_config":"l"},"aws_sagemaker_human_task_ui":{"tags":"m","tags_all":"m","ui_template":"l"},"aws_sagemaker_image":{"tags":"m","tags_all":"m"},"aws_sagemaker_mlflow_tracking_server":{"tags":"m","tags_all":"m"},"aws_sagemaker_model":{"tags":"m","tags_all":"m","container":"l","inference_execution_config":"l","primary_container":"l","vpc_config":"l"},"aws_sagemaker_model_package_group":{"tags":"m","tags_all":"m"},"aws_sagemaker_monitoring_schedule":{"tags":"m","tags_all":"m","monitoring_schedule_config":"l"},"aws_sagemaker_notebook_instance":{"accelerator_types":"s","additional_code_repositories":"s","security_groups":"s","tags":"m","tags_all":"m","instance_metadata_service_configuration":"l"},"aws_sagemaker_notebook_instance_lifecycle_configuration":{"tags":"m","tags_all":"m"},"aws_sagemaker_pipeline":{"tags":"m","tags_all":"m","parallelism_configuration":"l","pipeline_definition_s3_location":"l"},"aws_sagemaker_project":{"tags":"m","tags_all":"m","service_catalog_provisioning_details":"l"},"aws_sagemaker_space":{"tags":"m","tags_all":"m","ownership_settings":"l","space_settings":"l","space_sharing_settings":"l"},"aws_sagemaker_studio_lifecycle_config":{"tags":"m","tags_all":"m"},"aws_sagemaker_user_profile":{"tags":"m","tags_all":"m","user_settings":"l"},"aws_sagemaker_workforce":{"cognito_config":"l","oidc_config":"l","source_ip_config":"l","workforce_vpc_config":"l"},"aws_sagemaker_workteam":{"tags":"m","tags_all":"m","member_definition":"l","notification_configuration":"l","worker_access_configuration":"l"},"aws_scheduler_schedule":{"flexible_time_window":"l","target":"l"},"aws_scheduler_schedule_group":{"tags":"m","tags_all":"m"},"aws_schemas_discoverer":{"tags":"m","tags_all":"m"},"aws_schemas_registry":{"tags":"m","tags_all":"m"},"aws_schemas_schema":{"tags":"m","tags_all":"m"},"aws_secretsmanager_secret":{"tags":"m","tags_all":"m","replica":"s"},"aws_secretsmanager_secret_rotation":{"rotation_rules":"l"},"aws_secretsmanager_secret_version":{"version_stages":"s"},"aws_security_group":{"egress":"s","ingress":"s","tags":"m","tags_all":"m"},"aws_security_group_rule":{"cidr_blocks":"l","ipv6_cidr_blocks":"l","prefix_list_ids":"l"},"aws_securityhub_automation_rule":{"tags":"m","tags_all":"m","actions":"s","criteria":"l"},"aws_securityhub_configuration_policy":{"configuration_policy":"l"},"aws_securityhub_finding_aggregator":{"specified_regions":"s"},"aws_securityhub_insight":{"filters":"l"},"aws_securityhub_organization_configuration":{"organization_configuration":"l"},"aws_securityhub_standards_control":{"related_requirements":"l"},"aws_securitylake_aws_log_source":{"source":"l"},"aws_securitylake_custom_log_source":{"attributes":"l","event_classes":"s","provider_details":"l","configuration":"l"},"aws_securitylake_data_lake":{"tags":"m","tags_all":"m","configuration":"l"},"aws_securitylake_subscriber":{"tags":"m","tags_all":"m","source":"s","subscriber_identity":"l"},"aws_securitylake_subscriber_notification":{"configuration":"l"},"aws_serverlessapplicationrepository_cloudformation_stack":{"capabilities":"s","outputs":"m","parameters":"m","tags":"m","tags_all":"m"},"aws_service_discovery_http_namespace":{"tags":"m","tags_all":"m"},"aws_service_discovery_instance":{"attributes":"m"},"aws_service_discovery_private_dns_namespace":{"tags":"m","tags_all":"m"},"aws_service_discovery_public_dns_namespace":{"tags":"m","tags_all":"m"},"aws_service_discovery_service":{"tags":"m","tags_all":"m","dns_config":"l","health_check_config":"l","health_check_custom_config":"l"},"aws_servicecatalog_portfolio":{"tags":"m","tags_all":"m"},"aws_servicecatalog_product":{"tags":"m","tags_all":"m","provisioning_artifact_parameters":"l"},"aws_servicecatalog_provisioned_product":{"cloudwatch_dashboard_names":"s","notification_arns":"l","outputs":"s","tags":"m","tags_all":"m","provisioning_parameters":"l","stack_set_provisioning_preferences":"l"},"aws_servicecatalog_service_action":{"definition":"l"},"aws_servicecatalogappregistry_application":{"application_tag":"m","tags":"m","tags_all":"m"},"aws_servicecatalogappregistry_attribute_group":{"tags":"m","tags_all":"m"},"aws_servicequotas_service_quota":{"usage_metric":"l"},"aws_ses_configuration_set":{"delivery_options":"l","tracking_options":"l"},"aws_ses_domain_dkim":{"dkim_tokens":"l"},"aws_ses_event_destination":{"matching_types":"s","cloudwatch_destination":"s","kinesis_destination":"l","sns_destination":"l"},"aws_ses_receipt_rule":{"recipients":"s","add_header_action":"s","bounce_action":"s","lambda_action":"s","s3_action":"s","sns_action":"s","stop_action":"s","workmail_action":"s"},"aws_sesv2_account_suppression_attributes":{"suppressed_reasons":"s"},"aws_sesv2_account_vdm_attributes":{"dashboard_attributes":"l","guardian_attributes":"l"},"aws_sesv2_configuration_set":{"tags":"m","tags_all":"m","delivery_options":"l","reputation_options":"l","sending_options":"l","suppression_options":"l","tracking_options":"l","vdm_options":"l"},"aws_sesv2_configuration_set_event_destination":{"event_destination":"l"},"aws_sesv2_contact_list":{"tags":"m","tags_all":"m","topic":"s"},"aws_sesv2_dedicated_ip_pool":{"tags":"m","tags_all":"m"},"aws_sesv2_email_identity":{"tags":"m","tags_all":"m","dkim_signing_attributes":"l"},"aws_sfn_activity":{"tags":"m","tags_all":"m","encryption_configuration":"l"},"aws_sfn_alias":{"routing_configuration":"l"},"aws_sfn_state_machine":{"tags":"m","tags_all":"m","encryption_configuration":"l","logging_configuration":"l","tracing_configuration":"l"},"aws_shield_proactive_engagement":{"emergency_contact":"l"},"aws_shield_protection":{"tags":"m","tags_all":"m"},"aws_shield_protection_group":{"members":"l","tags":"m","tags_all":"m"},"aws_signer_signing_job":{"revocation_record":"l","signed_object":"l","destination":"l","source":"l"},"aws_signer_signing_profile":{"revocation_record":"l","tags":"m","tags_all":"m","signature_validity_period":"l","signing_material":"l"},"aws_sns_topic":{"tags":"m","tags_all":"m"},"aws_spot_fleet_request":{"load_balancers":"s","tags":"m","tags_all":"m","target_group_arns":"s","launch_specification":"s","launch_template_config":"s","spot_maintenance_strategies":"l"},"aws_spot_instance_request":{"ipv6_addresses":"l","secondary_private_ips":"s","security_groups":"s","tags":"m","tags_all":"m","volume_tags":"m","vpc_security_group_ids":"s","capacity_reservation_specification":"l","cpu_options":"l","credit_specification":"l","ebs_block_device":"s","enclave_options":"l","ephemeral_block_device":"s","launch_template":"l","maintenance_options":"l","metadata_options":"l","network_interface":"s","private_dns_name_options":"l","root_block_device":"l"},"aws_sqs_queue":{"tags":"m","tags_all":"m"},"aws_ssm_activation":{"tags":"m","tags_all":"m"},"aws_ssm_association":{"parameters":"m","tags":"m","tags_all":"m","output_location":"l","targets":"l"},"aws_ssm_document":{"parameter":"l","permissions":"m","platform_types":"l","tags":"m","tags_all":"m","attachments_source":"l"},"aws_ssm_maintenance_window":{"tags":"m","tags_all":"m"},"aws_ssm_maintenance_window_target":{"targets":"l"},"aws_ssm_maintenance_window_task":{"targets":"l","task_invocation_parameters":"l"},"aws_ssm_parameter":{"tags":"m","tags_all":"m"},"aws_ssm_patch_baseline":{"approved_patches":"s","rejected_patches":"s","tags":"m","tags_all":"m","approval_rule":"l","global_filter":"l","source":"l"},"aws_ssm_resource_data_sync":{"s3_destination":"l"},"aws_ssmcontacts_contact":{"tags":"m","tags_all":"m"},"aws_ssmcontacts_contact_channel":{"delivery_address":"l"},"aws_ssmcontacts_plan":{"stage":"l"},"aws_ssmcontacts_rotation":{"contact_ids":"l","tags":"m","tags_all":"m","recurrence":"l"},"aws_ssmincidents_replication_set":{"tags":"m","tags_all":"m","region":"s"},"aws_ssmincidents_response_plan":{"chat_channel":"s","engagements":"s","tags":"m","tags_all":"m","action":"l","incident_template":"l","integration":"l"},"aws_ssmquicksetup_configuration_manager":{"status_summaries":"l","tags":"m","tags_all":"m","configuration_definition":"l"},"aws_ssoadmin_application":{"tags":"m","tags_all":"m","portal_options":"l"},"aws_ssoadmin_application_access_scope":{"authorized_targets":"l"},"aws_ssoadmin_customer_managed_policy_attachment":{"customer_managed_policy_reference":"l"},"aws_ssoadmin_instance_access_control_attributes":{"attribute":"s"},"aws_ssoadmin_permission_set":{"tags":"m","tags_all":"m"},"aws_ssoadmin_permissions_boundary_attachment":{"permissions_boundary":"l"},"aws_ssoadmin_trusted_token_issuer":{"tags":"m","tags_all":"m","trusted_token_issuer_configuration":"l"},"aws_storagegateway_cached_iscsi_volume":{"tags":"m","tags_all":"m"},"aws_storagegateway_file_system_association":{"tags":"m","tags_all":"m","cache_attributes":"l"},"aws_storagegateway_gateway":{"gateway_network_interface":"l","tags":"m","tags_all":"m","maintenance_start_time":"l","smb_active_directory_settings":"l"},"aws_storagegateway_nfs_file_share":{"client_list":"s","tags":"m","tags_all":"m","cache_attributes":"l","nfs_file_share_defaults":"l"},"aws_storagegateway_smb_file_share":{"admin_user_list":"s","invalid_user_list":"s","tags":"m","tags_all":"m","valid_user_list":"s","cache_attributes":"l"},"aws_storagegateway_stored_iscsi_volume":{"tags":"m","tags_all":"m"},"aws_storagegateway_tape_pool":{"tags":"m","tags_all":"m"},"aws_subnet":{"tags":"m","tags_all":"m"},"aws_swf_domain":{"tags":"m","tags_all":"m"},"aws_synthetics_canary":{"tags":"m","tags_all":"m","timeline":"l","artifact_config":"l","run_config":"l","schedule":"l","vpc_config":"l"},"aws_synthetics_group":{"tags":"m","tags_all":"m"},"aws_timestreaminfluxdb_db_instance":{"tags":"m","tags_all":"m","vpc_security_group_ids":"s","vpc_subnet_ids":"s","log_delivery_configuration":"l"},"aws_timestreamquery_scheduled_query":{"tags":"m","tags_all":"m","error_report_configuration":"l","last_run_summary":"l","notification_configuration":"l","recently_failed_runs":"l","schedule_configuration":"l","target_configuration":"l"},"aws_timestreamwrite_database":{"tags":"m","tags_all":"m"},"aws_timestreamwrite_table":{"tags":"m","tags_all":"m","magnetic_store_write_properties":"l","retention_properties":"l","schema":"l"},"aws_transcribe_language_model":{"tags":"m","tags_all":"m","input_data_config":"l"},"aws_transcribe_medical_vocabulary":{"tags":"m","tags_all":"m"},"aws_transcribe_vocabulary":{"phrases":"l","tags":"m","tags_all":"m"},"aws_transcribe_vocabulary_filter":{"tags":"m","tags_all":"m","words":"l"},"aws_transfer_access":{"home_directory_mappings":"l","posix_profile":"l"},"aws_transfer_agreement":{"tags":"m","tags_all":"m"},"aws_transfer_certificate":{"tags":"m","tags_all":"m"},"aws_transfer_connector":{"tags":"m","tags_all":"m","as2_config":"l","sftp_config":"l"},"aws_transfer_profile":{"certificate_ids":"s","tags":"m","tags_all":"m"},"aws_transfer_server":{"protocols":"s","structured_log_destinations":"s","tags":"m","tags_all":"m","endpoint_details":"l","protocol_details":"l","s3_storage_options":"l","workflow_details":"l"},"aws_transfer_user":{"tags":"m","tags_all":"m","home_directory_mappings":"l","posix_profile":"l"},"aws_transfer_workflow":{"tags":"m","tags_all":"m","on_exception_steps":"l","steps":"l"},"aws_verifiedaccess_endpoint":{"security_group_ids":"s","tags":"m","tags_all":"m","cidr_options":"l","load_balancer_options":"l","network_interface_options":"l","rds_options":"l","sse_specification":"l"},"aws_verifiedaccess_group":{"tags":"m","tags_all":"m","sse_configuration":"l"},"aws_verifiedaccess_instance":{"name_servers":"s","tags":"m","tags_all":"m","verified_access_trust_providers":"l"},"aws_verifiedaccess_instance_logging_configuration":{"access_logs":"l"},"aws_verifiedaccess_trust_provider":{"tags":"m","tags_all":"m","device_options":"l","native_application_oidc_options":"l","oidc_options":"l","sse_specification":"l"},"aws_verifiedpermissions_identity_source":{"configuration":"l"},"aws_verifiedpermissions_policy":{"definition":"l"},"aws_verifiedpermissions_policy_store":{"tags":"m","tags_all":"m","validation_settings":"l"},"aws_verifiedpermissions_schema":{"namespaces":"s"},"aws_vpc":{"tags":"m","tags_all":"m"},"aws_vpc_block_public_access_exclusion":{"tags":"m","tags_all":"m"},"aws_vpc_dhcp_options":{"domain_name_servers":"l","netbios_name_servers":"l","ntp_servers":"l","tags":"m","tags_all":"m"},"aws_vpc_endpoint":{"cidr_blocks":"l","dns_entry":"l","network_interface_ids":"s","route_table_ids":"s","security_group_ids":"s","subnet_ids":"s","tags":"m","tags_all":"m","dns_options":"l","subnet_configuration":"s"},"aws_vpc_endpoint_connection_notification":{"connection_events":"s"},"aws_vpc_endpoint_service":{"allowed_principals":"s","availability_zones":"s","base_endpoint_dns_names":"s","gateway_load_balancer_arns":"s","network_load_balancer_arns":"s","private_dns_name_configuration":"l","supported_ip_address_types":"s","supported_regions":"s","tags":"m","tags_all":"m"},"aws_vpc_ipam":{"tags":"m","tags_all":"m","operating_regions":"s"},"aws_vpc_ipam_pool":{"allocation_resource_tags":"m","tags":"m","tags_all":"m"},"aws_vpc_ipam_pool_cidr":{"cidr_authorization_context":"l"},"aws_vpc_ipam_pool_cidr_allocation":{"disallowed_cidrs":"s"},"aws_vpc_ipam_preview_next_cidr":{"disallowed_cidrs":"s"},"aws_vpc_ipam_resource_discovery":{"tags":"m","tags_all":"m","operating_regions":"s"},"aws_vpc_ipam_resource_discovery_association":{"tags":"m","tags_all":"m"},"aws_vpc_ipam_scope":{"tags":"m","tags_all":"m"},"aws_vpc_peering_connection":{"tags":"m","tags_all":"m","accepter":"l","requester":"l"},"aws_vpc_peering_connection_accepter":{"tags":"m","tags_all":"m","accepter":"l","requester":"l"},"aws_vpc_peering_connection_options":{"accepter":"l","requester":"l"},"aws_vpc_route_server":{"tags":"m","tags_all":"m"},"aws_vpc_route_server_endpoint":{"tags":"m","tags_all":"m"},"aws_vpc_route_server_peer":{"tags":"m","tags_all":"m","bgp_options":"l"},"aws_vpc_security_group_egress_rule":{"tags":"m","tags_all":"m"},"aws_vpc_security_group_ingress_rule":{"tags":"m","tags_all":"m"},"aws_vpclattice_access_log_subscription":{"tags":"m","tags_all":"m"},"aws_vpclattice_listener":{"tags":"m","tags_all":"m","default_action":"l"},"aws_vpclattice_listener_rule":{"tags":"m","tags_all":"m","action":"l","match":"l"},"aws_vpclattice_resource_configuration":{"port_ranges":"s","tags":"m","tags_all":"m","resource_configuration_definition":"l"},"aws_vpclattice_resource_gateway":{"security_group_ids":"s","subnet_ids":"s","tags":"m","tags_all":"m"},"aws_vpclattice_service":{"dns_entry":"l","tags":"m","tags_all":"m"},"aws_vpclattice_service_network":{"tags":"m","tags_all":"m"},"aws_vpclattice_service_network_resource_association":{"dns_entry":"l","tags":"m","tags_all":"m"},"aws_vpclattice_service_network_service_association":{"dns_entry":"l","tags":"m","tags_all":"m"},"aws_vpclattice_service_network_vpc_association":{"security_group_ids":"l","tags":"m","tags_all":"m"},"aws_vpclattice_target_group":{"tags":"m","tags_all":"m","config":"l"},"aws_vpclattice_target_group_attachment":{"target":"l"},"aws_vpn_connection":{"routes":"s","tags":"m","tags_all":"m","tunnel1_ike_versions":"s","tunnel1_phase1_dh_group_numbers":"s","tunnel1_phase1_encryption_algorithms":"s","tunnel1_phase1_integrity_algorithms":"s","tunnel1_phase2_dh_group_numbers":"s","tunnel1_phase2_encryption_algorithms":"s","tunnel1_phase2_integrity_algorithms":"s","tunnel2_ike_versions":"s","tunnel2_phase1_dh_group_numbers":"s","tunnel2_phase1_encryption_algorithms":"s","tunnel2_phase1_integrity_algorithms":"s","tunnel2_phase2_dh_group_numbers":"s","tunnel2_phase2_encryption_algorithms":"s","tunnel2_phase2_integrity_algorithms":"s","vgw_telemetry":"s","tunnel1_log_options":"l","tunnel2_log_options":"l"},"aws_vpn_gateway":{"tags":"m","tags_all":"m"},"aws_waf_byte_match_set":{"byte_match_tuples":"s"},"aws_waf_geo_match_set":{"geo_match_constraint":"s"},"aws_waf_ipset":{"ip_set_descriptors":"s"},"aws_waf_rate_based_rule":{"tags":"m","tags_all":"m","predicates":"s"},"aws_waf_regex_match_set":{"regex_match_tuple":"s"},"aws_waf_regex_pattern_set":{"regex_pattern_strings":"s"},"aws_waf_rule":{"tags":"m","tags_all":"m","predicates":"s"},"aws_waf_rule_group":{"tags":"m","tags_all":"m","activated_rule":"s"},"aws_waf_size_constraint_set":{"size_constraints":"s"},"aws_waf_sql_injection_match_set":{"sql_injection_match_tuples":"s"},"aws_waf_web_acl":{"tags":"m","tags_all":"m","default_action":"l","logging_configuration":"l","rules":"s"},"aws_waf_xss_match_set":{"xss_match_tuples":"s"},"aws_wafregional_byte_match_set":{"byte_match_tuples":"s"},"aws_wafregional_geo_match_set":{"geo_match_constraint":"s"},"aws_wafregional_ipset":{"ip_set_descriptor":"s"},"aws_wafregional_rate_based_rule":{"tags":"m","tags_all":"m","predicate":"s"},"aws_wafregional_regex_match_set":{"regex_match_tuple":"s"},"aws_wafregional_regex_pattern_set":{"regex_pattern_strings":"s"},"aws_wafregional_rule":{"tags":"m","tags_all":"m","predicate":"s"},"aws_wafregional_rule_group":{"tags":"m","tags_all":"m","activated_rule":"s"},"aws_wafregional_size_constraint_set":{"size_constraints":"s"},"aws_wafregional_sql_injection_match_set":{"sql_injection_match_tuple":"s"},"aws_wafregional_web_acl":{"tags":"m","tags_all":"m","default_action":"l","logging_configuration":"l","rule":"s"},"aws_wafregional_xss_match_set":{"xss_match_tuple":"s"},"aws_wafv2_api_key":{"token_domains":"s"},"aws_wafv2_ip_set":{"addresses":"s","tags":"m","tags_all":"m"},"aws_wafv2_regex_pattern_set":{"tags":"m","tags_all":"m","regular_expression":"s"},"aws_wafv2_rule_group":{"tags":"m","tags_all":"m","custom_response_body":"s","rule":"s","visibility_config":"l"},"aws_wafv2_web_acl":{"tags":"m","tags_all":"m","token_domains":"s","association_config":"l","captcha_config":"l","challenge_config":"l","custom_response_body":"s","data_protection_config":"l","default_action":"l","rule":"s","visibility_config":"l"},"aws_wafv2_web_acl_logging_configuration":{"log_destination_configs":"s","logging_filter":"l","redacted_fields":"l"},"aws_worklink_fleet":{"identity_provider":"l","network":"l"},"aws_workspaces_connection_alias":{"tags":"m","tags_all":"m"},"aws_workspaces_directory":{"dns_ip_addresses":"s","ip_group_ids":"s","subnet_ids":"s","tags":"m","tags_all":"m","active_directory_config":"l","certificate_based_auth_properties":"l","saml_properties":"l","self_service_permissions":"l","workspace_access_properties":"l","workspace_creation_properties":"l"},"aws_workspaces_ip_group":{"tags":"m","tags_all":"m","rules":"s"},"aws_workspaces_workspace":{"tags":"m","tags_all":"m","workspace_properties":"l"},"aws_workspacesweb_browser_settings":{"additional_encryption_context":"m","associated_portal_arns":"l","tags":"m","tags_all":"m"},"aws_workspacesweb_data_protection_settings":{"additional_encryption_context":"m","associated_portal_arns":"l","tags":"m","tags_all":"m","inline_redaction_configuration":"l"},"aws_workspacesweb_ip_access_settings":{"additional_encryption_context":"m","associated_portal_arns":"l","tags":"m","tags_all":"m","ip_rule":"l"},"aws_workspacesweb_network_settings":{"associated_portal_arns":"l","security_group_ids":"s","subnet_ids":"s","tags":"m","tags_all":"m"},"aws_workspacesweb_user_access_logging_settings":{"associated_portal_arns":"l","tags":"m","tags_all":"m"},"aws_workspacesweb_user_settings":{"additional_encryption_context":"m","associated_portal_arns":"l","tags":"m","tags_all":"m","cookie_synchronization_configuration":"l","toolbar_configuration":"l"},"aws_xray_group":{"tags":"m","tags_all":"m","insights_configuration":"l"},"aws_xray_sampling_rule":{"attributes":"m","tags":"m","tags_all":"m"}}}</script>
+
 <!-- Bundled sample plan, parked here so it does not interrupt the source.
      The Sample plan button parses it on demand. planned_values, prior_state
      and relevant_attributes are stripped: the app never reads them. -->

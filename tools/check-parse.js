@@ -1,7 +1,22 @@
-// Regression harness for the parser: extracts the DOM-free functions from
-// index.html and prints their output. Diff two runs to prove a refactor
-// changed nothing:  node tools/check-parse.js > after.txt && diff before.txt after.txt
+// check-parse.js — regression check for the plan parser and its validation.
+//
+// WHAT IT CHECKS
+//   For several inputs: the resolved region and versions, the resource list
+//   with each one's action, support status, references and dependents, the
+//   plan summary counts, and every validation message produced.
+//
+//   Inputs are the bundled sample plus deliberately awkward ones: a state file
+//   passed instead of a plan, a JSON object that is not a plan at all, and a
+//   plan using a non-AWS provider with a nested module. Those cover the paths
+//   where the parser is supposed to warn rather than guess.
+//
+// HOW TO USE IT
+//   node tools/check-parse.js | diff tools/baseline/check-parse.txt -
+//   node tools/check-parse.js > tools/baseline/check-parse.txt   (to re-record)
+
 const fs = require("fs");
+// a harness that throws must not be mistaken for valid output
+process.on("uncaughtException", e => { console.error(e); process.exit(1); });
 const h = fs.readFileSync(process.argv[2] || __dirname + "/../index.html", "utf8");
 const js = h.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/)[1];
 const slice = (a, b) => js.slice(js.indexOf(a), js.indexOf(b));
