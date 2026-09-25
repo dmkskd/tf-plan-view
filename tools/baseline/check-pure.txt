@@ -1,0 +1,268 @@
+### sample aws_iam_instance_profile.ssm
+ACTION create
+HCL resource "aws_iam_instance_profile" "ssm" {
+  name_prefix = "example-ssm-"  # from var.name_prefix
+  role = aws_iam_role.ssm.name
+}
+CLI [{"label":"Find by prefix","cmd":"aws iam list-instance-profiles --query \"InstanceProfiles[?starts_with(InstanceProfileName, 'example-ssm-')].InstanceProfileName\" --output table"},{"label":"Describe","cmd":"aws iam get-instance-profile --instance-profile-name <profile-name>"}]
+CHANGED []
+DIFF (none)
+RULES (none)
+### sample aws_iam_role.ssm
+ACTION create
+HCL resource "aws_iam_role" "ssm" {
+  assume_role_policy = "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}"
+  name_prefix = "example-ssm-"  # from var.name_prefix
+}
+CLI [{"label":"Find by prefix","cmd":"aws iam list-roles --region us-east-1 --query \"Roles[?starts_with(RoleName, 'example-ssm-')].RoleName\" --output table"},{"label":"Describe","cmd":"aws iam get-role --role-name <role-name>"},{"label":"Attached policies","cmd":"aws iam list-attached-role-policies --role-name <role-name> --output table"}]
+CHANGED []
+DIFF (none)
+RULES (none)
+### sample aws_iam_role_policy_attachment.ssm
+ACTION no-op
+HCL resource "aws_iam_role_policy_attachment" "ssm" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  role = aws_iam_role.ssm.name
+}
+CLI [{"label":"Attached policies","cmd":"aws iam list-attached-role-policies --role-name <role-name> --output table"}]
+CHANGED []
+DIFF (none)
+RULES (none)
+### sample aws_instance.test
+ACTION replace
+HCL resource "aws_instance" "test" {
+  ami = data.aws_ami.al2023.id
+  iam_instance_profile = aws_iam_instance_profile.ssm.name
+  instance_type = "t3.micro"
+  subnet_id = aws_subnet.public.id
+  tags = {
+    Name = "example-instance"
+  }  # from var.name_prefix
+  vpc_security_group_ids = [aws_security_group.instance.id]
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-instances --region us-east-1 --filters \"Name=tag:Name,Values=example-instance\" --query \"Reservations[].Instances[].{Id:InstanceId,State:State.Name,Private:PrivateIpAddress,Public:PublicIpAddress}\" --output table"},{"label":"Open a shell","cmd":"aws ssm start-session --region us-east-1 --target <instance-id>"},{"label":"Console output","cmd":"aws ec2 get-console-output --region us-east-1 --instance-id <instance-id> --output text"}]
+CHANGED ["ami","id","instance_type"]
+DIFF 3|<div class="diff"><div class="diff-reason">replace because cannot update</div><div class="diff-row"><div class="dk">ami</div><div class="dv old">ami-0example00000001</div><div class="dv new">ami-0example00000002</div></div><div class="diff-row"><div class="dk">id</div><div class="dv old">i-0example00000001</div><div class="dv new"><i>known after apply</i></div></div><div class="diff-row forced"><div class="dk">instance_type<span class="tagf">forces replacement</span></div><div class="dv old">t3.micro</div><div class="dv new">t3.large</div></div></div>
+RULES (none)
+### sample aws_internet_gateway.igw
+ACTION create
+HCL resource "aws_internet_gateway" "igw" {
+  tags = {
+    Name = "example-igw"
+  }  # from var.name_prefix
+  vpc_id = aws_vpc.main.id
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-internet-gateways --region us-east-1 --filters \"Name=tag:Name,Values=example-igw\""}]
+CHANGED []
+DIFF (none)
+RULES (none)
+### sample aws_network_acl.main
+ACTION update
+HCL resource "aws_network_acl" "main" {
+  subnet_ids = [aws_subnet.public.id]
+  tags = {
+    Name = "example-nacl"
+  }  # from var.name_prefix
+  vpc_id = aws_vpc.main.id
+
+  egress {
+    action = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port = 443
+    protocol = "tcp"
+    rule_no = 100
+    to_port = 443
+  }
+
+  ingress {
+    action = "allow"
+    cidr_block = "10.20.0.0/16"
+    from_port = 443
+    protocol = "tcp"
+    rule_no = 100
+    to_port = 443
+  }
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-network-acls --region us-east-1 --filters \"Name=tag:Name,Values=example-nacl\""},{"label":"Rules as a table","cmd":"aws ec2 describe-network-acls --region us-east-1 --network-acl-ids <acl-id> --query \"NetworkAcls[0].Entries\" --output table"}]
+CHANGED ["ingress"]
+DIFF 1|<div class="diff"><div class="diff-row"><div class="dk">ingress</div><div class="dv old">[
+ {
+  &quot;action&quot;: &quot;allow&quot;,
+  &quot;cidr_block&quot;: &quot;10.20.0.0/16&quot;,
+  &quot;from_port&quot;: 443,
+  &quot;icmp_code&quot;: null,
+  &quot;icmp_type&quot;: null,
+  &quot;ipv6_cidr_block&quot;: &quot;&quot;,
+  &quot;protocol&quot;: &quot;tcp&quot;,
+  &quot;rule_no&quot;: 100,
+  &quot;to_port&quot;: 443
+ }
+]</div><div class="dv new">[
+ {
+  &quot;action&quot;: &quot;allow&quot;,
+  &quot;cidr_block&quot;: &quot;10.20.0.0/16&quot;,
+  &quot;from_port&quot;: 443,
+  &quot;icmp_code&quot;: null,
+  &quot;icmp_type&quot;: null,
+  &quot;ipv6_cidr_block&quot;: &quot;&quot;,
+  &quot;protocol&quot;: &quot;tcp&quot;,
+  &quot;rule_no&quot;: 100,
+  &quot;to_port&quot;: 443
+ },
+ {
+  &quot;action&quot;: &quot;allow&quot;,
+  &quot;cidr_block&quot;: &quot;0.0.0.0/0&quot;,
+  &quot;from_port&quot;: 1024,
+  &quot;icmp_code&quot;: null,
+  &quot;icmp_type&quot;: null,
+  &quot;ipv6_cidr_block&quot;: null,
+  &quot;protocol&quot;: &quot;tcp&quot;,
+  &quot;rule_no&quot;: 110,
+  &quot;to_port&quot;: 65535
+ }
+]</div></div></div>
+RULES Network ACL rules|<div class="rules"><div class="rules-cap">ingress</div><table><thead><tr><th>#</th><th>Proto</th><th>Ports</th><th>Source</th><th>Action</th></tr></thead><tbody><tr><td>100</td><td>tcp</td><td>443</td><td>10.20.0.0/16</td><td class="allow">allow</td></tr><tr><td>110</td><td>tcp</td><td>1024–65535</td><td>0.0.0.0/0</td><td class="allow">allow</td></tr><tr class="implicit"><td>*</td><td>all</td><td>all</td><td>0.0.0.0/0</td><td class="deny">deny</td></tr></tbody></table><div class="rules-cap">egress</div><table><thead><tr><th>#</th><th>Proto</th><th>Ports</th><th>Destination</th><th>Action</th></tr></thead><tbody><tr><td>100</td><td>tcp</td><td>443</td><td>0.0.0.0/0</td><td class="allow">allow</td></tr><tr class="implicit"><td>*</td><td>all</td><td>all</td><td>0.0.0.0/0</td><td class="deny">deny</td></tr></tbody></table><div class="none" style="padding-top:8px">Stateless: each direction is evaluated independently, first match wins.</div></div>
+### sample aws_route_table.public
+ACTION create
+HCL resource "aws_route_table" "public" {
+  route = [aws_internet_gateway.igw.id]
+  tags = {
+    Name = "example-rt"
+  }  # from var.name_prefix
+  vpc_id = aws_vpc.main.id
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-route-tables --region us-east-1 --filters \"Name=tag:Name,Values=example-rt\""},{"label":"Routes","cmd":"aws ec2 describe-route-tables --region us-east-1 --route-table-ids <rtb-id> --query \"RouteTables[0].Routes\" --output table"}]
+CHANGED []
+DIFF (none)
+RULES (none)
+### sample aws_route_table_association.public
+ACTION create
+HCL resource "aws_route_table_association" "public" {
+  route_table_id = aws_route_table.public.id
+  subnet_id = aws_subnet.public.id
+}
+CLI [{"label":"Associations","cmd":"aws ec2 describe-route-tables --region us-east-1 --query \"RouteTables[].Associations\" --output table"}]
+CHANGED []
+DIFF (none)
+RULES (none)
+### sample aws_security_group.instance
+ACTION update
+HCL resource "aws_security_group" "instance" {
+  name_prefix = "example-sg-"  # from var.name_prefix
+  tags = {
+    Name = "example-sg"
+  }  # from var.name_prefix
+  vpc_id = aws_vpc.main.id
+
+  egress {
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "all outbound"
+    from_port = 0
+    protocol = "-1"
+    to_port = 0
+  }
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-security-groups --region us-east-1 --filters \"Name=tag:Name,Values=example-sg\""},{"label":"Find by prefix","cmd":"aws ec2 describe-security-groups --region us-east-1 --query \"SecurityGroups[?starts_with(GroupName, 'example-sg-')].{Id:GroupId,Name:GroupName}\" --output table"},{"label":"Inbound rules","cmd":"aws ec2 describe-security-groups --region us-east-1 --group-ids <sg-id> --query \"SecurityGroups[0].IpPermissions\" --output json"},{"label":"Outbound rules","cmd":"aws ec2 describe-security-groups --region us-east-1 --group-ids <sg-id> --query \"SecurityGroups[0].IpPermissionsEgress\" --output json"}]
+CHANGED ["description"]
+DIFF 1|<div class="diff"><div class="diff-row"><div class="dk">description</div><div class="dv old">Managed by Terraform (old)</div><div class="dv new">Managed by Terraform</div></div></div>
+RULES Security group rules|<div class="rules"><div class="rules-cap">ingress</div><div class="none">no ingress rules</div><div class="rules-cap">egress</div><table><thead><tr><th>Proto</th><th>Ports</th><th>Destination</th></tr></thead><tbody><tr><td>all</td><td>all</td><td>0.0.0.0/0<br><span style="color:var(--faint)">all outbound</span></td></tr></tbody></table><div class="none" style="padding-top:8px">Stateful: replies to allowed traffic return without a matching rule.</div></div>
+### sample aws_security_group.ssm_endpoints
+ACTION create
+HCL resource "aws_security_group" "ssm_endpoints" {
+  ingress = [aws_security_group.instance.id]
+  name_prefix = "example-ssm-ep-sg-"  # from var.name_prefix
+  tags = {
+    Name = "example-ssm-ep-sg"
+  }  # from var.name_prefix
+  vpc_id = aws_vpc.main.id
+
+  egress {
+    cidr_blocks = ["0.0.0.0/0"]
+    from_port = 0
+    protocol = "-1"
+    to_port = 0
+  }
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-security-groups --region us-east-1 --filters \"Name=tag:Name,Values=example-ssm-ep-sg\""},{"label":"Find by prefix","cmd":"aws ec2 describe-security-groups --region us-east-1 --query \"SecurityGroups[?starts_with(GroupName, 'example-ssm-ep-sg-')].{Id:GroupId,Name:GroupName}\" --output table"},{"label":"Inbound rules","cmd":"aws ec2 describe-security-groups --region us-east-1 --group-ids <sg-id> --query \"SecurityGroups[0].IpPermissions\" --output json"},{"label":"Outbound rules","cmd":"aws ec2 describe-security-groups --region us-east-1 --group-ids <sg-id> --query \"SecurityGroups[0].IpPermissionsEgress\" --output json"}]
+CHANGED []
+DIFF (none)
+RULES Security group rules|<div class="rules"><div class="rules-cap">ingress</div><table><thead><tr><th>Proto</th><th>Ports</th><th>Source</th></tr></thead><tbody><tr><td>tcp</td><td>443</td><td>—<br><span style="color:var(--faint)">HTTPS from instance</span></td></tr></tbody></table><div class="rules-cap">egress</div><table><thead><tr><th>Proto</th><th>Ports</th><th>Destination</th></tr></thead><tbody><tr><td>all</td><td>all</td><td>0.0.0.0/0</td></tr></tbody></table><div class="none" style="padding-top:8px">Stateful: replies to allowed traffic return without a matching rule.</div></div>
+### sample aws_subnet.public
+ACTION update
+HCL resource "aws_subnet" "public" {
+  availability_zone = "us-east-1a"  # from var.region
+  cidr_block = "10.20.1.0/24"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "example-public"
+  }  # from var.name_prefix
+  vpc_id = aws_vpc.main.id
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-subnets --region us-east-1 --filters \"Name=tag:Name,Values=example-public\""},{"label":"Effective network ACL","cmd":"aws ec2 describe-network-acls --region us-east-1 --filters \"Name=association.subnet-id,Values=<subnet-id>\" --query \"NetworkAcls[0].Entries\" --output table"},{"label":"Effective route table","cmd":"aws ec2 describe-route-tables --region us-east-1 --filters \"Name=association.subnet-id,Values=<subnet-id>\" --query \"RouteTables[0].Routes\" --output table"}]
+CHANGED ["map_public_ip_on_launch","tags","tags_all"]
+DIFF 3|<div class="diff"><div class="diff-row"><div class="dk">map_public_ip_on_launch</div><div class="dv old">false</div><div class="dv new">true</div></div><div class="diff-row"><div class="dk">tags</div><div class="dv old">{
+ &quot;Name&quot;: &quot;example-public-old&quot;
+}</div><div class="dv new">{
+ &quot;Name&quot;: &quot;example-public&quot;
+}</div></div><div class="diff-row"><div class="dk">tags_all</div><div class="dv old">{
+ &quot;Name&quot;: &quot;example-public-old&quot;
+}</div><div class="dv new">{
+ &quot;Name&quot;: &quot;example-public&quot;
+}</div></div></div>
+RULES (none)
+### sample aws_vpc.main
+ACTION no-op
+HCL resource "aws_vpc" "main" {
+  cidr_block = "10.20.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support = true
+  tags = {
+    Name = "example-vpc"
+  }  # from var.name_prefix
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-vpcs --region us-east-1 --filters \"Name=tag:Name,Values=example-vpc\""},{"label":"What is in it","cmd":"aws ec2 describe-subnets --region us-east-1 --filters \"Name=vpc-id,Values=<vpc-id>\""}]
+CHANGED []
+DIFF (none)
+RULES (none)
+### sample aws_vpc_endpoint.ec2messages
+ACTION delete
+HCL resource "aws_vpc_endpoint" "ec2messages" {
+  private_dns_enabled = true
+  security_group_ids = [aws_security_group.ssm_endpoints.id]
+  service_name = var.region
+  subnet_ids = [aws_subnet.public.id]
+  vpc_endpoint_type = "Interface"
+  vpc_id = aws_vpc.main.id
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-vpc-endpoints --region us-east-1 --filters \"Name=service-name,Values=<service>\""},{"label":"Endpoint ENI addresses","cmd":"aws ec2 describe-network-interfaces --region us-east-1 --filters \"Name=description,Values=*<vpce-id>*\" --query \"NetworkInterfaces[].PrivateIpAddress\""}]
+CHANGED ["auto_accept","id","private_dns_enabled","resource_configuration_arn","service_name","service_network_arn","tags","timeouts","vpc_endpoint_type"]
+DIFF 9|<div class="diff"><div class="diff-reason">delete because no resource config</div><div class="diff-reason">This resource is destroyed. Values below are what exists today.</div><div class="diff-row"><div class="dk">auto_accept</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">id</div><div class="dv old">vpce-0example00000001</div></div><div class="diff-row"><div class="dk">private_dns_enabled</div><div class="dv old">true</div></div><div class="diff-row"><div class="dk">resource_configuration_arn</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">service_name</div><div class="dv old">com.amazonaws.us-east-1.ec2messages</div></div><div class="diff-row"><div class="dk">service_network_arn</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">tags</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">timeouts</div><div class="dv old">null</div></div><div class="diff-row"><div class="dk">vpc_endpoint_type</div><div class="dv old">Interface</div></div></div>
+RULES (none)
+### sample aws_vpc_endpoint.ssm
+ACTION create
+HCL resource "aws_vpc_endpoint" "ssm" {
+  private_dns_enabled = true
+  security_group_ids = [aws_security_group.ssm_endpoints.id]
+  service_name = "com.amazonaws.us-east-1.ssm"  # from var.region
+  subnet_ids = [aws_subnet.public.id]
+  vpc_endpoint_type = "Interface"
+  vpc_id = aws_vpc.main.id
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-vpc-endpoints --region us-east-1 --filters \"Name=service-name,Values=com.amazonaws.us-east-1.ssm\""},{"label":"Endpoint ENI addresses","cmd":"aws ec2 describe-network-interfaces --region us-east-1 --filters \"Name=description,Values=*<vpce-id>*\" --query \"NetworkInterfaces[].PrivateIpAddress\""}]
+CHANGED []
+DIFF (none)
+RULES (none)
+### sample aws_vpc_endpoint.ssmmessages
+ACTION create
+HCL resource "aws_vpc_endpoint" "ssmmessages" {
+  private_dns_enabled = true
+  security_group_ids = [aws_security_group.ssm_endpoints.id]
+  service_name = "com.amazonaws.us-east-1.ssmmessages"  # from var.region
+  subnet_ids = [aws_subnet.public.id]
+  vpc_endpoint_type = "Interface"
+  vpc_id = aws_vpc.main.id
+}
+CLI [{"label":"Describe","cmd":"aws ec2 describe-vpc-endpoints --region us-east-1 --filters \"Name=service-name,Values=com.amazonaws.us-east-1.ssmmessages\""},{"label":"Endpoint ENI addresses","cmd":"aws ec2 describe-network-interfaces --region us-east-1 --filters \"Name=description,Values=*<vpce-id>*\" --query \"NetworkInterfaces[].PrivateIpAddress\""}]
+CHANGED []
+DIFF (none)
+RULES (none)

@@ -1,0 +1,4095 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Render any AWS terraform plan as a native AWS architecture diagram.">
+<title>tf plan view</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* standalone shell: mirrors the minimal reset the app was authored against */
+  *,*::before,*::after{box-sizing:border-box;}
+  :root{color-scheme:light dark; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);}
+  html,body{margin:0;}
+  img{max-width:100%;}
+  [hidden]{display:none!important;}
+</style>
+<style>
+  :root{
+    --ink:#131A22; --body:#3B4655; --muted:#6B7787; --faint:#98A1AE;
+    --bg:#F6F5F9; --surface:#FFFFFF; --surface-2:#F0EEF5; --surface-3:#E8E5EF;
+    --line:#D7D4E1; --line-soft:#E6E3ED;
+
+    --aws-compute:#ED7100; --aws-net:#8C4FFF; --aws-sec:#DD344C;
+    --aws-storage:#7AA116; --aws-db:#C925D1; --aws-mgmt:#E7157B;
+    --aws-region:#00A4A6; --aws-cloud:#242F3E; --aws-public:#7AA116;
+
+    --create:#5C8B1A; --update:#2D6FD6; --replace:#C77700; --destroy:#DD344C; --noop:#6B7787;
+    --warn:#C77700; --err:#DD344C;
+    --warn-soft:#FDF3E3; --err-soft:#FDECEF; --ok-soft:#EFF5E4; --info-soft:#EAF1FD;
+
+    --shadow:0 1px 2px rgba(19,26,34,.05), 0 8px 24px -14px rgba(19,26,34,.2);
+    --radius:12px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#F1F0F5; --body:#C1C5CF; --muted:#8A92A0; --faint:#6A7280;
+      --bg:#0D1015; --surface:#151920; --surface-2:#1B2029; --surface-3:#232935;
+      --line:#2C323E; --line-soft:#222731;
+      --aws-compute:#FF9A3C; --aws-net:#A97DFF; --aws-sec:#FF6178;
+      --aws-storage:#9BC53A; --aws-db:#E45BEA; --aws-mgmt:#FF5BA3;
+      --aws-region:#2CC7C9; --aws-cloud:#95A0B0; --aws-public:#9BC53A;
+      --create:#9BC53A; --update:#6BA4FF; --replace:#F0A93B; --destroy:#FF6178; --noop:#8A92A0;
+      --warn:#F0A93B; --err:#FF6178;
+      --warn-soft:#2A2116; --err-soft:#2A1A1F; --ok-soft:#1D2418; --info-soft:#152030;
+      --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 28px -16px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#F1F0F5; --body:#C1C5CF; --muted:#8A92A0; --faint:#6A7280;
+    --bg:#0D1015; --surface:#151920; --surface-2:#1B2029; --surface-3:#232935;
+    --line:#2C323E; --line-soft:#222731;
+    --aws-compute:#FF9A3C; --aws-net:#A97DFF; --aws-sec:#FF6178;
+    --aws-storage:#9BC53A; --aws-db:#E45BEA; --aws-mgmt:#FF5BA3;
+    --aws-region:#2CC7C9; --aws-cloud:#95A0B0; --aws-public:#9BC53A;
+    --create:#9BC53A; --update:#6BA4FF; --replace:#F0A93B; --destroy:#FF6178; --noop:#8A92A0;
+    --warn:#F0A93B; --err:#FF6178;
+    --warn-soft:#2A2116; --err-soft:#2A1A1F; --ok-soft:#1D2418; --info-soft:#152030;
+    --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 28px -16px rgba(0,0,0,.8);
+  }
+
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--body);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:"Archivo",ui-sans-serif,system-ui,sans-serif; color:var(--ink); margin:0; text-wrap:balance;}
+  p{margin:0;}
+  code,.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace; font-variant-numeric:tabular-nums;}
+
+  .app{display:flex; flex-direction:column; min-height:100%;}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:12px 18px; padding-top:calc(12px + env(safe-area-inset-top, 0px));
+    background:var(--surface); border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:baseline; gap:10px; margin-right:4px;}
+  .brand h1{font-size:17px; font-weight:700; letter-spacing:-.01em;}
+  .brand span{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--faint);}
+  .tb-spacer{flex:1 1 auto;}
+  .src{
+    display:inline-flex; align-items:center; gap:7px; font-family:"IBM Plex Mono",monospace;
+    font-size:11.5px; color:var(--muted); background:var(--surface-2);
+    border:1px solid var(--line); border-radius:999px; padding:4px 12px; max-width:360px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;
+  }
+  .src:hover{color:var(--ink); border-color:var(--faint);}
+  .src b{font-weight:500; color:var(--ink);}
+  .rawjson{
+    margin:0 18px 14px; padding:11px; background:var(--surface-2);
+    border:1px solid var(--line); border-radius:8px;
+    font-family:"IBM Plex Mono",monospace; font-size:10.5px; line-height:1.55;
+    color:var(--body); white-space:pre; overflow:auto; max-height:420px;
+  }
+  .btn{
+    font-family:"Archivo",sans-serif; font-size:13px; font-weight:600;
+    border-radius:8px; padding:8px 14px; cursor:pointer;
+    border:1px solid var(--line); background:var(--surface-2); color:var(--ink);
+    transition:filter .15s ease;
+  }
+  .btn:hover{filter:brightness(1.06);}
+  .btn-primary{background:var(--aws-net); border-color:transparent; color:#fff;}
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .seg button{
+    font-family:"Archivo",sans-serif; font-size:13px; font-weight:600;
+    border:0; border-radius:0; padding:8px 14px; cursor:pointer;
+    background:var(--surface-2); color:var(--muted);
+  }
+  .seg button + button{border-left:1px solid var(--line);}
+  .seg button.on{background:var(--aws-net); color:#fff;}
+  .seg button:not(.on):hover{color:var(--ink);}
+  .seg button[disabled]{opacity:.45; cursor:not-allowed;}
+  :focus-visible{outline:2px solid var(--aws-net); outline-offset:2px;}
+  input[type=file]{display:none;}
+
+  /* ---------- main split ---------- */
+  .split{display:grid; grid-template-columns:288px minmax(0,1fr) 0px; flex:1; min-height:0;}
+  .split.has-detail{grid-template-columns:288px minmax(0,1fr) 384px;}
+  @media (max-width:1080px){
+    .split, .split.has-detail{grid-template-columns:1fr;}
+    .side{border-right:0; border-bottom:1px solid var(--line);}
+    .detail{border-left:0 !important; border-top:1px solid var(--line);}
+  }
+
+  .side{
+    border-right:1px solid var(--line); background:var(--surface);
+    overflow-y:auto; max-height:100%; display:flex; flex-direction:column;
+  }
+  .detail{
+    border-left:1px solid var(--line); background:var(--surface);
+    overflow-y:auto; max-height:100%;
+  }
+  .split:not(.has-detail) .detail{display:none;}
+
+  .block{border-bottom:1px solid var(--line-soft); padding:14px 16px; display:flex; flex-direction:column; gap:10px;}
+  .block > h3{
+    font-size:10.5px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .block > h3 em{font-style:normal; font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--faint); letter-spacing:0; text-transform:none;}
+
+  /* coverage */
+  .chg-list{display:flex; flex-direction:column; gap:2px;}
+  .chg{
+    display:grid; grid-template-columns:auto minmax(0,1fr); gap:3px 9px;
+    padding:7px 9px; margin:0 -9px; border-radius:8px; cursor:pointer;
+    text-decoration:none;
+  }
+  .chg:hover{background:var(--surface-2);}
+  .chg .a{
+    grid-column:1; font-family:"Archivo",sans-serif; font-size:9px; font-weight:700;
+    letter-spacing:.07em; text-transform:uppercase; padding:2px 6px; border-radius:999px;
+    align-self:start; white-space:nowrap;
+  }
+  .chg .ad{grid-column:2; font-family:"IBM Plex Mono",monospace; font-size:11.5px;
+    color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .chg .wh{grid-column:2; font-family:"IBM Plex Mono",monospace; font-size:10.5px;
+    color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .chg .wh i{font-style:normal; color:var(--replace); font-weight:600;}
+
+  .plan-sum{margin-bottom:4px;}
+  .statbar{display:flex; height:20px; border-radius:5px; overflow:hidden;
+    background:var(--surface-3);}
+  .statbar span{
+    display:flex; align-items:center; justify-content:center; min-width:14px;
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:600;
+    color:#fff; cursor:default; transition:filter .12s ease;
+  }
+  .statbar span + span{box-shadow:inset 1px 0 0 rgba(255,255,255,.35);}
+  .statbar span:hover{filter:brightness(1.12);}
+  .statbar span.tiny{font-size:0;}      /* too narrow for a number: tooltip only */
+  .cov{display:flex; flex-direction:column; gap:7px;}
+  .cov-legend{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:12px;}
+  .cov-legend span{display:inline-flex; align-items:center; gap:6px; color:var(--muted);}
+  .cov-legend b{color:var(--ink); font-weight:600; font-family:"IBM Plex Mono",monospace;}
+  .sw{width:8px; height:8px; border-radius:2px; flex:none;}
+
+  /* diagnostics */
+  .diag{display:flex; flex-direction:column; gap:7px;}
+  .dg{
+    display:flex; gap:9px; padding:9px 10px; border-radius:9px; font-size:12.5px; line-height:1.5;
+    border:1px solid transparent;
+  }
+  .dg .ic{font-family:"Archivo",sans-serif; font-weight:700; font-size:11px; flex:none; padding-top:1px;}
+  .dg.err{background:var(--err-soft); color:var(--err); border-color:var(--err);}
+  .dg.warn{background:var(--warn-soft); color:var(--warn);}
+  .dg.info{background:var(--info-soft); color:var(--update);}
+  .dg.ok{background:var(--ok-soft); color:var(--create);}
+  .dg b{font-family:"IBM Plex Mono",monospace; font-weight:600;}
+  .dg-empty{font-size:12.5px; color:var(--faint);}
+
+  /* filters */
+  .filters{display:flex; flex-direction:column; gap:1px;}
+  .flt{
+    display:grid; grid-template-columns:16px 18px 1fr auto; align-items:center; gap:9px;
+    padding:6px 8px; border-radius:7px; cursor:pointer; font-size:13px;
+  }
+  .flt:hover{background:var(--surface-2);}
+  .flt.unsup{opacity:.95;}
+  .flt .nm{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--body); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .flt.unsup .nm{color:var(--warn);}
+  .flt .ct{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--faint);}
+  .flt svg{width:18px; height:18px;}
+  input[type=checkbox]{accent-color:var(--aws-net); width:14px; height:14px; cursor:pointer; margin:0;}
+
+  .opts{display:flex; flex-direction:column; gap:8px;}
+  .opt{display:flex; align-items:center; gap:9px; font-size:13px; cursor:pointer;}
+  .opt select{
+    font-family:"IBM Plex Sans",sans-serif; font-size:12.5px; color:var(--ink);
+    background:var(--surface-2); border:1px solid var(--line); border-radius:7px; padding:5px 8px; margin-left:auto;
+  }
+
+  /* ---------- canvas ---------- */
+  .canvas-wrap{position:relative; overflow:auto; background:var(--bg); min-height:420px;}
+  .canvas{position:relative; margin:20px; transform-origin:50% 50%;}
+
+  /* ---- isometric projection ----
+     The layout engine is unchanged; the whole plane is rotated and every tile
+     is extruded into a block with two shaded side faces. */
+  .canvas-wrap.iso{perspective:2400px;}
+  .canvas.iso{
+    transform-style:preserve-3d;
+    transform:rotateX(54deg) rotateZ(-45deg);
+    transition:transform .45s cubic-bezier(.4,0,.2,1);
+  }
+  .canvas.iso .grp{
+    --gh:7px;
+    transform:translateZ(calc(var(--z, 0) * 1px));
+    transform-style:preserve-3d;
+    box-shadow:none;
+  }
+  .canvas.iso .grp::after{
+    content:""; position:absolute; left:0; right:0; top:100%; height:var(--gh);
+    background:color-mix(in srgb, var(--bg) 70%, #000);
+    border:1px solid var(--line); border-top:0;
+    transform-origin:top center; transform:rotateX(-90deg);
+  }
+  .canvas.iso .grp::before{
+    content:""; position:absolute; top:0; bottom:0; left:100%; width:var(--gh);
+    background:color-mix(in srgb, var(--bg) 55%, #000);
+    border:1px solid var(--line); border-left:0;
+    transform-origin:center left; transform:rotateY(90deg);
+  }
+  .canvas.iso .grp.cloud::after,.canvas.iso .grp.cloud::before{--gh:10px;}
+  .canvas.iso.dragging{transition:none;}
+  .canvas-wrap.iso{cursor:grab; user-select:none;}
+  .canvas-wrap.iso.grabbing{cursor:grabbing;}
+
+  .iso-hud{
+    position:absolute; left:16px; bottom:16px; z-index:3;
+    display:none; align-items:center; gap:10px;
+    background:color-mix(in srgb, var(--surface) 88%, transparent);
+    border:1px solid var(--line); border-radius:9px; padding:7px 11px;
+    font-size:11.5px; color:var(--muted); backdrop-filter:blur(6px);
+  }
+  .canvas-wrap.iso .iso-hud{display:flex;}
+  .iso-hud b{font-family:"IBM Plex Mono",monospace; color:var(--ink); font-weight:500;}
+  .iso-hud button{
+    font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--aws-net); background:none; border:0;
+    padding:2px 4px; cursor:pointer; border-radius:4px;
+  }
+  .iso-hud button:hover{background:var(--surface-2);}
+  .canvas.iso .node{
+    --h:26px;
+    overflow:visible;                /* side faces must not be clipped */
+    transform-style:preserve-3d;
+    transform:translateZ(var(--h));
+    box-shadow:none;
+    border-radius:4px;
+  }
+  .canvas.iso .node:hover{transform:translateZ(calc(var(--h) + 18px));}
+  /* south face */
+  .canvas.iso .node::after{
+    content:""; position:absolute; left:0; right:0; top:100%; height:var(--h);
+    background:color-mix(in srgb, var(--surface) 76%, #000);
+    border:1px solid var(--line); border-top:0;
+    transform-origin:top center; transform:rotateX(-90deg);
+  }
+  /* east face */
+  .canvas.iso .node::before{
+    content:""; position:absolute; top:0; bottom:0; left:100%; width:var(--h);
+    background:color-mix(in srgb, var(--surface) 62%, #000);
+    border:1px solid var(--line); border-left:0;
+    transform-origin:center left; transform:rotateY(90deg);
+  }
+  .canvas.iso .node.unsup::after{background:color-mix(in srgb, var(--warn-soft) 76%, #000);}
+  .canvas.iso .node.unsup::before{background:color-mix(in srgb, var(--warn-soft) 62%, #000);}
+  .canvas.iso #edges{transform:translateZ(26px); overflow:visible;}
+  .canvas.iso .node.disabled{--h:6px;}
+  #edges{position:absolute; inset:0; pointer-events:none; overflow:visible;}
+
+  .grp{
+    position:absolute; border-radius:10px; box-sizing:border-box;
+    transition:opacity .18s ease;
+  }
+  .grp > .grp-hd{
+    position:absolute; top:6px; left:11px; display:flex; align-items:center; gap:6px;
+    font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600;
+    letter-spacing:.07em; text-transform:uppercase;
+    white-space:nowrap; pointer-events:none;
+  }
+  .grp[data-addr]{cursor:pointer;}
+  .grp[data-addr] > .grp-hd{pointer-events:auto;}
+  .grp[data-addr] > .grp-hd:hover{text-decoration:underline; text-underline-offset:3px;}
+  .grp.sel{box-shadow:0 0 0 2px color-mix(in srgb, var(--aws-net) 45%, transparent);}
+  .grp[data-addr]::after{
+    content:"rules"; position:absolute; top:5px; right:9px;
+    font-family:"Archivo",sans-serif; font-size:9px; font-weight:600;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--faint);
+    opacity:0; transition:opacity .15s ease; pointer-events:none;
+  }
+  .grp[data-addr]:hover::after{opacity:1;}
+  .grp > .grp-hd em{font-style:normal; font-family:"IBM Plex Mono",monospace; font-size:10.5px;
+    font-weight:400; letter-spacing:0; text-transform:none; color:var(--muted);}
+  .grp > .grp-hd svg{width:13px; height:13px;}
+
+  .grp.cloud{border:1px solid var(--aws-cloud);}
+  .grp.cloud > .grp-hd{color:var(--aws-cloud);}
+  .grp.region{border:1px dashed var(--aws-region);}
+  .grp.region > .grp-hd{color:var(--aws-region);}
+  .grp.vpc{border:1.5px solid var(--aws-net);}
+  .grp.vpc > .grp-hd{color:var(--aws-net);}
+  .grp.az{border:1px dashed var(--aws-region); border-radius:9px;}
+  .grp.az > .grp-hd{color:var(--aws-region);}
+  .grp.subnet{border:1px solid var(--aws-public); background:color-mix(in srgb, var(--aws-public) 5%, transparent);}
+  .grp.subnet > .grp-hd{color:var(--aws-public);}
+  .grp.subnet.private{border-color:var(--aws-region); background:color-mix(in srgb, var(--aws-region) 6%, transparent);}
+  .grp.subnet.private > .grp-hd{color:var(--aws-region);}
+  .grp.sg{border:1.3px dashed var(--aws-sec); border-radius:9px;
+    background:color-mix(in srgb, var(--aws-sec) 4%, transparent);}
+  .grp.sg > .grp-hd{color:var(--aws-sec);}
+  .grp.loose{border:1.3px dashed var(--line); background:var(--surface-2);}
+  .grp.loose > .grp-hd{color:var(--muted);}
+
+  .node{
+    position:absolute; box-sizing:border-box; border-radius:8px;
+    background:var(--surface); border:1px solid var(--line);
+    padding:11px 12px; cursor:pointer; overflow:hidden;
+    display:grid; grid-template-columns:24px minmax(0,1fr); gap:0 10px; align-content:center;
+    box-shadow:0 1px 1px rgba(19,26,34,.04);
+    transition:border-color .12s ease, opacity .18s ease, box-shadow .12s ease;
+  }
+  .node:hover{border-color:var(--faint); box-shadow:0 2px 8px -2px rgba(19,26,34,.16);}
+  .node .ico{width:24px; height:24px; flex:none; border-radius:5px; grid-row:1 / span 2; align-self:center;}
+  .node .ttl{font-family:"Archivo",sans-serif; font-size:12px; font-weight:600; color:var(--ink); line-height:1.3;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .node .nm{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--muted); line-height:1.45;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .node .nm i{font-style:normal; color:var(--faint);}
+  .node .act{
+    position:absolute; top:9px; right:9px; width:6px; height:6px; border-radius:50%;
+  }
+  .node .chgline{
+    grid-column:1 / -1; margin-top:7px; padding-top:7px;
+    border-top:1px dashed var(--line);
+    font-family:"IBM Plex Mono",monospace; font-size:10px; line-height:1.45;
+    color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .node .chgline b{color:var(--replace); font-weight:600;}
+  .node .chgline .q{color:var(--faint);}
+  /* Dimming is only useful when there is something to contrast against:
+     applied when the plan holds updates, replacements or destroys, so an
+     all-creates plan is never greyed out for no reason. */
+  .canvas.mode-changes.emphasise .grp{opacity:.62;}
+  .canvas.mode-changes.emphasise .node.act-create{opacity:.55;}
+  .canvas.mode-changes.emphasise .grp.rel,
+  .canvas.mode-changes.emphasise .grp.sel{opacity:1;}
+  .node .actw{
+    position:absolute; top:6px; right:6px;
+    font-family:"Archivo",sans-serif; font-size:8.5px; font-weight:700;
+    letter-spacing:.07em; text-transform:uppercase; padding:2px 6px; border-radius:999px;
+  }
+  .node.has-chip .ttl{padding-right:58px;}
+  .canvas.no-actions .node .actw{display:none;}
+  .canvas.no-actions .node .act{display:none;}
+  .act-legend{display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11.5px; margin-top:2px;}
+  .act-legend span{display:inline-flex; align-items:center; gap:5px; color:var(--muted);}
+  .node.sel{border-color:var(--aws-net); box-shadow:0 0 0 2px color-mix(in srgb, var(--aws-net) 40%, transparent), var(--shadow);}
+  .node.dim, .grp.dim{opacity:.22;}
+  .node.rel{border-color:var(--aws-net);}
+  .grp.rel{box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--aws-net) 55%, transparent);}
+  .grp.rel > .grp-hd{color:var(--aws-net);}
+  /* action colouring belongs to Changes mode only */
+  .canvas.mode-changes .node.act-update{border-color:var(--update); box-shadow:inset 3px 0 0 var(--update);}
+  .canvas.mode-changes .node.act-replace{border-color:var(--replace); box-shadow:inset 3px 0 0 var(--replace);}
+  .canvas.mode-changes .node.act-delete{border-color:var(--destroy); box-shadow:inset 3px 0 0 var(--destroy);}
+  .node.unsup{border-style:dashed; border-color:var(--warn); background:var(--warn-soft);}
+  .node.unsup .ttl{color:var(--warn);}
+  .node.disabled{opacity:.35; border-style:dashed;}
+  .node.broken{border-color:var(--destroy); box-shadow:0 0 0 2px color-mix(in srgb, var(--destroy) 30%, transparent), var(--shadow);}
+  .node .flag{
+    font-family:"Archivo",sans-serif; font-size:9px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--destroy); margin-top:auto;
+  }
+
+  .empty-state{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+    padding:80px 24px; text-align:center; color:var(--muted);
+  }
+  .empty-state h2{font-size:18px;}
+  .drop-hint{border:2px dashed var(--line); border-radius:14px; padding:26px 32px; font-size:13.5px;}
+  body.dragging .canvas-wrap{outline:3px dashed var(--aws-net); outline-offset:-8px;}
+
+  /* ---------- detail ---------- */
+  .detail .dhd{
+    position:sticky; top:0; z-index:2; background:var(--surface);
+    padding:14px 18px 12px; border-bottom:1px solid var(--line);
+    display:flex; flex-direction:column; gap:5px;
+  }
+  .detail .dhd .type{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--muted);}
+  .detail .dhd h3{font-size:16px;}
+  .detail .dhd .badges{display:flex; flex-wrap:wrap; gap:6px; margin-top:2px;}
+  .badge{
+    display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
+    font-family:"Archivo",sans-serif; font-size:10px; font-weight:700; letter-spacing:.09em;
+    text-transform:uppercase; padding:3px 9px; border-radius:999px;
+  }
+  .attr-search{margin:0 18px 8px; width:calc(100% - 36px);}
+  .attr-search input{
+    width:100%; box-sizing:border-box; font-family:"IBM Plex Mono",monospace; font-size:11.5px;
+    color:var(--ink); background:var(--surface-2); border:1px solid var(--line);
+    border-radius:7px; padding:6px 9px;
+  }
+  .attrs{padding:0 18px 14px; display:flex; flex-direction:column;}
+  .attr{
+    display:grid; grid-template-columns:minmax(0,132px) minmax(0,1fr); gap:10px;
+    padding:6px 8px; margin:0 -8px; border-radius:6px;
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; align-items:baseline;
+  }
+  .attr:nth-child(odd){background:var(--surface-2);}
+  .attr .k{color:var(--muted); font-size:10.5px; overflow-wrap:anywhere;}
+  .attr .v{color:var(--ink); overflow-wrap:anywhere; white-space:pre-wrap;}
+  .attr .v.long{max-height:150px; overflow:auto; display:block;}
+  .attr .v.unknown{color:var(--faint); font-style:italic;}
+  .reflist{display:flex; flex-direction:column; gap:2px; padding:0 18px 14px;}
+  .reflist a{
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--aws-net);
+    text-decoration:none; cursor:pointer; padding:3px 0;
+  }
+  .reflist a:hover{text-decoration:underline;}
+  .dsec{
+    padding:12px 18px; border-top:1px solid var(--line-soft);
+    font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600;
+    letter-spacing:.12em; text-transform:uppercase; color:var(--ink);
+  }
+  .detail > details:first-of-type > .dsec{border-top:0;}
+  summary.dsec{
+    display:flex; align-items:center; gap:8px; cursor:pointer;
+    list-style:none; -webkit-user-select:none; user-select:none;
+  }
+  summary.dsec::-webkit-details-marker{display:none;}
+  summary.dsec:hover{background:var(--surface-2);}
+  summary.dsec .cnt{font-family:"IBM Plex Mono",monospace; font-weight:400;
+    letter-spacing:0; text-transform:none; color:var(--faint); font-size:11px;}
+  summary.dsec .chev{
+    margin-left:auto; width:9px; height:9px; flex:none; color:var(--faint);
+    transition:transform .18s ease;
+  }
+  details[open] > summary.dsec .chev{transform:rotate(90deg);}
+  @media (prefers-reduced-motion:reduce){ summary.dsec .chev{transition:none;} }
+  .chipbtn{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:"Archivo",sans-serif; font-size:10px; font-weight:600;
+    letter-spacing:.07em; text-transform:uppercase;
+    color:var(--body); background:var(--surface-2);
+    border:1px solid var(--line); border-radius:999px;
+    padding:3px 10px; cursor:pointer; line-height:1.5;
+    transition:border-color .13s ease, color .13s ease, background .13s ease;
+  }
+  .chipbtn::before{
+    content:""; width:6px; height:6px; border-radius:50%;
+    background:var(--faint); flex:none;
+  }
+  .chipbtn:hover{color:var(--destroy); border-color:var(--destroy); background:var(--err-soft);}
+  .chipbtn:hover::before{background:var(--destroy);}
+  .chipbtn.on{color:var(--create); border-color:var(--create); background:var(--ok-soft);}
+  .chipbtn.on::before{background:var(--create);}
+  .chipbtn.on:hover{color:var(--create); border-color:var(--create);}
+
+  .sec-tools{
+    display:flex; justify-content:flex-end; padding:8px 18px 0;
+  }
+  .sec-tools button{
+    font-family:"Archivo",sans-serif; font-size:10px; font-weight:600;
+    letter-spacing:.07em; text-transform:uppercase; color:var(--aws-net);
+    background:none; border:0; padding:3px 5px; cursor:pointer; border-radius:5px;
+  }
+  .sec-tools button:hover{background:var(--surface-2);}
+
+  .cli{display:flex; flex-direction:column; gap:8px; padding:0 18px 14px;}
+  .cli-item{border:1px solid var(--line); border-radius:9px; background:var(--surface-2); overflow:hidden;}
+  .cli-lbl{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:6px 9px; font-family:"Archivo",sans-serif; font-size:10px; font-weight:600;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--muted);
+    border-bottom:1px solid var(--line-soft);
+  }
+  .cli-copy{
+    font-family:"Archivo",sans-serif; font-size:10px; font-weight:600; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--aws-net); background:none; border:0; padding:2px 4px;
+    cursor:pointer; border-radius:4px;
+  }
+  .cli-copy:hover{background:var(--surface-3);}
+  .cli-copy.done{color:var(--create);}
+  .cli-cmd{
+    margin:0; padding:10px 11px; font-family:"IBM Plex Mono",monospace; font-size:11.5px;
+    line-height:1.7; color:var(--ink);
+    white-space:pre-wrap; word-break:normal; overflow-wrap:anywhere;
+    padding-left:26px; text-indent:-15px;            /* hang continuation lines */
+    -webkit-user-select:all; user-select:all;
+  }
+  .cli-cmd .fl{color:var(--aws-net);}
+  .hcl{
+    margin:0; padding:10px 11px; font-family:"IBM Plex Mono",monospace; font-size:11.5px;
+    line-height:1.65; color:var(--ink); white-space:pre; overflow-x:auto;
+    -webkit-user-select:all; user-select:all;
+  }
+  .cli-note{padding:0 18px 14px; font-size:12px; color:var(--faint); line-height:1.5;}
+
+  .rules{padding:0 18px 14px;}
+  .rules table{width:100%; border-collapse:collapse; font-family:"IBM Plex Mono",monospace; font-size:11px;}
+  .rules th{
+    text-align:left; font-family:"Archivo",sans-serif; font-size:9.5px; font-weight:600;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--muted);
+    padding:5px 6px; border-bottom:1px solid var(--line-soft);
+  }
+  .rules td{padding:5px 6px; border-bottom:1px solid var(--line-soft); color:var(--body); vertical-align:top;}
+  .rules tr:last-child td{border-bottom:0;}
+  .rules td.deny{color:var(--deny);}
+  .rules td.allow{color:var(--create);}
+  .rules tr.implicit td{color:var(--deny); background:var(--deny-soft);}
+  .rules tr.implicit td:first-child{border-radius:4px 0 0 4px;}
+  .rules tr.implicit td:last-child{border-radius:0 4px 4px 0;}
+  .rules table{table-layout:auto;}
+  .rules th:last-child,.rules td:last-child{text-align:right;}
+  .rules .none{font-size:11.5px; color:var(--faint); padding:4px 0;}
+
+  .diff{padding:0 18px 14px; display:flex; flex-direction:column; gap:8px;}
+  .diff-reason{font-size:12px; color:var(--warn); background:var(--warn-soft);
+    border-radius:7px; padding:7px 9px; line-height:1.5;}
+  .diff-row{display:flex; flex-direction:column; gap:3px; padding:7px 9px;
+    border:1px solid var(--line-soft); border-radius:8px; background:var(--surface-2);}
+  .diff-row.forced{border-color:var(--replace);}
+  .diff-row .dk{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted);
+    display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
+  .diff-row .tagf{font-family:"Archivo",sans-serif; font-size:9px; font-weight:700;
+    letter-spacing:.07em; text-transform:uppercase; color:var(--replace);}
+  .diff-row .dv{font-family:"IBM Plex Mono",monospace; font-size:11.5px;
+    white-space:pre-wrap; overflow-wrap:anywhere; padding-left:14px; position:relative;}
+  .diff-row .dv::before{position:absolute; left:0; font-weight:600;}
+  .diff-row .dv.old{color:var(--destroy);} 
+  .diff-row .dv.old::before{content:"-"; color:var(--destroy);}
+  .diff-row .dv.new{color:var(--create);} 
+  .diff-row .dv.new::before{content:"+"; color:var(--create);}
+  .diff-row .dv i{color:var(--faint); font-style:italic;}
+  .rules-cap{
+    font-family:"Archivo",sans-serif; font-size:9.5px; font-weight:600; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--muted); padding:8px 0 3px;
+  }
+
+  footer.legal{padding:14px 18px; padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px)); border-top:1px solid var(--line); color:var(--faint); font-size:12px; background:var(--surface);}
+</style>
+</head>
+<body>
+<!-- icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-vpc" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><path d="M24 10 36.5 17.2v14.6L24 39l-12.5-7.2V17.2z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/><circle cx="24" cy="24.5" r="4.2" fill="#fff"/></symbol>
+
+    <symbol id="i-subnet" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><rect x="11.5" y="11.5" width="25" height="25" rx="3" fill="none" stroke="#fff" stroke-width="2.4" stroke-dasharray="4.5 3.6"/><rect x="19" y="19" width="10" height="10" rx="1.6" fill="#fff"/></symbol>
+
+    <symbol id="i-ec2" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><rect x="15" y="15" width="18" height="18" rx="2" fill="none" stroke="#fff" stroke-width="2.4"/><rect x="20.5" y="20.5" width="7" height="7" rx="1" fill="#fff"/><g stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M20 11v4M28 11v4M20 33v4M28 33v4M11 20h4M11 28h4M33 20h4M33 28h4"/></g></symbol>
+
+    <symbol id="i-igw" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><rect x="10.5" y="21.5" width="27" height="5" rx="1.5" fill="#fff"/><g stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M17.5 17.5v-8M13.5 13.5l4-4 4 4"/><path d="M30.5 30.5v8M26.5 34.5l4 4 4-4"/></g></symbol>
+
+    <symbol id="i-nat" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><rect x="10.5" y="21.5" width="27" height="5" rx="1.5" fill="#fff"/><g stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M24 17.5v-8M20 13.5l4-4 4 4"/><path d="M24 30.5v8"/></g></symbol>
+
+    <symbol id="i-rt" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><circle cx="13" cy="24" r="3.2" fill="#fff"/><g fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 24h6c3 0 3-8.5 6-8.5h4.5"/><path d="M22.5 24c3 0 3 8.5 6 8.5H33"/><path d="M30 12l3.5 3.5L30 19"/><path d="M30 29l3.5 3.5L30 36"/></g></symbol>
+
+    <symbol id="i-vpce" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><circle cx="24" cy="24" r="5.5" fill="#fff"/><g stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M24 18.5V11M24 37v-7.5M18.5 24H11M37 24h-7.5"/></g></symbol>
+
+    <symbol id="i-nacl" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><path d="M24 10.5 34 14.8v8.9c0 6.9-4.4 10.9-10 13.3-5.6-2.4-10-6.4-10-13.3v-8.9z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><g stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M19 20.5h10M19 25.5h10"/></g></symbol>
+
+    <symbol id="i-sg" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><path d="M24 10.5 34 14.8v8.9c0 6.9-4.4 10.9-10 13.3-5.6-2.4-10-6.4-10-13.3v-8.9z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><path d="m19.5 23.5 3.4 3.4 5.9-6.4" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+
+    <symbol id="i-iam" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><circle cx="24" cy="19.5" r="5.2" fill="#fff"/><path d="M14.5 36.5c0-5.4 4.4-8.6 9.5-8.6s9.5 3.2 9.5 8.6z" fill="#fff"/></symbol>
+
+    <symbol id="i-eip" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><path d="M11 18.5h17.5l8.5 5.5-8.5 5.5H11z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><circle cx="17" cy="24" r="2.2" fill="#fff"/><path d="M22 24h6.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></symbol>
+
+    <symbol id="i-lb" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><circle cx="24" cy="13" r="3.6" fill="#fff"/><circle cx="13.5" cy="35" r="3.6" fill="#fff"/><circle cx="24" cy="35" r="3.6" fill="#fff"/><circle cx="34.5" cy="35" r="3.6" fill="#fff"/><path d="M24 16.6v5.4M13.5 31.4V26h21v5.4M24 26v5.4" fill="none" stroke="#fff" stroke-width="2.3" stroke-linejoin="round"/></symbol>
+
+    <symbol id="i-s3" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><path d="M13 16h22l-2.5 20.6a1.5 1.5 0 0 1-1.5 1.4H17a1.5 1.5 0 0 1-1.5-1.4z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><ellipse cx="24" cy="16" rx="11" ry="3.6" fill="#fff"/></symbol>
+
+    <symbol id="i-db" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><ellipse cx="24" cy="15" rx="10" ry="4" fill="#fff"/><path d="M14 15v18c0 2.2 4.5 4 10 4s10-1.8 10-4V15" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M14 24c0 2.2 4.5 4 10 4s10-1.8 10-4" fill="none" stroke="#fff" stroke-width="2.2"/></symbol>
+
+    <symbol id="i-lambda" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><path d="M13.5 37 22.8 11h4.9L37 37h-5.2l-6.6-19.3L18.6 37z" fill="#fff"/></symbol>
+
+    <symbol id="i-cw" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><path d="M11.5 29 18 20.5l5.4 6.2L29 13.5 36.5 29" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M11.5 35.5h25" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".65"/></symbol>
+
+    <symbol id="i-unknown" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="currentColor"/><path d="M18.8 19.5a5.2 5.2 0 1 1 5.2 5.7v2.6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="24" cy="33.5" r="2.1" fill="#fff"/></symbol>
+
+    <symbol id="i-cloud" viewBox="0 0 48 48"><path d="M12 32h22a7 7 0 0 0 .6-13.96A11 11 0 0 0 13.4 20 7 7 0 0 0 12 32z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></symbol>
+
+    <symbol id="i-region" viewBox="0 0 48 48"><circle cx="24" cy="24" r="13" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M11 24h26M24 11c5.5 5.5 5.5 20.5 0 26M24 11c-5.5 5.5-5.5 20.5 0 26" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <h1>tf plan view</h1>
+      <span id="tfver">—</span>
+    </div>
+    <button class="src" id="srcName" title="Show the loaded file">no plan loaded</button>
+    <div class="tb-spacer"></div>
+    <div class="seg" role="group" aria-label="View mode">
+      <button id="modeAll" class="on" title="Every resource, laid out as the architecture">Topology</button>
+      <button id="modeChg" title="Only what this plan alters, with the changed attributes on each tile">Changes</button>
+    </div>
+
+    <button class="btn btn-primary" id="loadBtn">Load plan.json</button>
+    <button class="btn" id="sampleBtn" title="Load the plan bundled with this file">Sample plan</button>
+    <button class="btn" id="isoBtn" title="Switch between flat and isometric" aria-pressed="false">View: flat</button>
+    <button class="btn" id="themeBtn" title="Toggle colour theme" aria-label="Toggle colour theme">Theme: auto</button>
+    <input type="file" id="fileInput" accept=".json,application/json">
+  </div>
+
+  <div class="split" id="split">
+
+    <aside class="side">
+      <div class="block">
+        <h3>Plan <em id="planMeta">—</em></h3>
+        <div class="plan-sum" id="planSum"></div>
+        <div class="chg-list" id="chgList"></div>
+      </div>
+
+      <div class="block" id="covBlock" hidden>
+        <h3>Not drawn <em id="covCount">—</em></h3>
+        <div class="cov">
+          <div class="statbar" id="covBar"></div>
+          <div class="cov-legend" id="covLegend"></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>Validation</h3>
+        <div class="diag" id="diag"></div>
+      </div>
+
+      <div class="block">
+        <h3>Resource types <em id="typeCount">—</em></h3>
+        <div class="filters" id="filters"></div>
+      </div>
+
+      <div class="block">
+        <h3>View</h3>
+        <div class="opts">
+          <label class="opt"><input type="checkbox" id="optAssoc"> Show association resources</label>
+          <label class="opt"><input type="checkbox" id="optUnsup" checked> Show unsupported as tiles</label>
+          <label class="opt"><input type="checkbox" id="optActions" checked> Show plan action dots</label>
+          <div class="act-legend" id="actLegend"></div>
+          <label class="opt">Dependency edges
+            <select id="optEdges">
+              <option value="select">on selection</option>
+              <option value="all">always</option>
+              <option value="none">never</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </aside>
+
+    <main class="canvas-wrap" id="canvasWrap">
+      <div class="canvas" id="canvas">
+        <svg id="edges"></svg>
+      </div>
+      <div class="iso-hud" id="isoHud">
+        <span>drag <b>orbit</b></span>
+        <span>shift-drag <b>pan</b></span>
+        <span>wheel <b>zoom</b></span>
+        <button id="isoFit">fit</button>
+        <button id="isoReset">reset</button>
+      </div>
+      <div class="empty-state" id="emptyState" hidden>
+        <h2>No plan loaded</h2>
+        <div class="drop-hint">
+          Drop a <code>terraform show -json</code> file anywhere on this page,
+          or use <b>Load plan.json</b> above.<br>
+          To see how it renders, click <b>Sample plan</b>.
+        </div>
+      </div>
+    </main>
+
+    <aside class="detail" id="detail"></aside>
+  </div>
+
+  <footer class="legal">
+    Reads <code>terraform show -json</code> plan output. Containment is inferred from <code>configuration.root_module.resources[].expressions[*].references</code>. Unrecognised and unplaced resources are listed under Validation.
+  </footer>
+</div>
+
+
+<script>
+(function(){
+  "use strict";
+
+  /* ==================================================================
+     tf plan view
+
+     Reads `terraform show -json` output and draws it as an AWS
+     architecture diagram. No dependencies, no build step.
+
+     Pipeline:
+       parsePlan()  plan JSON  -> model {resources, diagnostics, summary}
+       buildTree()  model      -> nested boxes with absolute positions
+       render()     tree       -> DOM, then sidebar and detail pane
+
+     Extension points, in the order you are most likely to need them:
+
+       REG              one line adds a resource type (icon, colour,
+                        placement, whether it is a tile or a container)
+       CLI()            the AWS CLI recipes offered for a type
+       DETAIL_SECTIONS  a section in the right-hand pane
+       SEC_DEFAULT      whether a new section starts open
+       SIZE_H           isometric block height per instance size
+
+     Conventions:
+       - anything unrecognised is reported via diag(), never dropped
+       - containers are highlighted, never wired with edges
+       - all DOM ids live in the markup above; JS looks them up with $()
+     ================================================================== */
+
+  /* ============================================================
+     1. REGISTRY — the only place that knows about AWS types.
+     kind: 'group' | 'node' | 'assoc'
+     ============================================================ */
+
+  var CAT = {
+    compute:  "var(--aws-compute)",
+    net:      "var(--aws-net)",
+    sec:      "var(--aws-sec)",
+    storage:  "var(--aws-storage)",
+    db:       "var(--aws-db)",
+    mgmt:     "var(--aws-mgmt)"
+  };
+
+  var REG = {
+    aws_vpc:                          {kind:"group", g:"vpc",    label:"VPC",                  icon:"i-vpc",    cat:"net"},
+    aws_subnet:                       {kind:"group", g:"subnet", label:"Subnet",               icon:"i-subnet", cat:"net"},
+
+    aws_instance:                     {kind:"node", label:"EC2 Instance",        icon:"i-ec2",    cat:"compute", sub:"instance_type"},
+    aws_internet_gateway:             {kind:"node", label:"Internet Gateway",    icon:"i-igw",    cat:"net",  scope:"vpc"},
+    aws_egress_only_internet_gateway: {kind:"node", label:"Egress-Only IGW",     icon:"i-igw",    cat:"net",  scope:"vpc"},
+    aws_nat_gateway:                  {kind:"node", label:"NAT Gateway",         icon:"i-nat",    cat:"net"},
+    aws_route_table:                  {kind:"node", label:"Route Table",         icon:"i-rt",     cat:"net",  scope:"vpc"},
+    aws_route:                        {kind:"node", label:"Route",               icon:"i-rt",     cat:"net",  scope:"vpc"},
+    aws_vpc_endpoint:                 {kind:"node", label:"VPC Endpoint",        icon:"i-vpce",   cat:"net",  sub:"service_name"},
+    aws_network_acl:                  {kind:"node", label:"Network ACL",         icon:"i-nacl",   cat:"sec",  scope:"vpc"},
+    aws_security_group:               {kind:"group", g:"sg", label:"Security Group", icon:"i-sg",  cat:"sec",  scope:"vpc"},
+    aws_eip:                          {kind:"node", label:"Elastic IP",          icon:"i-eip",    cat:"net"},
+    aws_lb:                           {kind:"node", label:"Load Balancer",       icon:"i-lb",     cat:"net"},
+    aws_alb:                          {kind:"node", label:"Load Balancer",       icon:"i-lb",     cat:"net"},
+    aws_lb_target_group:              {kind:"node", label:"Target Group",        icon:"i-lb",     cat:"net",  scope:"vpc"},
+    aws_db_instance:                  {kind:"node", label:"RDS Instance",        icon:"i-db",     cat:"db",   sub:"engine"},
+    aws_db_subnet_group:              {kind:"node", label:"DB Subnet Group",     icon:"i-db",     cat:"db"},
+    aws_rds_cluster:                  {kind:"node", label:"RDS Cluster",         icon:"i-db",     cat:"db",   sub:"engine"},
+    aws_s3_bucket:                    {kind:"node", label:"S3 Bucket",           icon:"i-s3",     cat:"storage", scope:"region"},
+    aws_lambda_function:              {kind:"node", label:"Lambda Function",     icon:"i-lambda", cat:"compute", sub:"runtime"},
+    aws_cloudwatch_log_group:         {kind:"node", label:"Log Group",           icon:"i-cw",     cat:"mgmt", scope:"region"},
+
+    aws_iam_role:                     {kind:"node", label:"IAM Role",            icon:"i-iam",    cat:"sec",  scope:"global"},
+    aws_iam_policy:                   {kind:"node", label:"IAM Policy",          icon:"i-iam",    cat:"sec",  scope:"global"},
+    aws_iam_instance_profile:         {kind:"node", label:"Instance Profile",    icon:"i-iam",    cat:"sec",  scope:"global"},
+    aws_iam_user:                     {kind:"node", label:"IAM User",            icon:"i-iam",    cat:"sec",  scope:"global"},
+
+    aws_route_table_association:          {kind:"assoc", label:"RT Association",       icon:"i-rt",  cat:"net"},
+    aws_main_route_table_association:     {kind:"assoc", label:"Main RT Association",  icon:"i-rt",  cat:"net"},
+    aws_network_acl_association:          {kind:"assoc", label:"NACL Association",     icon:"i-nacl",cat:"sec"},
+    aws_iam_role_policy_attachment:       {kind:"assoc", label:"Policy Attachment",    icon:"i-iam", cat:"sec"},
+    aws_iam_user_policy_attachment:       {kind:"assoc", label:"Policy Attachment",    icon:"i-iam", cat:"sec"},
+    aws_security_group_rule:              {kind:"assoc", label:"SG Rule",              icon:"i-sg",  cat:"sec"},
+    aws_vpc_security_group_ingress_rule:  {kind:"assoc", label:"SG Ingress Rule",      icon:"i-sg",  cat:"sec"},
+    aws_vpc_security_group_egress_rule:   {kind:"assoc", label:"SG Egress Rule",       icon:"i-sg",  cat:"sec"},
+    aws_lb_listener:                      {kind:"assoc", label:"LB Listener",          icon:"i-lb",  cat:"net"},
+    aws_vpc_endpoint_route_table_association:{kind:"assoc", label:"Endpoint RT Assoc", icon:"i-vpce",cat:"net"}
+  };
+
+  /* ---- Terraform block, rebuilt from configuration.expressions. The plan does
+     not carry source text, so interpolated values are shown resolved with the
+     reference noted alongside. ---- */
+
+  function hclLit(v, ind){
+    if (v === null || v === undefined) return "null";
+    if (typeof v === "boolean" || typeof v === "number") return String(v);
+    if (typeof v === "string") return JSON.stringify(v);
+    if (Array.isArray(v)){
+      if (!v.length) return "[]";
+      var simple = v.every(function(x){ return typeof x !== "object" || x === null; });
+      if (simple) return "[" + v.map(function(x){ return hclLit(x, ind); }).join(", ") + "]";
+      return "[\n" + v.map(function(x){ return ind + "  " + hclLit(x, ind + "  "); }).join(",\n") + "\n" + ind + "]";
+    }
+    var ks = Object.keys(v);
+    if (!ks.length) return "{}";
+    return "{\n" + ks.map(function(k){
+      return ind + "  " + k + " = " + hclLit(v[k], ind + "  ");
+    }).join("\n") + "\n" + ind + "}";
+  }
+
+  function isBlockList(v){
+    return Array.isArray(v) && v.length > 0 && v.every(function(x){
+      return x && typeof x === "object" && !Array.isArray(x);
+    });
+  }
+
+  /* plural id/arn/cidr attributes are lists even when the plan cannot resolve
+     them yet, so a reference feeding one keeps its brackets */
+  var LIST_ATTR = /(_ids|_arns|_blocks|_groups|_zones|_subnets|_names)$/;
+
+  function exprVal(e, resolved, ind, key){
+    if (e && Object.prototype.hasOwnProperty.call(e, "constant_value")) return {txt:hclLit(e.constant_value, ind)};
+    if (e && e.references && e.references.length){
+      var refs = e.references;
+      var direct = refs.filter(function(x){ return /^(aws_|data\.)/.test(x); });
+      if (direct.length && refs.length <= 2){
+        /* a reference feeding a list attribute keeps its brackets */
+        var isList = Array.isArray(resolved) || (key && LIST_ATTR.test(key));
+        var txt = isList ? "[" + direct[0] + "]" : direct[0];
+        return {txt:txt};
+      }
+      if (resolved !== undefined && resolved !== null)
+        return {txt:hclLit(resolved, ind), note:refs.join(", ")};
+      return {txt:refs[0]};
+    }
+    if (resolved !== undefined && resolved !== null) return {txt:hclLit(resolved, ind)};
+    return {txt:"null"};
+  }
+
+  function hclFor(r, cfg){
+    if (!cfg || !cfg.expressions) return null;
+    var L = [];
+    L.push('resource "' + r.type + '" "' + r.name + '" {');
+
+    ["count","for_each","provider"].forEach(function(m){
+      if (cfg[m] !== undefined){
+        var v = exprVal(cfg[m], undefined, "  ", m);
+        L.push("  " + m + " = " + v.txt);
+      }
+    });
+
+    var keys = Object.keys(cfg.expressions).sort();
+    var blocks = [];
+    keys.forEach(function(k){
+      var e = cfg.expressions[k];
+      /* terraform encodes a repeated nested block either as an array of
+         expression maps, or as one constant_value holding an array of objects */
+      if (Array.isArray(e)){ blocks.push({k:k, items:e, wrapped:true}); return; }
+      if (e && isBlockList(e.constant_value)){ blocks.push({k:k, items:e.constant_value, wrapped:false}); return; }
+      var v = exprVal(e, r.attrs ? r.attrs[k] : undefined, "  ", k);
+      L.push("  " + k + " = " + v.txt + (v.note ? "  # from " + v.note : ""));
+    });
+
+    blocks.forEach(function(b){
+      b.items.forEach(function(item){
+        L.push("");
+        L.push("  " + b.k + " {");
+        Object.keys(item).sort().forEach(function(kk){
+          var raw = item[kk];
+          if (raw === null || raw === undefined) return;
+          var v = b.wrapped ? exprVal(raw, undefined, "    ", kk)
+                            : {txt: hclLit(raw, "    ")};
+          if (v.txt === "null") return;
+          L.push("    " + kk + " = " + v.txt);
+        });
+        L.push("  }");
+      });
+    });
+
+    if (cfg.depends_on && cfg.depends_on.length){
+      L.push("");
+      L.push("  depends_on = [" + cfg.depends_on.join(", ") + "]");
+    }
+
+    L.push("}");
+    return L.join("\n");
+  }
+
+  /* ---- AWS CLI: one inspect recipe per type. Plan-time IDs are unknown, so
+     these filter by Name tag or name_prefix instead of by id. ---- */
+
+  function q(s){ return String(s).replace(/"/g, '\\"'); }
+
+  function CLI(r, ctx){
+    var reg = ctx.region ? ' --region ' + ctx.region : '';
+    var tag = r.attrs && r.attrs.tags && r.attrs.tags.Name;
+    var byTag = tag ? ' --filters "Name=tag:Name,Values=' + q(tag) + '"' : '';
+    var pfx = r.attrs && r.attrs.name_prefix;
+    var t = r.type;
+    var L = [];
+    function add(label, cmd){ L.push({label:label, cmd:cmd}); }
+
+    switch (t){
+      case "aws_vpc":
+        add("Describe", "aws ec2 describe-vpcs" + reg + byTag);
+        add("What is in it", "aws ec2 describe-subnets" + reg + ' --filters "Name=vpc-id,Values=<vpc-id>"');
+        break;
+      case "aws_subnet":
+        add("Describe", "aws ec2 describe-subnets" + reg + byTag);
+        add("Effective network ACL", "aws ec2 describe-network-acls" + reg +
+            ' --filters "Name=association.subnet-id,Values=<subnet-id>" --query "NetworkAcls[0].Entries" --output table');
+        add("Effective route table", "aws ec2 describe-route-tables" + reg +
+            ' --filters "Name=association.subnet-id,Values=<subnet-id>" --query "RouteTables[0].Routes" --output table');
+        break;
+      case "aws_instance":
+        add("Describe", "aws ec2 describe-instances" + reg + byTag +
+            ' --query "Reservations[].Instances[].{Id:InstanceId,State:State.Name,Private:PrivateIpAddress,Public:PublicIpAddress}" --output table');
+        add("Open a shell", "aws ssm start-session" + reg + " --target <instance-id>");
+        add("Console output", "aws ec2 get-console-output" + reg + " --instance-id <instance-id> --output text");
+        break;
+      case "aws_security_group":
+        add("Describe", "aws ec2 describe-security-groups" + reg + byTag);
+        if (pfx) add("Find by prefix", "aws ec2 describe-security-groups" + reg +
+            ' --query "SecurityGroups[?starts_with(GroupName, \'' + q(pfx) + '\')].{Id:GroupId,Name:GroupName}" --output table');
+        add("Inbound rules", "aws ec2 describe-security-groups" + reg +
+            ' --group-ids <sg-id> --query "SecurityGroups[0].IpPermissions" --output json');
+        add("Outbound rules", "aws ec2 describe-security-groups" + reg +
+            ' --group-ids <sg-id> --query "SecurityGroups[0].IpPermissionsEgress" --output json');
+        break;
+      case "aws_network_acl":
+        add("Describe", "aws ec2 describe-network-acls" + reg + byTag);
+        add("Rules as a table", "aws ec2 describe-network-acls" + reg +
+            ' --network-acl-ids <acl-id> --query "NetworkAcls[0].Entries" --output table');
+        break;
+      case "aws_route_table":
+        add("Describe", "aws ec2 describe-route-tables" + reg + byTag);
+        add("Routes", "aws ec2 describe-route-tables" + reg +
+            ' --route-table-ids <rtb-id> --query "RouteTables[0].Routes" --output table');
+        break;
+      case "aws_internet_gateway":
+      case "aws_egress_only_internet_gateway":
+        add("Describe", "aws ec2 describe-internet-gateways" + reg + byTag);
+        break;
+      case "aws_nat_gateway":
+        add("Describe", "aws ec2 describe-nat-gateways" + reg +
+            (tag ? ' --filter "Name=tag:Name,Values=' + q(tag) + '"' : ''));
+        break;
+      case "aws_vpc_endpoint":
+        add("Describe", "aws ec2 describe-vpc-endpoints" + reg +
+            ' --filters "Name=service-name,Values=' + q(r.attrs.service_name || "<service>") + '"');
+        add("Endpoint ENI addresses", "aws ec2 describe-network-interfaces" + reg +
+            ' --filters "Name=description,Values=*<vpce-id>*" --query "NetworkInterfaces[].PrivateIpAddress"');
+        break;
+      case "aws_eip":
+        add("Describe", "aws ec2 describe-addresses" + reg + byTag);
+        break;
+      case "aws_iam_role":
+        if (pfx) add("Find by prefix", "aws iam list-roles" + reg +
+            ' --query "Roles[?starts_with(RoleName, \'' + q(pfx) + '\')].RoleName" --output table');
+        add("Describe", "aws iam get-role --role-name <role-name>");
+        add("Attached policies", "aws iam list-attached-role-policies --role-name <role-name> --output table");
+        break;
+      case "aws_iam_instance_profile":
+        if (pfx) add("Find by prefix", "aws iam list-instance-profiles" +
+            ' --query "InstanceProfiles[?starts_with(InstanceProfileName, \'' + q(pfx) + '\')].InstanceProfileName" --output table');
+        add("Describe", "aws iam get-instance-profile --instance-profile-name <profile-name>");
+        break;
+      case "aws_iam_role_policy_attachment":
+        add("Attached policies", "aws iam list-attached-role-policies --role-name <role-name> --output table");
+        break;
+      case "aws_iam_policy":
+        add("Describe", "aws iam get-policy --policy-arn <policy-arn>");
+        break;
+      case "aws_route_table_association":
+      case "aws_main_route_table_association":
+        add("Associations", "aws ec2 describe-route-tables" + reg +
+            ' --query "RouteTables[].Associations" --output table');
+        break;
+      case "aws_lb":
+      case "aws_alb":
+        add("Describe", "aws elbv2 describe-load-balancers" + reg + (r.attrs.name ? " --names " + r.attrs.name : ""));
+        break;
+      case "aws_lb_target_group":
+        add("Describe", "aws elbv2 describe-target-groups" + reg + (r.attrs.name ? " --names " + r.attrs.name : ""));
+        add("Target health", "aws elbv2 describe-target-health" + reg + " --target-group-arn <tg-arn> --output table");
+        break;
+      case "aws_db_instance":
+        add("Describe", "aws rds describe-db-instances" + reg +
+            (r.attrs.identifier ? " --db-instance-identifier " + r.attrs.identifier : ""));
+        break;
+      case "aws_rds_cluster":
+        add("Describe", "aws rds describe-db-clusters" + reg +
+            (r.attrs.cluster_identifier ? " --db-cluster-identifier " + r.attrs.cluster_identifier : ""));
+        break;
+      case "aws_s3_bucket":
+        add("Describe", "aws s3api get-bucket-location --bucket " + (r.attrs.bucket || "<bucket>"));
+        add("List contents", "aws s3 ls s3://" + (r.attrs.bucket || "<bucket>") + "/");
+        break;
+      case "aws_lambda_function":
+        add("Describe", "aws lambda get-function" + reg + " --function-name " + (r.attrs.function_name || "<function>"));
+        add("Recent logs", "aws logs tail" + reg + " /aws/lambda/" + (r.attrs.function_name || "<function>") + " --since 15m");
+        break;
+      case "aws_cloudwatch_log_group":
+        add("Tail", "aws logs tail" + reg + " " + (r.attrs.name || "<log-group>") + " --follow");
+        break;
+      default:
+        if (tag) add("Find by tag", "aws resourcegroupstaggingapi get-resources" + reg +
+            ' --tag-filters "Key=Name,Values=' + q(tag) + '"');
+        break;
+    }
+    return L;
+  }
+
+  var ACTION_COLOR = {
+    create:"var(--create)", update:"var(--update)", replace:"var(--replace)",
+    delete:"var(--destroy)", "no-op":"var(--noop)", read:"var(--update)"
+  };
+
+  /* ============================================================
+     2. PARSER + VALIDATION
+     ============================================================ */
+
+  function actionOf(actions){
+    if (!actions || !actions.length) return "no-op";
+    var a = actions.join(",");
+    if (a === "create,delete" || a === "delete,create") return "replace";
+    if (actions.indexOf("create") >= 0) return "create";
+    if (actions.indexOf("delete") >= 0) return "delete";
+    if (actions.indexOf("update") >= 0) return "update";
+    if (actions.indexOf("read") >= 0) return "read";
+    return "no-op";
+  }
+
+  /* Each step takes (plan, out) and appends to the model. Split so a new
+     validation rule or a new derived field has one obvious home. */
+
+  function parsePlan(plan, sourceName){
+    var out = {
+      source: sourceName,
+      tfVersion: plan && plan.terraform_version || null,
+      formatVersion: plan && plan.format_version || null,
+      resources: [], byAddr: {}, cfgByAddr: {},
+      region: null, diagnostics: [], typeCounts: {}
+    };
+    out.diag = function(level, code, msg){
+      out.diagnostics.push({level:level, code:code, msg:msg});
+    };
+
+    if (!checkShape(plan, out)) return out;
+    readProviders(plan, out);
+    readModules(plan, out);
+    var refs = readReferences(plan, out);
+    readResources(plan, out, refs);
+    reportUnsupported(out);
+    linkDependents(out);
+    summarise(plan, out);
+
+    if (!out.diagnostics.length){
+      out.diag("ok", "clean", "Every resource in this plan is recognised and placed.");
+    }
+    return out;
+  }
+
+  /* Is this a plan at all? Returns false when there is nothing to draw. */
+  function checkShape(plan, out){
+    if (!plan || typeof plan !== "object"){
+      out.diag("err", "not-json",
+        "File is not a JSON object. Expected the output of <b>terraform show -json planfile</b>.");
+      return false;
+    }
+    var fv = plan.format_version;
+    if (!fv){
+      out.diag("warn", "no-format",
+        "No <b>format_version</b> \u2014 this may not be a plan file. Parsing optimistically.");
+    } else if (String(fv).split(".")[0] !== "1"){
+      out.diag("warn", "format-version", "Plan format <b>" + fv + "</b> is not implemented yet " +
+        "\u2014 only format 1.x is understood. Rendering may be incomplete.");
+    }
+    if (!Array.isArray(plan.resource_changes)){
+      if (plan.values || plan.planned_values){
+        out.diag("warn", "state-file", "No <b>resource_changes</b>. This looks like a state file " +
+          "rather than a plan; reading <b>planned_values</b> instead.");
+      } else {
+        out.diag("err", "no-resources", "No <b>resource_changes</b> array \u2014 nothing to draw.");
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function readProviders(plan, out){
+    var pcfg = (plan.configuration && plan.configuration.provider_config) || {};
+    Object.keys(pcfg).forEach(function(k){
+      var name = pcfg[k].name || k;
+      if (name !== "aws"){
+        out.diag("warn", "provider", "Provider <b>" + escapeHtml(name) + "</b> is not implemented " +
+          "yet \u2014 only <b>aws</b> resources are drawn.");
+        return;
+      }
+      var rex = pcfg[k].expressions && pcfg[k].expressions.region;
+      if (rex && rex.constant_value){ out.region = rex.constant_value; return; }
+      if (rex && rex.references){
+        var vn = String(rex.references[0]).replace(/^var\./, "");
+        var vars = plan.variables || {};
+        if (vars[vn] && vars[vn].value) out.region = vars[vn].value;
+      }
+    });
+  }
+
+  function readModules(plan, out){
+    var rootCfg = (plan.configuration && plan.configuration.root_module) || {};
+    var calls = rootCfg.module_calls;
+    if (!calls) return;
+    Object.keys(calls).forEach(function(m){
+      out.diag("warn", "module", "Nested module <b>module." + escapeHtml(m) + "</b> is not " +
+        "implemented yet \u2014 its resources are drawn flat, without the module boundary.");
+    });
+  }
+
+  /* Containment and dependencies both come from configuration expressions,
+     the only place the plan records them before apply. */
+  function readReferences(plan, out){
+    var rootCfg = (plan.configuration && plan.configuration.root_module) || {};
+    var index = {};
+
+    if (!rootCfg.resources){
+      out.diag("warn", "no-config", "No <b>configuration</b> block in this plan \u2014 " +
+        "relationships cannot be read, so everything is drawn at the top level. " +
+        "Re-run <b>terraform show -json</b> on the plan file (not the state).");
+      return index;
+    }
+
+    rootCfg.resources.forEach(function(r){
+      out.cfgByAddr[r.address] = r;
+      var refs = [];
+      function take(list){
+        (list || []).forEach(function(ref){
+          if (typeof ref !== "string") return;
+          if (/^(var|local|each|count|data)\./.test(ref)) return;
+          var addr = ref.split(".").slice(0, 2).join(".");
+          if (addr.indexOf("aws_") === 0 && refs.indexOf(addr) < 0) refs.push(addr);
+        });
+      }
+      Object.keys(r.expressions || {}).forEach(function(k){
+        var e = r.expressions[k];
+        if (e && e.references){ take(e.references); return; }
+        if (!Array.isArray(e)) return;
+        e.forEach(function(item){                 /* repeated nested blocks */
+          if (!item || typeof item !== "object") return;
+          Object.keys(item).forEach(function(kk){
+            if (item[kk] && item[kk].references) take(item[kk].references);
+          });
+        });
+      });
+      take(r.depends_on);
+      index[r.address] = refs;
+    });
+    return index;
+  }
+
+  function readResources(plan, out, refIndex){
+    var changes = Array.isArray(plan.resource_changes)
+      ? plan.resource_changes
+      : ((plan.planned_values && plan.planned_values.root_module &&
+          plan.planned_values.root_module.resources) || []);
+
+    changes.forEach(function(rc){
+      if (rc.mode === "data") return;
+      var spec = REG[rc.type] || null;
+      var res = {
+        addr: rc.address, type: rc.type, name: rc.name,
+        action: rc.change ? actionOf(rc.change.actions) : "no-op",
+        attrs: (rc.change && (rc.change.after || rc.change.before)) || rc.values || {},
+        before: (rc.change && rc.change.before) || null,
+        unknown: (rc.change && rc.change.after_unknown) || {},
+        sensitive: (rc.change && rc.change.after_sensitive) || {},
+        replacePaths: (rc.change && rc.change.replace_paths) || [],
+        actionReason: rc.action_reason || null,
+        spec: spec, supported: !!spec, kind: spec ? spec.kind : "node",
+        refs: refIndex[rc.address] || [],
+        foreign: rc.type.indexOf("aws_") !== 0,
+        enabled: true, enabledType: true
+      };
+      out.resources.push(res);
+      out.byAddr[res.addr] = res;
+      out.typeCounts[rc.type] = (out.typeCounts[rc.type] || 0) + 1;
+    });
+  }
+
+  function reportUnsupported(out){
+    var unsup = {}, foreign = {};
+    out.resources.forEach(function(r){
+      if (r.foreign) foreign[r.type] = (foreign[r.type] || 0) + 1;
+      else if (!r.supported) unsup[r.type] = (unsup[r.type] || 0) + 1;
+    });
+    Object.keys(foreign).sort().forEach(function(t){
+      out.diag("warn", "foreign", "<b>" + escapeHtml(t) + "</b> \u00d7 " + foreign[t] +
+        " \u2014 non-AWS resource, not implemented yet.");
+    });
+    Object.keys(unsup).sort().forEach(function(t){
+      out.diag("warn", "unsupported", "<b>" + escapeHtml(t) + "</b> \u00d7 " + unsup[t] +
+        " \u2014 not implemented yet; drawn as a generic tile with no placement rules.");
+    });
+  }
+
+  function linkDependents(out){
+    out.resources.forEach(function(r){ r.dependents = []; });
+    out.resources.forEach(function(r){
+      r.refs.forEach(function(a){
+        var t = out.byAddr[a];
+        if (t) t.dependents.push(r.addr);
+      });
+    });
+  }
+
+  function summarise(plan, out){
+    out.summary = {create:0, update:0, replace:0, "delete":0, "no-op":0, read:0};
+    out.resources.forEach(function(r){
+      if (out.summary[r.action] === undefined) out.summary[r.action] = 0;
+      out.summary[r.action]++;
+    });
+
+    out.outputs = plan.output_changes || null;
+
+    if (Array.isArray(plan.resource_drift) && plan.resource_drift.length){
+      var n = plan.resource_drift.length;
+      out.diag("warn", "drift", "<b>" + n + "</b> resource" + (n > 1 ? "s have" : " has") +
+        " drifted outside Terraform since the last apply.");
+      out.drift = plan.resource_drift.map(function(d){ return d.address; });
+    }
+    if (plan.errored){
+      out.diag("err", "errored", "This plan <b>errored</b> and cannot be applied.");
+    } else if (plan.applyable === false){
+      out.diag("warn", "not-applyable", "This plan is <b>not applyable</b>.");
+    }
+  }
+
+  /* ============================================================
+     3. LAYOUT — nested boxes, measured bottom-up
+     ============================================================ */
+
+  var TW = 178, GAP = 10, PAD = 14, HEAD = 26;
+  var TH_FLAT = 66, TH_CHANGES = 88;      /* the Changes tile carries a diff line */
+  var TH = TH_FLAT;
+
+  /* The taller tile only earns its space when there are diffs to print. */
+  function tileHeight(mode, hasEdits){
+    return (mode === "changes" && hasEdits) ? TH_CHANGES : TH_FLAT;
+  }
+
+  function mkGroup(cls, label, meta, maxW, stack){
+    return {box:true, cls:cls, label:label, meta:meta||"", children:[],
+            maxW:maxW||760, stack:!!stack, w:0, h:0, x:0, y:0};
+  }
+
+  function measure(g){
+    if (!g.box){ g.w = TW; g.h = TH; return g; }
+    g.children.forEach(measure);
+    var kids = g.children.slice().sort(function(a,b){
+      if (a.box !== b.box) return a.box ? -1 : 1;
+      return 0;
+    });
+    /* a group of plain tiles packs to a near-square grid so rows do not end
+       half empty; mixed or stacked groups wrap on width. */
+    var allLeaves = kids.length > 0 && kids.every(function(k){ return !k.box; });
+    var perRow = Infinity;
+    if (g.stack) perRow = 1;
+    else if (allLeaves){
+      var fit = Math.max(1, Math.floor((g.maxW + GAP) / (TW + GAP)));
+      perRow = Math.min(fit, Math.ceil(Math.sqrt(kids.length)));
+    }
+
+    var rows = [], cur = [], curW = 0;
+    function flush(){ if (cur.length){ rows.push({items:cur, w:curW}); cur = []; curW = 0; } }
+    kids.forEach(function(k){
+      if (k.box){ flush(); rows.push({items:[k], w:k.w}); return; }  /* boxes get their own row */
+      var add = (cur.length ? GAP : 0) + k.w;
+      if (cur.length >= perRow || (cur.length && curW + add > g.maxW)) flush();
+      cur.push(k); curW += (cur.length > 1 ? GAP : 0) + k.w;
+    });
+    flush();
+    g._rows = rows;
+
+    var innerW = 0, innerH = 0;
+    rows.forEach(function(r, i){
+      innerW = Math.max(innerW, r.w);
+      var rh = 0; r.items.forEach(function(k){ rh = Math.max(rh, k.h); });
+      r.h = rh;
+      innerH += rh + (i ? GAP : 0);
+    });
+    var labelW = (g.label.length * 7.4) + (g.meta ? g.meta.length * 6.2 + 8 : 0) + 30;
+    /* whole pixels: fractional widths give sub-pixel borders and blurry edges */
+    g.w = Math.ceil(Math.max(innerW, labelW, 120)) + PAD*2;
+    g.h = innerH + HEAD + PAD;
+    if (!kids.length) g.h = HEAD + 22;
+    return g;
+  }
+
+  function place(g, x, y){
+    g.x = x; g.y = y;
+    if (!g.box) return;
+    var cy = y + HEAD;
+    (g._rows || []).forEach(function(r){
+      var cx = x + PAD;
+      r.items.forEach(function(k){
+        place(k, cx, cy);
+        cx += k.w + GAP;
+      });
+      cy += r.h + GAP;
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     Containment tree.
+
+     Placement runs in passes, outermost first, because each pass needs
+     the groups the previous one created. To support a new container
+     type, add a pass here and mark the type kind:"group" in REG.
+     ------------------------------------------------------------------ */
+
+  function buildTree(model, opts){
+    var ctx = {
+      vis: visibleResources(model, opts),
+      opts: opts,
+      vpcGroups: {}, azGroups: {}, subnetGroups: {}, sgGroups: {}, ownerOf: {}
+    };
+
+    ctx.cloud  = mkGroup("cloud", "AWS Cloud", "", 1500, true);
+    ctx.region = mkGroup("region", "Region", model.region || "region not resolved", 1420);
+    ctx.global = mkGroup("loose", "Global", "account-level", 760);
+    ctx.unplaced = mkGroup("loose", "Unplaced", "no vpc or subnet reference", 760);
+    ctx.cloud.children.push(ctx.region);
+
+    placeVpcs(ctx);
+    placeSubnets(ctx);
+    placeSecurityGroups(ctx);
+    placeRemaining(ctx);
+
+    if (ctx.global.children.length) ctx.cloud.children.push(ctx.global);
+    if (ctx.unplaced.children.length) ctx.cloud.children.push(ctx.unplaced);
+
+    pruneEmpty(ctx.cloud, ctx.cloud, opts);
+    measure(ctx.cloud);
+    place(ctx.cloud, 0, 0);
+    model.anc = ancestorChains(ctx.cloud);
+    return ctx.cloud;
+  }
+
+  function visibleResources(model, opts){
+    return model.resources.filter(function(r){
+      if (!r.enabledType) return false;
+      if (r.kind === "assoc" && !opts.showAssoc) return false;
+      if (!r.supported && !opts.showUnsup) return false;
+      if (opts.mode === "changes" && r.kind !== "group" &&
+          (r.action === "no-op" || r.action === "read")) return false;
+      return true;
+    });
+  }
+
+  function vpcOf(ctx, r){
+    for (var i = 0; i < r.refs.length; i++){
+      if (ctx.vpcGroups[r.refs[i]]) return ctx.vpcGroups[r.refs[i]];
+    }
+    return null;
+  }
+  function subnetOf(ctx, r){
+    for (var i = 0; i < r.refs.length; i++){
+      if (ctx.subnetGroups[r.refs[i]]) return ctx.subnetGroups[r.refs[i]];
+    }
+    return null;
+  }
+
+  function placeVpcs(ctx){
+    ctx.vis.forEach(function(r){
+      if (r.type !== "aws_vpc") return;
+      var g = mkGroup("vpc", "VPC " + r.name, r.attrs.cidr_block || "cidr unknown", 1200);
+      g.res = r;
+      ctx.vpcGroups[r.addr] = g;
+      ctx.region.children.push(g);
+    });
+  }
+
+  /* Subnets nest in an availability-zone group inside their VPC. */
+  function placeSubnets(ctx){
+    ctx.vis.forEach(function(r){
+      if (r.type !== "aws_subnet") return;
+      var parentVpc = vpcOf(ctx, r) || ctx.region;
+      var az = r.attrs.availability_zone || "availability zone unresolved";
+      var key = (parentVpc.label || "") + "|" + az;
+      if (!ctx.azGroups[key]){
+        ctx.azGroups[key] = mkGroup("az", "Availability Zone", az, 1100);
+        parentVpc.children.push(ctx.azGroups[key]);
+      }
+      var isPublic = r.attrs.map_public_ip_on_launch === true;
+      var g = mkGroup("subnet", (isPublic ? "Public subnet " : "Subnet ") + r.name,
+                      r.attrs.cidr_block || "cidr unknown", 620);
+      if (!isPublic) g.cls = "subnet private";
+      g.res = r;
+      ctx.subnetGroups[r.addr] = g;
+      ctx.azGroups[key].children.push(g);
+    });
+  }
+
+  /* A security group is drawn as a dashed boundary around the resources
+     that reference it. Another SG referencing it is a rule source, not a
+     member, so security groups never nest in each other. */
+  function placeSecurityGroups(ctx){
+    var sgRes = {}, members = {};
+    ctx.vis.forEach(function(r){ if (r.type === "aws_security_group") sgRes[r.addr] = r; });
+    ctx.vis.forEach(function(r){
+      if (r.type === "aws_security_group") return;
+      r.refs.forEach(function(a){
+        if (!sgRes[a]) return;
+        (members[a] = members[a] || []).push(r);
+        if (!ctx.ownerOf[r.addr]) ctx.ownerOf[r.addr] = a;
+      });
+    });
+
+    Object.keys(sgRes).forEach(function(a){
+      var mem = members[a] || [];
+      if (!mem.length) return;                       /* empty SG stays a tile */
+      var r = sgRes[a];
+      var g = mkGroup("sg", "Security group " + r.name, "", 620);
+      g.res = r;
+      ctx.sgGroups[a] = g;
+      var host = subnetOf(ctx, mem[0]) || vpcOf(ctx, mem[0]) || vpcOf(ctx, r);
+      (host || ctx.region).children.push(g);
+    });
+  }
+
+  function placeRemaining(ctx){
+    ctx.vis.forEach(function(r){
+      if (r.type === "aws_vpc" || r.type === "aws_subnet") return;
+      if (r.type === "aws_security_group" && ctx.sgGroups[r.addr]) return;
+
+      var leaf = {box:false, res:r};
+      var own = ctx.ownerOf[r.addr];
+      if (own && ctx.sgGroups[own]){ ctx.sgGroups[own].children.push(leaf); return; }
+
+      var scope = r.spec && r.spec.scope;
+      if (scope === "global"){ ctx.global.children.push(leaf); return; }
+      if (scope === "region"){ ctx.region.children.push(leaf); return; }
+
+      var sg = (scope === "vpc") ? null : subnetOf(ctx, r);
+      if (sg){ sg.children.push(leaf); return; }
+      var vg = vpcOf(ctx, r);
+      if (vg){ vg.children.push(leaf); return; }
+      if (scope === "vpc"){ ctx.region.children.push(leaf); return; }
+      ctx.unplaced.children.push(leaf);
+    });
+  }
+
+  /* A container kept only to host filtered-out children is noise. */
+  function pruneEmpty(g, root, opts){
+    if (!g.box) return true;                         /* a tile is always kept */
+    g.children = g.children.filter(function(k){ return pruneEmpty(k, root, opts); });
+    if (g === root) return true;
+    return g.children.length > 0 ||
+           (g.res && g.res.action !== "no-op") ||
+           opts.mode !== "changes";
+  }
+
+  /* An edge between a resource and something that already encloses it is
+     redundant: the nesting says it. */
+  function ancestorChains(root){
+    var anc = {};
+    (function walk(g, chain){
+      var next = chain;
+      if (g.res){ anc[g.res.addr] = chain; next = chain.concat([g.res.addr]); }
+      if (g.box) g.children.forEach(function(k){ walk(k, next); });
+    })(root, []);
+    return anc;
+  }
+
+  /* ============================================================
+     4. RENDER
+     ============================================================ */
+
+  var suppressClick = false;
+  var $ = function(id){ return document.getElementById(id); };
+  var canvas = $("canvas"), edgesSvg = $("edges"), detailEl = $("detail"), splitEl = $("split");
+  var model = null, selected = null;
+  var opts = {showAssoc:false, showUnsup:true, edges:"select", mode:"all"};
+  var nodeEls = {};
+
+  function icoSvg(spec, size){
+    var color = spec ? CAT[spec.cat] : "var(--warn)";
+    var id = spec ? spec.icon : "i-unknown";
+    return '<svg class="ico" style="color:' + color + '" width="' + size + '" height="' + size + '" viewBox="0 0 48 48" aria-hidden="true"><use href="#' + id + '"/></svg>';
+  }
+
+  /* Block height means something: EC2 blocks scale with instance size, other
+     resources take a flat default. */
+  var SIZE_H = {nano:16, micro:20, small:26, medium:32, large:40, xlarge:52,
+                "2xlarge":64, "4xlarge":78, "8xlarge":92, "12xlarge":104,
+                "16xlarge":116, "24xlarge":128, metal:140};
+
+  function blockHeight(r){
+    var t = r.attrs && (r.attrs.instance_type || r.attrs.node_type || r.attrs.instance_class);
+    if (t){
+      var sz = String(t).split(".").slice(1).join(".");
+      if (SIZE_H[sz]) return SIZE_H[sz];
+    }
+    if (r.type === "aws_vpc_endpoint") return 22;
+    if (r.kind === "assoc") return 10;
+    return 26;
+  }
+
+  function changedKeys(r){
+    if (r.action === "create" || r.action === "no-op") return [];
+    var before = r.before || {}, after = r.attrs || {}, keys = [];
+    Object.keys(before).concat(Object.keys(after)).forEach(function(k){
+      if (keys.indexOf(k) < 0 && !sameVal(before[k], after[k])) keys.push(k);
+    });
+    Object.keys(r.unknown || {}).forEach(function(k){
+      if (r.unknown[k] === true && keys.indexOf(k) < 0 && before[k] !== undefined) keys.push(k);
+    });
+    return keys.sort();
+  }
+
+  function titleFor(r){
+    if (r.spec) return r.spec.label;
+    return r.type.replace(/^aws_/, "").replace(/_/g, " ").replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+  }
+  function subFor(r){
+    if (r.spec && r.spec.sub && r.attrs[r.spec.sub]){
+      var v = String(r.attrs[r.spec.sub]);
+      if (r.type === "aws_vpc_endpoint") return v.split(".").slice(3).join(".") || v;
+      return v;
+    }
+    if (r.attrs.cidr_block) return String(r.attrs.cidr_block);
+    return "";
+  }
+
+  function setEmpty(on){
+    var es = $("emptyState");
+    if (es) es.hidden = !on;
+    $("canvas").style.display = on ? "none" : "";
+  }
+
+  var ISO = {on:false, rx:54, rz:-45, scale:1, px:0, py:0};
+  var ISO_HOME = {rx:54, rz:-45, scale:1, px:0, py:0};
+
+  function applyTransform(){
+    if (!ISO.on){ canvas.style.transform = ""; return; }
+    canvas.style.transform =
+      "translate(" + ISO.px + "px," + ISO.py + "px) scale(" + ISO.scale + ") " +
+      "rotateX(" + ISO.rx + "deg) rotateZ(" + ISO.rz + "deg)";
+  }
+
+  function fitCanvas(w, h){
+    if (!ISO.on){ canvas.style.margin = "20px"; return; }
+    var rad = Math.PI / 180;
+    var s = Math.SQRT1_2;                        /* 45 degrees about Z */
+    var bw = (w + h) * s;
+    var bh = (w + h) * s * Math.cos(ISO.rx * rad);
+    var padX = Math.max(20, (bw - w) / 2 + 30);
+    var padY = Math.max(20, (bh - h) / 2 + 30);
+    canvas.style.margin = padY + "px " + padX + "px";
+  }
+
+  function centerScroll(){
+    var w = $("canvasWrap");
+    w.scrollLeft = Math.max(0, (w.scrollWidth - w.clientWidth) / 2);
+    w.scrollTop  = Math.max(0, (w.scrollHeight - w.clientHeight) / 2);
+  }
+
+  function fitView(){
+    var w = $("canvasWrap");
+    var cw = parseFloat(canvas.style.width) || 1;
+    var ch = parseFloat(canvas.style.height) || 1;
+    if (ISO.on){
+      var rad = Math.PI / 180, s = Math.SQRT1_2;
+      var bw = (cw + ch) * s;
+      var bh = (cw + ch) * s * Math.cos(ISO.rx * rad);
+      ISO.scale = Math.max(0.15, Math.min(2,
+        Math.min((w.clientWidth - 60) / bw, (w.clientHeight - 60) / bh)));
+      ISO.px = 0; ISO.py = 0;
+      applyTransform();
+    }
+    requestAnimationFrame(centerScroll);
+  }
+
+  function setIso(on){
+    ISO.on = on;
+    canvas.classList.toggle("iso", on);
+    $("canvasWrap").classList.toggle("iso", on);
+    var b = $("isoBtn");
+    b.textContent = on ? "View: isometric" : "View: flat";
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    try { localStorage.setItem("tfplanview-iso", on ? "1" : "0"); } catch(e){}
+    fitCanvas(parseFloat(canvas.style.width) || 0, parseFloat(canvas.style.height) || 0);
+    applyTransform();
+    if (model) fitView();
+  }
+
+  (function isoControls(){
+    var wrap = $("canvasWrap");
+    var drag = null;
+
+    wrap.addEventListener("pointerdown", function(e){
+      if (!ISO.on || e.button === 2) return;
+      drag = {x:e.clientX, y:e.clientY, moved:0,
+              pan: e.shiftKey || e.button === 1,
+              rx:ISO.rx, rz:ISO.rz, px:ISO.px, py:ISO.py, active:false};
+    });
+
+    window.addEventListener("pointermove", function(e){
+      if (!drag) return;
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      drag.moved = Math.max(drag.moved, Math.abs(dx) + Math.abs(dy));
+      if (drag.moved <= 4) return;            /* a click is not a drag */
+      if (!drag.active){
+        drag.active = true;
+        wrap.classList.add("grabbing");
+        canvas.classList.add("dragging");
+      }
+      if (drag.pan){
+        ISO.px = drag.px + dx;
+        ISO.py = drag.py + dy;
+      } else {
+        /* CSS +Y points down, so a positive rotateZ reads clockwise on screen:
+           negate it so the scene follows the pointer */
+        ISO.rz = drag.rz - dx * 0.35;
+        ISO.rx = Math.max(0, Math.min(88, drag.rx - dy * 0.3));
+      }
+      applyTransform();
+    });
+
+    function endDrag(){
+      if (!drag) return;
+      var wasDrag = drag.moved > 4;
+      drag = null;
+      wrap.classList.remove("grabbing");
+      canvas.classList.remove("dragging");
+      suppressClick = wasDrag;
+      if (wasDrag) setTimeout(function(){ suppressClick = false; }, 0);
+      else suppressClick = false;
+    }
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
+
+    wrap.addEventListener("wheel", function(e){
+      if (!ISO.on) return;
+      e.preventDefault();
+      var f = Math.exp(-e.deltaY * 0.0015);
+      ISO.scale = Math.max(0.2, Math.min(4, ISO.scale * f));
+      applyTransform();
+    }, {passive:false});
+
+    $("isoReset").addEventListener("click", function(e){
+      e.stopPropagation();
+      ISO.rx = ISO_HOME.rx; ISO.rz = ISO_HOME.rz;
+      ISO.px = 0; ISO.py = 0;
+      applyTransform();
+      fitView();
+    });
+  })();
+
+  function render(){
+    if (!model){ setEmpty(true); return; }
+    setEmpty(!model.resources.length);
+    // recompute enabledType flags
+    model.resources.forEach(function(r){
+      if (r.enabledType === undefined) r.enabledType = true;
+    });
+
+    var S = model.summary || {};
+    var hasEdits = (S.update || 0) + (S.replace || 0) + (S["delete"] || 0) > 0;
+    model.hasEdits = hasEdits;
+
+    TH = tileHeight(opts.mode, hasEdits);
+    canvas.classList.toggle("mode-changes", opts.mode === "changes");
+    canvas.classList.toggle("emphasise", opts.mode === "changes" && hasEdits);
+
+    var tree = buildTree(model, opts);
+
+    // clear
+    Array.prototype.slice.call(canvas.querySelectorAll(".grp,.node")).forEach(function(n){ n.remove(); });
+    nodeEls = {};
+
+    canvas.style.width = tree.w + "px";
+    canvas.style.height = tree.h + "px";
+    fitCanvas(tree.w, tree.h);
+    applyTransform();
+    edgesSvg.setAttribute("width", tree.w);
+    edgesSvg.setAttribute("height", tree.h);
+    edgesSvg.setAttribute("viewBox", "0 0 " + tree.w + " " + tree.h);
+
+    (function walk(g, depth){
+      depth = depth || 0;
+      if (g.box){
+        var d = document.createElement("div");
+        d.className = "grp " + g.cls;
+        d.style.setProperty("--z", depth * 3);
+        d.style.left = g.x + "px"; d.style.top = g.y + "px";
+        d.style.width = g.w + "px"; d.style.height = g.h + "px";
+        var ic = g.cls === "cloud" ? "i-cloud" : (g.cls === "region" || g.cls === "az" ? "i-region" : null);
+        d.innerHTML = '<div class="grp-hd">' +
+          (ic ? '<svg viewBox="0 0 48 48" aria-hidden="true"><use href="#' + ic + '"/></svg>' : '') +
+          escapeHtml(g.label) + (g.meta ? ' <em>' + escapeHtml(g.meta) + '</em>' : '') + '</div>';
+        if (g.res){
+          d.dataset.addr = g.res.addr;
+          d.style.cursor = "pointer";
+          d.addEventListener("click", function(e){ if (suppressClick) return; e.stopPropagation(); select(g.res.addr); });
+          nodeEls[g.res.addr] = d;
+        }
+        canvas.appendChild(d);
+        g.children.forEach(function(k){ walk(k, depth + 1); });
+      } else {
+        var r = g.res;
+        var n = document.createElement("div");
+        n.className = "node act-" + r.action + (r.supported ? "" : " unsup") + (r.enabled ? "" : " disabled");
+        n.style.left = g.x + "px"; n.style.top = g.y + "px";
+        n.style.width = TW + "px"; n.style.height = TH + "px";
+        n.style.setProperty("--h", blockHeight(r) + "px");
+        n.dataset.addr = r.addr;
+        var sub = subFor(r);
+        if (sub && sub.toLowerCase() === String(r.name).toLowerCase()) sub = "";
+        var line2 = escapeHtml(r.name) + (sub ? ' <i>· ' + escapeHtml(sub) + '</i>' : '');
+        /* Topology is structure: every tile is drawn the same way, with the
+           action carried only by the optional dot. Changes names the action
+           on every tile, because that is what the mode is for. */
+        var plain = (opts.mode !== "changes") || (r.action === "no-op");
+        if (!plain) n.className += " has-chip";
+        n.innerHTML =
+          (plain
+            ? '<span class="act" style="background:' + (ACTION_COLOR[r.action] || "var(--noop)") + '" title="' + r.action + '"></span>'
+            : '<span class="actw" style="color:' + ACTION_COLOR[r.action] +
+              '; background:color-mix(in srgb, ' + ACTION_COLOR[r.action] + ' 16%, var(--surface))">' +
+              escapeHtml(r.action) + '</span>') +
+          icoSvg(r.spec, 24) +
+          '<div class="ttl">' + escapeHtml(titleFor(r)) + '</div>' +
+          '<div class="nm" title="' + escapeHtml(r.name + (sub ? "  ·  " + sub : "")) + '">' + line2 + '</div>';
+
+        if (opts.mode === "changes" && model.hasEdits){
+          var ck = changedKeys(r);
+          var forced = (r.replacePaths || []).map(function(pp){ return Array.isArray(pp) ? pp[0] : pp; });
+          var body;
+          if (!ck.length){
+            body = '<span class="q">' + (r.action === "create" ? "new resource" : "no attribute changes") + '</span>';
+          } else {
+            body = ck.slice(0, 3).map(function(k){
+              return forced.indexOf(k) >= 0
+                ? '<b title="forces replacement">' + escapeHtml(k) + '</b>'
+                : escapeHtml(k);
+            }).join(", ") + (ck.length > 3 ? ' <span class="q">+' + (ck.length - 3) + '</span>' : '');
+          }
+          var d = document.createElement("div");
+          d.className = "chgline";
+          d.innerHTML = body;
+          n.appendChild(d);
+        }
+        n.addEventListener("click", function(e){ if (suppressClick) return; e.stopPropagation(); select(r.addr); });
+        canvas.appendChild(n);
+        nodeEls[r.addr] = n;
+      }
+    })(tree, 0);
+
+    applyDisabledCascade();
+    drawEdges();
+    applySelection();
+    renderSidebar();
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  /* --- disabling a component: mark transitive dependents --- */
+  function applyDisabledCascade(){
+    var broken = {};
+    var changed = true;
+    while (changed){
+      changed = false;
+      model.resources.forEach(function(r){
+        if (!r.enabled || broken[r.addr]) return;
+        for (var i=0;i<r.refs.length;i++){
+          var t = model.byAddr[r.refs[i]];
+          if (t && (!t.enabled || broken[t.addr])){ broken[r.addr] = true; changed = true; return; }
+        }
+      });
+    }
+    model.brokenSet = broken;
+    model.resources.forEach(function(r){
+      var el = nodeEls[r.addr];
+      if (!el) return;
+      el.classList.toggle("disabled", !r.enabled);
+      el.classList.toggle("broken", !!broken[r.addr] && r.enabled);
+      var f = el.querySelector(".flag");
+      if (broken[r.addr] && r.enabled){
+        if (!f){ f = document.createElement("div"); f.className = "flag"; el.appendChild(f); }
+        f.textContent = "dep disabled";
+      } else if (f){ f.remove(); }
+    });
+  }
+
+  /* --- edges --- */
+  function boxOf(addr){
+    var el = nodeEls[addr];
+    if (!el) return null;
+    var x = parseFloat(el.style.left), y = parseFloat(el.style.top);
+    var w = parseFloat(el.style.width), h = parseFloat(el.style.height);
+    return {x:x, y:y, w:w, h:h, cx:x + w/2, cy:y + h/2, grp:el.classList.contains("grp")};
+  }
+
+  /* a tile connects at its centre; a container connects where the line meets
+     its edge, so the arrow does not stop in the middle of its contents */
+  function anchor(b, toward){
+    if (!b.grp) return {x:b.cx, y:b.cy};
+    var dx = toward.x - b.cx, dy = toward.y - b.cy;
+    if (!dx && !dy) return {x:b.cx, y:b.cy};
+    var s = Math.min(dx ? (b.w/2)/Math.abs(dx) : Infinity,
+                     dy ? (b.h/2)/Math.abs(dy) : Infinity);
+    return {x:b.cx + dx*s, y:b.cy + dy*s};
+  }
+
+  function encloses(a, b){
+    var ka = model.anc && model.anc[a], kb = model.anc && model.anc[b];
+    return (ka && ka.indexOf(b) >= 0) || (kb && kb.indexOf(a) >= 0);
+  }
+
+  function drawEdges(){
+    edgesSvg.innerHTML = "";
+    if (opts.edges === "none") return;
+    var show = [];
+    model.resources.forEach(function(r){
+      if (!nodeEls[r.addr]) return;
+      r.refs.forEach(function(a){
+        if (!nodeEls[a]) return;
+        if (encloses(r.addr, a)) return;                       /* nesting shows it */
+        if (nodeEls[r.addr].classList.contains("grp")) return; /* containers are */
+        if (nodeEls[a].classList.contains("grp")) return;      /* highlighted instead */
+        if (opts.edges === "select"){
+          if (!selected) return;
+          if (r.addr !== selected && a !== selected) return;
+        }
+        show.push([r.addr, a]);
+      });
+    });
+    show.forEach(function(pair){
+      var ba = boxOf(pair[0]), bb = boxOf(pair[1]);
+      if (!ba || !bb) return;
+      var a = anchor(ba, {x:bb.cx, y:bb.cy});
+      var b = anchor(bb, {x:ba.cx, y:ba.cy});
+      var mx = (a.x + b.x)/2;
+      var p = document.createElementNS("http://www.w3.org/2000/svg","path");
+      p.setAttribute("d", "M" + a.x + "," + a.y + " C" + mx + "," + a.y + " " + mx + "," + b.y + " " + b.x + "," + b.y);
+      p.setAttribute("fill","none");
+      p.setAttribute("stroke", (selected && (pair[0]===selected||pair[1]===selected)) ? "var(--aws-net)" : "var(--line)");
+      p.setAttribute("stroke-width", (selected && (pair[0]===selected||pair[1]===selected)) ? "2" : "1.2");
+      p.setAttribute("stroke-dasharray", "5 4");
+      p.setAttribute("opacity", opts.edges === "all" && !selected ? ".55" : "1");
+      edgesSvg.appendChild(p);
+
+    });
+  }
+
+  /* --- selection --- */
+  function select(addr){
+    selected = (selected === addr) ? null : addr;
+    applySelection();
+    drawEdges();
+    renderDetail();
+  }
+
+  function applySelection(){
+    var related = {};
+    if (selected){
+      related[selected] = true;
+      var r = model.byAddr[selected];
+      if (r){
+        r.refs.forEach(function(a){ related[a] = true; });
+        (r.dependents||[]).forEach(function(a){ related[a] = true; });
+      }
+    }
+    Object.keys(nodeEls).forEach(function(addr){
+      var el = nodeEls[addr];
+      el.classList.toggle("sel", addr === selected);
+      el.classList.toggle("rel", !!selected && related[addr] && addr !== selected);
+      el.classList.toggle("dim", !!selected && !related[addr]);
+    });
+  }
+
+  function portText(r){
+    if (r.protocol === "-1" || r.protocol === "all") return "all";
+    if (r.from_port === 0 && r.to_port === 0) return "all";
+    if (r.from_port === r.to_port) return String(r.from_port);
+    return r.from_port + "\u2013" + r.to_port;
+  }
+  function protoText(p){
+    if (p === "-1" || p === undefined || p === null) return "all";
+    return String(p);
+  }
+  function peerText(e){
+    var out = [];
+    (e.cidr_blocks || []).forEach(function(c){ out.push(c); });
+    (e.ipv6_cidr_blocks || []).forEach(function(c){ out.push(c); });
+    (e.prefix_list_ids || []).forEach(function(c){ out.push("pl " + c); });
+    (e.security_groups || []).forEach(function(c){ out.push("sg " + c); });
+    if (e.self) out.push("self");
+    if (e.cidr_block) out.push(e.cidr_block);
+    if (e.ipv6_cidr_block) out.push(e.ipv6_cidr_block);
+    return out.length ? out.join(", ") : "\u2014";
+  }
+
+  function rulesHtml(r){
+    var isNacl = r.type === "aws_network_acl";
+    var isSg = r.type === "aws_security_group";
+    if (!isNacl && !isSg) return "";
+
+    function table(dir, entries){
+      var peerHd = (dir === "ingress") ? "Source" : "Destination";
+      var h = '<div class="rules-cap">' + dir + '</div>';
+      if (!entries || !entries.length) return h + '<div class="none">no ' + dir + ' rules</div>';
+      var sorted = entries.slice();
+      if (isNacl) sorted.sort(function(a,b){ return (a.rule_no||0) - (b.rule_no||0); });
+      h += '<table><thead><tr>' +
+           (isNacl ? '<th>#</th>' : '') +
+           '<th>Proto</th><th>Ports</th><th>' + peerHd + '</th>' +
+           (isNacl ? '<th>Action</th>' : '') +
+           '</tr></thead><tbody>';
+      sorted.forEach(function(e){
+        h += '<tr>' +
+             (isNacl ? '<td>' + escapeHtml(e.rule_no) + '</td>' : '') +
+             '<td>' + escapeHtml(protoText(e.protocol)) + '</td>' +
+             '<td>' + escapeHtml(portText(e)) + '</td>' +
+             '<td>' + escapeHtml(peerText(e)) + (e.description ? '<br><span style="color:var(--faint)">' + escapeHtml(e.description) + '</span>' : '') + '</td>' +
+             (isNacl ? '<td class="' + (e.action === "deny" ? "deny" : "allow") + '">' + escapeHtml(e.action) + '</td>' : '') +
+             '</tr>';
+      });
+      /* the implicit rule belongs in the same table, or the columns do not line up */
+      if (isNacl){
+        h += '<tr class="implicit"><td>*</td><td>all</td><td>all</td>' +
+             '<td>0.0.0.0/0</td><td class="deny">deny</td></tr>';
+      }
+      h += '</tbody></table>';
+      return h;
+    }
+
+    var out = '<div class="rules">';
+    out += table("ingress", r.attrs.ingress);
+    out += table("egress", r.attrs.egress);
+    if (isSg) out += '<div class="none" style="padding-top:8px">Stateful: replies to allowed traffic return without a matching rule.</div>';
+    if (isNacl) out += '<div class="none" style="padding-top:8px">Stateless: each direction is evaluated independently, first match wins.</div>';
+    out += '</div>';
+    return {title: isSg ? "Security group rules" : "Network ACL rules", body: out};
+  }
+
+  /* --- what this plan changes, per resource --- */
+
+  function sameVal(a, b){
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch(e){ return a === b; }
+  }
+  function valText(v, sensitive){
+    if (sensitive === true) return "(sensitive value)";
+    if (v === null || v === undefined) return "null";
+    if (typeof v === "object") return JSON.stringify(v, null, 1);
+    return String(v);
+  }
+  function forcesReplace(r, key){
+    return (r.replacePaths || []).some(function(path){
+      return Array.isArray(path) ? path[0] === key : path === key;
+    });
+  }
+
+  function changeHtml(r){
+    if (r.action === "create" || r.action === "no-op") return null;
+
+    var before = r.before || {}, after = r.attrs || {};
+    var keys = {};
+    Object.keys(before).forEach(function(k){ keys[k] = 1; });
+    Object.keys(after).forEach(function(k){ keys[k] = 1; });
+    Object.keys(r.unknown || {}).forEach(function(k){ if (r.unknown[k] === true) keys[k] = 1; });
+
+    var rows = Object.keys(keys).sort().filter(function(k){
+      if (r.unknown && r.unknown[k] === true) return !sameVal(before[k], undefined);
+      return !sameVal(before[k], after[k]);
+    });
+
+    if (!rows.length && r.action !== "delete") return null;
+
+    var b = '<div class="diff">';
+    if (r.actionReason){
+      b += '<div class="diff-reason">' + escapeHtml(String(r.actionReason).replace(/_/g, " ")) + '</div>';
+    }
+    if (r.action === "delete"){
+      b += '<div class="diff-reason">This resource is destroyed. Values below are what exists today.</div>';
+    }
+    rows.forEach(function(k){
+      var sens = r.sensitive && r.sensitive[k];
+      var isUnknown = r.unknown && r.unknown[k] === true;
+      var forced = forcesReplace(r, k);
+      b += '<div class="diff-row' + (forced ? " forced" : "") + '">' +
+             '<div class="dk">' + escapeHtml(k) +
+               (forced ? '<span class="tagf">forces replacement</span>' : '') + '</div>';
+      if (r.action !== "delete"){
+        b += '<div class="dv old">' + escapeHtml(valText(before[k], sens)) + '</div>' +
+             '<div class="dv new">' + (isUnknown ? '<i>known after apply</i>' : escapeHtml(valText(after[k], sens))) + '</div>';
+      } else {
+        b += '<div class="dv old">' + escapeHtml(valText(before[k], sens)) + '</div>';
+      }
+      b += '</div>';
+    });
+    b += '</div>';
+    return {count: rows.length, body: b};
+  }
+
+  /* --- collapsible sections, remembered per section across selections --- */
+  var SEC_DEFAULT = {diff:true, deps:true, refby:true, rules:true, hcl:false, cli:false, attrs:false};
+  var secOpen = {};
+  try {
+    var saved = localStorage.getItem("tfplanview-sections");
+    if (saved) secOpen = JSON.parse(saved) || {};
+  } catch(e){ secOpen = {}; }
+
+  function isOpen(key){
+    return (secOpen[key] === undefined) ? !!SEC_DEFAULT[key] : !!secOpen[key];
+  }
+
+  var CHEV = '<svg class="chev" viewBox="0 0 10 10" aria-hidden="true">' +
+             '<path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+             'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function sec(key, title, count, body){
+    return '<details data-sec="' + key + '"' + (isOpen(key) ? " open" : "") + '>' +
+             '<summary class="dsec">' + escapeHtml(title) +
+               (count !== null && count !== undefined ? ' <span class="cnt">' + escapeHtml(count) + '</span>' : '') +
+               CHEV +
+             '</summary>' + body +
+           '</details>';
+  }
+
+  function wireSections(){
+    var allSecs = Array.prototype.slice.call(detailEl.querySelectorAll("details[data-sec]"));
+    var btn = $("secAll");
+    function save(){
+      try { localStorage.setItem("tfplanview-sections", JSON.stringify(secOpen)); } catch(e){}
+    }
+    function syncAll(){
+      if (!btn) return;
+      var anyClosed = allSecs.some(function(d){ return !d.open; });
+      btn.textContent = anyClosed ? "Expand all" : "Collapse all";
+      btn.dataset.want = anyClosed ? "open" : "close";
+    }
+    allSecs.forEach(function(d){
+      d.addEventListener("toggle", function(){ secOpen[d.dataset.sec] = d.open; save(); syncAll(); });
+    });
+    syncAll();
+    if (btn) btn.addEventListener("click", function(){
+      var open = btn.dataset.want === "open";
+      allSecs.forEach(function(d){ d.open = open; secOpen[d.dataset.sec] = open; });
+      save(); syncAll();
+    });
+    Array.prototype.slice.call(detailEl.querySelectorAll("[data-goto]")).forEach(function(a){
+      a.addEventListener("click", function(){ select(a.dataset.goto); });
+    });
+  }
+
+  function renderPlanInfo(){
+    if (!model) return;
+    selected = null;
+    applySelection();
+    drawEdges();
+    splitEl.classList.add("has-detail");
+
+    var S = model.summary || {};
+    var rows = [
+      ["file", model.source],
+      ["size", (model.rawBytes/1024).toFixed(1) + " KB"],
+      ["format_version", model.formatVersion || "\u2014"],
+      ["terraform_version", model.tfVersion || "\u2014"],
+      ["timestamp", model.timestamp || "\u2014"],
+      ["region", model.region || "\u2014"],
+      ["resources", model.resources.length],
+      ["outputs", model.outputs ? Object.keys(model.outputs).length : 0]
+    ];
+
+    var html = '<div class="dhd"><span class="type">loaded file</span>' +
+      '<h3>' + escapeHtml(model.source) + '</h3><div class="badges">';
+    ["create","update","replace","delete"].forEach(function(a){
+      if (S[a]) html += '<span class="badge" style="color:' + ACTION_COLOR[a] +
+        '; background:color-mix(in srgb, ' + ACTION_COLOR[a] + ' 14%, transparent)">' +
+        S[a] + " " + escapeHtml(a) + '</span>';
+    });
+    html += '</div></div><div class="sec-tools"><button id="secAll"></button></div>';
+
+    var meta = '<div class="attrs">';
+    rows.forEach(function(kv){
+      meta += '<div class="attr"><span class="k">' + escapeHtml(kv[0]) + '</span>' +
+              '<span class="v">' + escapeHtml(String(kv[1])) + '</span></div>';
+    });
+    html += sec("planmeta", "Plan metadata", null, meta + '</div>');
+
+    if (model.outputs){
+      var ob = '<div class="attrs">';
+      Object.keys(model.outputs).sort().forEach(function(k){
+        var o = model.outputs[k];
+        var unk = o.after_unknown === true;
+        var v = unk ? "known after apply" : (o.after !== undefined ? JSON.stringify(o.after) : "\u2014");
+        ob += '<div class="attr"><span class="k">' + escapeHtml(k) + '</span>' +
+              '<span class="v' + (unk ? " unknown" : "") + '">' + escapeHtml(v) + '</span></div>';
+      });
+      html += sec("outputs", "Outputs", Object.keys(model.outputs).length, ob + '</div>');
+    }
+
+    var addrs = '<div class="reflist">';
+    model.resources.forEach(function(r){
+      addrs += '<a data-goto="' + escapeHtml(r.addr) + '">' + escapeHtml(r.addr) +
+               ' <span style="color:' + (ACTION_COLOR[r.action] || "var(--noop)") + '">' +
+               escapeHtml(r.action) + '</span></a>';
+    });
+    html += sec("addrs", "Resources", model.resources.length, addrs + '</div>');
+
+    var raw = model.rawText || "";
+    var shown = raw.length > 200000 ? raw.slice(0, 200000) + "\n\u2026 truncated" : raw;
+    html += sec("raw", "Raw JSON", (model.rawBytes/1024).toFixed(1) + " KB",
+                '<pre class="rawjson">' + escapeHtml(shown) + '</pre>');
+
+    detailEl.innerHTML = html;
+    wireSections();
+  }
+
+  /* --- detail pane --- */
+  /* ------------------------------------------------------------------
+     Detail pane.
+
+     Sections are data: add an entry to DETAIL_SECTIONS and it appears,
+     collapses, remembers its state and joins "expand all" with no other
+     change. Each builder returns null to omit its section, or
+     {title, count, body}. Give every new key a default in SEC_DEFAULT.
+     ------------------------------------------------------------------ */
+
+  var DETAIL_SECTIONS = [
+    {key:"diff", build: function(r){
+      var ch = changeHtml(r);
+      return ch && {title:"What changes", count:ch.count, body:ch.body};
+    }},
+
+    {key:"deps", build: function(r){
+      if (!r.refs.length) return null;
+      return {title:"Depends on", count:r.refs.length, body:addrList(r.refs)};
+    }},
+
+    {key:"refby", build: function(r){
+      if (!r.dependents || !r.dependents.length) return null;
+      return {title:"Referenced by", count:r.dependents.length, body:addrList(r.dependents)};
+    }},
+
+    {key:"hcl", build: function(r, ctx){
+      var hcl = hclFor(r, model.cfgByAddr && model.cfgByAddr[r.addr]);
+      if (!hcl) return null;
+      ctx.hcl = hcl;
+      return {title:"Terraform block", count:null, body:
+        '<div class="cli">' + copyBlock("reconstructed", 'data-hcl="1"',
+            '<pre class="hcl">' + escapeHtml(hcl) + '</pre>') + '</div>' +
+        note("Rebuilt from the plan\u2019s configuration block. Comments and exact " +
+             "interpolation are not in the plan, so values computed from variables are " +
+             "shown resolved with their reference noted.")};
+    }},
+
+    {key:"rules", build: function(r){
+      var rl = rulesHtml(r);
+      return rl && {title:rl.title, count:null, body:rl.body};
+    }},
+
+    {key:"cli", build: function(r, ctx){
+      var cmds = CLI(r, {region: model.region});
+      ctx.cmds = cmds;
+      if (!cmds.length){
+        return {title:"Inspect with the AWS CLI", count:0,
+                body: note('No CLI recipe for <code>' + escapeHtml(r.type) + '</code> yet.')};
+      }
+      var b = '<div class="cli">';
+      cmds.forEach(function(c, i){
+        b += copyBlock(c.label, 'data-cli="' + i + '"',
+          '<pre class="cli-cmd">' +
+          escapeHtml(c.cmd).replace(/(\s)(--[a-z-]+)/g, '$1<span class="fl">$2</span>') +
+          '</pre>');
+      });
+      return {title:"Inspect with the AWS CLI", count:cmds.length,
+              body: b + '</div>' +
+                    note("Placeholders in angle brackets are ids that only exist after apply.")};
+    }},
+
+    {key:"attrs", build: function(r){
+      var a = attrRows(r);
+      return {title:"Planned attributes", count:a.count, body:a.body};
+    }}
+  ];
+
+  function note(html){ return '<div class="cli-note">' + html + '</div>'; }
+
+  function copyBlock(label, attr, inner){
+    return '<div class="cli-item"><div class="cli-lbl"><span>' + escapeHtml(label) + '</span>' +
+           '<button class="cli-copy" ' + attr + '>copy</button></div>' + inner + '</div>';
+  }
+
+  function addrList(addrs){
+    return '<div class="reflist">' + addrs.map(function(a){
+      return '<a data-goto="' + escapeHtml(a) + '">' + escapeHtml(a) + '</a>';
+    }).join("") + '</div>';
+  }
+
+  function attrRows(r){
+    var known = Object.keys(r.attrs || {}).filter(function(k){
+      var v = r.attrs[k];
+      if (v === null || v === undefined || v === "") return false;
+      if (Array.isArray(v) && !v.length) return false;
+      if (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length) return false;
+      return true;
+    }).sort();
+    var unknown = Object.keys(r.unknown || {}).filter(function(k){
+      return r.unknown[k] === true && known.indexOf(k) < 0;
+    }).sort();
+    var count = known.length + unknown.length;
+
+    var b = "";
+    if (count > 10){
+      b += '<div class="attr-search"><input type="text" id="attrFilter" ' +
+           'placeholder="filter attributes" autocomplete="off"></div>';
+    }
+    b += '<div class="attrs" id="attrList">';
+    if (!count){
+      b += '<div class="attr"><span class="k">\u2014</span>' +
+           '<span class="v unknown">no planned values</span></div>';
+    }
+    known.forEach(function(k){
+      var v = r.attrs[k];
+      var s = (typeof v === "object") ? JSON.stringify(v, null, 2) : String(v);
+      var long = s.length > 120;
+      if (s.length > 1200) s = s.slice(0, 1200) + "\n\u2026";
+      b += '<div class="attr" data-k="' + escapeHtml(k) + '"><span class="k">' + escapeHtml(k) +
+           '</span><span class="v' + (long ? " long" : "") + '">' + escapeHtml(s) + '</span></div>';
+    });
+    unknown.forEach(function(k){
+      b += '<div class="attr" data-k="' + escapeHtml(k) + '"><span class="k">' + escapeHtml(k) +
+           '</span><span class="v unknown">known after apply</span></div>';
+    });
+    return {count:count, body:b + '</div>'};
+  }
+
+  function detailHeader(r){
+    var color = ACTION_COLOR[r.action] || "var(--noop)";
+    var badges =
+      '<span class="badge" style="color:' + color + '; background:color-mix(in srgb, ' +
+        color + ' 14%, transparent)">' + escapeHtml(r.action) + '</span>' +
+      (r.supported ? "" :
+        '<span class="badge" style="color:var(--warn); background:var(--warn-soft)">not implemented yet</span>') +
+      (r.enabled ? "" :
+        '<span class="badge" style="color:var(--destroy); background:var(--err-soft)">disabled</span>') +
+      '<button class="chipbtn' + (r.enabled ? "" : " on") + '" id="toggleNode" style="margin-left:auto" title="' +
+        (r.enabled ? "Hide this resource and flag whatever depends on it" : "Put this resource back") +
+        '">' + (r.enabled ? "Disable" : "Enabled") + '</button>';
+
+    return '<div class="dhd"><span class="type">' + escapeHtml(r.type) + '</span>' +
+           '<h3>' + escapeHtml(r.name) + '</h3>' +
+           '<div class="badges">' + badges + '</div></div>';
+  }
+
+  function renderDetail(){
+    if (!selected || !model.byAddr[selected]){
+      splitEl.classList.remove("has-detail");
+      detailEl.innerHTML = "";
+      return;
+    }
+    splitEl.classList.add("has-detail");
+
+    var r = model.byAddr[selected];
+    var ctx = {};                                  /* builders stash copy targets here */
+    var html = detailHeader(r) + '<div class="sec-tools"><button id="secAll"></button></div>';
+
+    DETAIL_SECTIONS.forEach(function(s){
+      var built = s.build(r, ctx);
+      if (built) html += sec(s.key, built.title, built.count, built.body);
+    });
+
+    detailEl.innerHTML = html;
+    wireSections();
+    wireDetailControls(r, ctx);
+  }
+
+  function wireDetailControls(r, ctx){
+    var tb = $("toggleNode");
+    if (tb) tb.addEventListener("click", function(){
+      r.enabled = !r.enabled;
+      applyDisabledCascade();
+      renderDetail();
+    });
+
+    var filt = $("attrFilter");
+    if (filt) filt.addEventListener("input", function(){
+      var q = filt.value.trim().toLowerCase();
+      Array.prototype.slice.call(detailEl.querySelectorAll("#attrList .attr")).forEach(function(row){
+        row.hidden = q && (row.dataset.k || "").toLowerCase().indexOf(q) < 0;
+      });
+    });
+
+    Array.prototype.slice.call(detailEl.querySelectorAll(".cli-copy")).forEach(function(b){
+      b.addEventListener("click", function(){
+        var text = b.dataset.hcl ? ctx.hcl : ctx.cmds[parseInt(b.dataset.cli, 10)].cmd;
+        copyText(text, b);
+      });
+    });
+  }
+
+  function copyText(text, btn){
+    function done(){
+      btn.textContent = "copied"; btn.classList.add("done");
+      setTimeout(function(){ btn.textContent = "copy"; btn.classList.remove("done"); }, 1400);
+    }
+    function fallback(){
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch(e){}
+      ta.remove();
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } else fallback();
+    } catch(e){ fallback(); }
+  }
+
+  /* ------------------------------------------------------------------
+     Left sidebar. One function per panel, each owning its own DOM ids.
+     ------------------------------------------------------------------ */
+
+  function renderSidebar(){
+    panelModeCounts();
+    panelChanges();
+    panelPlanSummary();
+    panelCoverage();
+    panelTypes();
+    panelDiagnostics();
+  }
+
+  /* The tabs are a mode switch, not a readout: counts live in the sidebar.
+     Changes is disabled when the plan alters nothing. */
+  function panelModeCounts(){
+    var nChg = model.resources.filter(function(r){
+      return r.action !== "no-op" && r.action !== "read";
+    }).length;
+    var chg = $("modeChg");
+    chg.disabled = nChg === 0;
+    chg.title = nChg
+      ? "Only what this plan alters, with the changed attributes on each tile"
+      : "This plan alters nothing";
+    if (!nChg && opts.mode === "changes") setMode("all");
+  }
+
+  /* Destructive first: a destroy or a replacement is what needs reviewing,
+     an in-place update rarely is. Alphabetical within each group so the
+     order is stable between runs. */
+  var ACTION_RISK = {"delete":0, replace:1, update:2, create:3, read:4, "no-op":5};
+
+  function panelChanges(){
+    var changed = model.resources.filter(function(r){
+      return r.action === "update" || r.action === "replace" || r.action === "delete";
+    }).sort(function(a, b){
+      var d = ACTION_RISK[a.action] - ACTION_RISK[b.action];
+      return d !== 0 ? d : a.addr.localeCompare(b.addr);
+    });
+    var list = $("chgList");
+    list.innerHTML = "";
+    if (!changed.length) return;        /* the summary line already says it */
+
+    changed.forEach(function(r){
+      var forced = (r.replacePaths || []).map(function(pp){
+        return Array.isArray(pp) ? pp[0] : pp;
+      });
+      var keys = changedKeys(r);
+      var what = keys.slice(0, 3).map(function(k){
+        return forced.indexOf(k) >= 0 ? '<i>' + escapeHtml(k) + '</i>' : escapeHtml(k);
+      }).join(", ") + (keys.length > 3 ? " +" + (keys.length - 3) : "");
+
+      var a = document.createElement("a");
+      a.className = "chg";
+      a.innerHTML =
+        '<span class="a" style="color:' + ACTION_COLOR[r.action] +
+          '; background:color-mix(in srgb, ' + ACTION_COLOR[r.action] + ' 15%, transparent)">' +
+          escapeHtml(r.action) + '</span>' +
+        '<span class="ad">' + escapeHtml(r.addr) + '</span>' +
+        (what ? '<span class="wh">' + what + '</span>' : '');
+      a.addEventListener("click", function(){ select(r.addr); });
+      list.appendChild(a);
+    });
+  }
+
+  function panelPlanSummary(){
+    var S = model.summary || {};
+    /* A proportional bar, matching the Not drawn panel: the count sits in
+       the segment, the action name is the tooltip. */
+    var order = [["create","to add"],["update","to change"],
+                 ["replace","to replace"],["delete","to destroy"]];
+    var shown = order.filter(function(o){ return S[o[0]]; });
+    var total = shown.reduce(function(n, o){ return n + S[o[0]]; }, 0);
+    var html = shown.map(function(o){
+      var n = S[o[0]];
+      var pct = total ? (n / total * 100) : 0;
+      return '<span title="' + n + ' ' + o[1] + '" style="flex:' + n +
+             ';background:' + ACTION_COLOR[o[0]] + '"' +
+             (pct < 9 ? ' class="tiny"' : '') + '>' + n + '</span>';
+    }).join("");
+    html = html ? '<div class="statbar">' + html + '</div>' : "";
+    $("planSum").innerHTML = html || '<span class="ps" style="color:var(--faint)">no changes</span>';
+    var outs = model.outputs ? Object.keys(model.outputs).length : 0;
+    $("planMeta").textContent = outs ? (outs + " outputs") : "";
+  }
+
+  /* Coverage describes the renderer, not the infrastructure. A plan where
+     everything is drawn has nothing to report here, and Validation already
+     says so, so the block only appears when something is missing from the
+     diagram. */
+  function panelCoverage(){
+    var total = model.resources.length;
+    var sup = model.resources.filter(function(r){ return r.supported; }).length;
+    var assoc = model.resources.filter(function(r){ return r.supported && r.kind === "assoc"; }).length;
+    var un = total - sup;
+    var hiddenAssoc = opts.showAssoc ? 0 : assoc;
+    var missing = un + hiddenAssoc;
+
+    var block = $("covBlock");
+    if (!missing){ block.hidden = true; return; }
+
+    block.hidden = false;
+    $("covCount").textContent = missing + " of " + total;
+
+    var bar = $("covBar");
+    bar.innerHTML = "";
+    [[total - missing, "var(--create)", "drawn"],
+     [hiddenAssoc, "var(--aws-net)", "associations hidden"],
+     [un, "var(--warn)", "type not implemented"]].forEach(function(seg){
+      if (!seg[0] || !total) return;
+      var s = document.createElement("span");
+      s.style.flex = seg[0];
+      s.style.background = seg[1];
+      s.title = seg[0] + " " + seg[2];
+      s.textContent = seg[0];
+      if (seg[0] / total * 100 < 9) s.className = "tiny";
+      bar.appendChild(s);
+    });
+
+    var parts = [];
+    if (un) parts.push('<span><i class="sw" style="background:var(--warn)"></i>' +
+      'type not implemented <b>' + un + '</b></span>');
+    if (hiddenAssoc) parts.push('<span><i class="sw" style="background:var(--aws-net)"></i>' +
+      'associations hidden <b>' + hiddenAssoc + '</b></span>');
+    $("covLegend").innerHTML = parts.join("");
+  }
+
+  function panelTypes(){
+    var types = Object.keys(model.typeCounts).sort();
+    $("typeCount").textContent = types.length + " types";
+
+    var f = $("filters");
+    f.innerHTML = "";
+    types.forEach(function(t){
+      var spec = REG[t];
+      var any = model.resources.filter(function(r){ return r.type === t; });
+      var on = any.length ? any[0].enabledType !== false : true;
+
+      var row = document.createElement("label");
+      row.className = "flt" + (spec ? "" : " unsup");
+      row.innerHTML = '<input type="checkbox"' + (on ? " checked" : "") + '>' +
+        icoSvg(spec, 18) +
+        '<span class="nm">' + escapeHtml(t) + '</span>' +
+        '<span class="ct">' + model.typeCounts[t] + '</span>';
+      row.querySelector("input").addEventListener("change", function(e){
+        var v = e.target.checked;
+        model.resources.forEach(function(r){ if (r.type === t) r.enabledType = v; });
+        render();
+      });
+      f.appendChild(row);
+    });
+  }
+
+  function panelDiagnostics(){
+    var d = $("diag");
+    d.innerHTML = "";
+    if (!model.diagnostics.length){
+      d.innerHTML = '<div class="dg-empty">No issues.</div>';
+      return;
+    }
+    var ICON = {err:"\u2715", warn:"!", ok:"\u2713", info:"i"};
+    model.diagnostics.forEach(function(g){
+      var el = document.createElement("div");
+      el.className = "dg " + g.level;
+      el.innerHTML = '<span class="ic">' + (ICON[g.level] || "i") + '</span><span>' + g.msg + '</span>';
+      d.appendChild(el);
+    });
+  }
+
+  /* ============================================================
+     5. LOADING
+     ============================================================ */
+
+  function load(plan, name, rawText){
+    model = parsePlan(plan, name);
+    model.rawText = rawText || JSON.stringify(plan, null, 2);
+    model.rawBytes = (rawText || model.rawText).length;
+    model.timestamp = plan.timestamp || null;
+    selected = null;
+    $("srcName").innerHTML = '<b>' + escapeHtml(name) + '</b> \u00b7 ' + model.resources.length + ' res';
+    $("tfver").textContent = model.tfVersion ? ("terraform " + model.tfVersion) : "";
+    model.resources.forEach(function(r){ r.enabledType = true; });
+    render();
+    fitView();
+    renderDetail();
+  }
+
+  function loadText(text, name){
+    var plan;
+    try { plan = JSON.parse(text); }
+    catch (e){
+      model = {resources:[], byAddr:{}, typeCounts:{}, diagnostics:[
+        {level:"err", code:"parse", msg:"Could not parse this file as JSON — <b>" + escapeHtml(e.message) + "</b>"}
+      ]};
+      $("srcName").textContent = name;
+      Array.prototype.slice.call(canvas.querySelectorAll(".grp,.node")).forEach(function(n){ n.remove(); });
+      edgesSvg.innerHTML = "";
+      renderSidebar();
+      return;
+    }
+    load(plan, name, text);
+  }
+
+  $("srcName").addEventListener("click", function(){ if (model) renderPlanInfo(); });
+  $("loadBtn").addEventListener("click", function(){ $("fileInput").click(); });
+  $("fileInput").addEventListener("change", function(e){
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var fr = new FileReader();
+    fr.onload = function(){ loadText(String(fr.result), file.name); };
+    fr.readAsText(file);
+  });
+
+  ["dragenter","dragover"].forEach(function(ev){
+    document.addEventListener(ev, function(e){ e.preventDefault(); document.body.classList.add("dragging"); });
+  });
+  ["dragleave","drop"].forEach(function(ev){
+    document.addEventListener(ev, function(e){ e.preventDefault(); if (ev === "drop" || e.target === document.documentElement) document.body.classList.remove("dragging"); });
+  });
+  document.addEventListener("drop", function(e){
+    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    var fr = new FileReader();
+    fr.onload = function(){ loadText(String(fr.result), file.name); };
+    fr.readAsText(file);
+  });
+
+  $("canvasWrap").addEventListener("click", function(){ if (suppressClick) return; if (selected){ selected = null; applySelection(); drawEdges(); renderDetail(); } });
+
+  $("actLegend").innerHTML = ["create","update","replace","delete"].map(function(a){
+    return '<span><i class="sw" style="border-radius:50%;background:' + ACTION_COLOR[a] + '"></i>' + a + '</span>';
+  }).join("");
+
+  $("optActions").addEventListener("change", function(e){
+    canvas.classList.toggle("no-actions", !e.target.checked);
+  });
+
+  $("isoFit").addEventListener("click", function(e){ e.stopPropagation(); fitView(); });
+
+  function setMode(m){
+    opts.mode = m;
+    $("modeAll").classList.toggle("on", m === "all");
+    $("modeChg").classList.toggle("on", m === "changes");
+    render();
+    fitView();
+  }
+  $("modeAll").addEventListener("click", function(){ setMode("all"); });
+  $("modeChg").addEventListener("click", function(){ setMode("changes"); });
+
+  $("optAssoc").addEventListener("change", function(e){ opts.showAssoc = e.target.checked; render(); });
+  $("optUnsup").addEventListener("change", function(e){ opts.showUnsup = e.target.checked; render(); });
+  $("optEdges").addEventListener("change", function(e){ opts.edges = e.target.value; drawEdges(); });
+
+
+  /* ---------- theme (standalone only; the page is themed by tokens) ---------- */
+  (function(){
+    var btn = $("themeBtn");
+    if (!btn) return;
+    var modes = ["auto","light","dark"], cur = "auto";
+    try { cur = localStorage.getItem("tfplanview-theme") || "auto"; } catch(e){}
+    function apply(){
+      if (cur === "auto") document.documentElement.removeAttribute("data-theme");
+      else document.documentElement.setAttribute("data-theme", cur);
+      btn.textContent = "Theme: " + cur;
+      try { localStorage.setItem("tfplanview-theme", cur); } catch(e){}
+    }
+    btn.addEventListener("click", function(){
+      cur = modes[(modes.indexOf(cur) + 1) % modes.length];
+      apply();
+    });
+    apply();
+  })();
+
+  $("isoBtn").addEventListener("click", function(){ setIso(!ISO.on); });
+  (function(){
+    var want = "0";
+    try { want = localStorage.getItem("tfplanview-iso") || "0"; } catch(e){}
+    setIso(want === "1");
+  })();
+
+  /* The sample plan is a large JSON blob parked at the end of the file, so it
+     does not sit in the middle of the source. That puts it after this script,
+     so it is read on demand and the boot waits for the document to finish
+     parsing. */
+  function sampleText(){
+    var el = document.getElementById("embedded-plan");
+    var t = el ? el.textContent.trim() : "";
+    return t.length > 2 ? t : "";
+  }
+
+  $("sampleBtn").addEventListener("click", function(){
+    var t = sampleText();
+    if (!t) return;
+    try { load(JSON.parse(t), "bundled sample", t); }
+    catch(e){ loadText(t, "bundled sample"); }
+  });
+
+  function boot(){
+    var has = !!sampleText();
+    setEmpty(true);
+    $("sampleBtn").disabled = !has;
+    $("diag").innerHTML = has
+      ? '<div class="dg info"><span class="ic">i</span><span>No plan loaded. Drop a <b>terraform show -json</b> file anywhere on this page, or click <b>Sample plan</b>.</span></div>'
+      : '<div class="dg info"><span class="ic">i</span><span>No plan loaded and no sample bundled. Drop a <b>terraform show -json</b> file anywhere on this page.</span></div>';
+  }
+
+  if (document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+<!-- Bundled sample plan, parked here so it does not interrupt the source.
+     The Sample plan button parses it on demand. planned_values, prior_state
+     and relevant_attributes are stripped: the app never reads them. -->
+<script type="application/json" id="embedded-plan">
+{
+ "format_version": "1.2",
+ "terraform_version": "1.15.5",
+ "variables": {
+  "name_prefix": {
+   "value": "example"
+  },
+  "region": {
+   "value": "us-east-1"
+  }
+ },
+ "resource_changes": [
+  {
+   "address": "aws_iam_instance_profile.ssm",
+   "mode": "managed",
+   "type": "aws_iam_instance_profile",
+   "name": "ssm",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name_prefix": "example-ssm-",
+     "path": "/",
+     "tags": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "create_date": true,
+     "id": true,
+     "name": true,
+     "role": true,
+     "tags_all": true,
+     "unique_id": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_iam_role.ssm",
+   "mode": "managed",
+   "type": "aws_iam_role",
+   "name": "ssm",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+     "description": null,
+     "force_detach_policies": false,
+     "max_session_duration": 3600,
+     "name_prefix": "example-ssm-",
+     "path": "/",
+     "permissions_boundary": null,
+     "tags": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "create_date": true,
+     "id": true,
+     "inline_policy": true,
+     "managed_policy_arns": true,
+     "name": true,
+     "tags_all": true,
+     "unique_id": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "inline_policy": [],
+     "managed_policy_arns": [],
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_iam_role_policy_attachment.ssm",
+   "mode": "managed",
+   "type": "aws_iam_role_policy_attachment",
+   "name": "ssm",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "no-op"
+    ],
+    "before": {
+     "policy_arn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+     "id": "example-ssm-role-attach"
+    },
+    "after": {
+     "policy_arn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+     "id": "example-ssm-role-attach"
+    },
+    "after_unknown": {},
+    "before_sensitive": false,
+    "after_sensitive": false
+   }
+  },
+  {
+   "address": "aws_instance.test",
+   "mode": "managed",
+   "type": "aws_instance",
+   "name": "test",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "delete",
+     "create"
+    ],
+    "before": {
+     "ami": "ami-0example00000001",
+     "credit_specification": [],
+     "get_password_data": false,
+     "hibernation": null,
+     "instance_type": "t3.micro",
+     "launch_template": [],
+     "source_dest_check": true,
+     "tags": {
+      "Name": "example-instance"
+     },
+     "tags_all": {
+      "Name": "example-instance"
+     },
+     "timeouts": null,
+     "user_data_replace_on_change": false,
+     "volume_tags": null,
+     "id": "i-0example00000001"
+    },
+    "after": {
+     "ami": "ami-0example00000002",
+     "credit_specification": [],
+     "get_password_data": false,
+     "hibernation": null,
+     "instance_type": "t3.large",
+     "launch_template": [],
+     "source_dest_check": true,
+     "tags": {
+      "Name": "example-instance"
+     },
+     "tags_all": {
+      "Name": "example-instance"
+     },
+     "timeouts": null,
+     "user_data_replace_on_change": false,
+     "volume_tags": null
+    },
+    "after_unknown": {
+     "id": true,
+     "private_ip": true,
+     "public_ip": true,
+     "arn": true
+    },
+    "replace_paths": [
+     [
+      "instance_type"
+     ]
+    ],
+    "before_sensitive": false,
+    "after_sensitive": {
+     "user_data": true
+    }
+   },
+   "action_reason": "replace_because_cannot_update"
+  },
+  {
+   "address": "aws_internet_gateway.igw",
+   "mode": "managed",
+   "type": "aws_internet_gateway",
+   "name": "igw",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "tags": {
+      "Name": "example-igw"
+     },
+     "tags_all": {
+      "Name": "example-igw"
+     },
+     "timeouts": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "id": true,
+     "owner_id": true,
+     "tags": {},
+     "tags_all": {},
+     "vpc_id": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "tags": {},
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_network_acl.main",
+   "mode": "managed",
+   "type": "aws_network_acl",
+   "name": "main",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "update"
+    ],
+    "before": {
+     "egress": [
+      {
+       "action": "allow",
+       "cidr_block": "0.0.0.0/0",
+       "from_port": 443,
+       "icmp_code": null,
+       "icmp_type": null,
+       "ipv6_cidr_block": "",
+       "protocol": "tcp",
+       "rule_no": 100,
+       "to_port": 443
+      }
+     ],
+     "ingress": [
+      {
+       "action": "allow",
+       "cidr_block": "10.20.0.0/16",
+       "from_port": 443,
+       "icmp_code": null,
+       "icmp_type": null,
+       "ipv6_cidr_block": "",
+       "protocol": "tcp",
+       "rule_no": 100,
+       "to_port": 443
+      }
+     ],
+     "tags": {
+      "Name": "example-nacl"
+     },
+     "tags_all": {
+      "Name": "example-nacl"
+     },
+     "id": "acl-0example00000001"
+    },
+    "after": {
+     "egress": [
+      {
+       "action": "allow",
+       "cidr_block": "0.0.0.0/0",
+       "from_port": 443,
+       "icmp_code": null,
+       "icmp_type": null,
+       "ipv6_cidr_block": "",
+       "protocol": "tcp",
+       "rule_no": 100,
+       "to_port": 443
+      }
+     ],
+     "ingress": [
+      {
+       "action": "allow",
+       "cidr_block": "10.20.0.0/16",
+       "from_port": 443,
+       "icmp_code": null,
+       "icmp_type": null,
+       "ipv6_cidr_block": "",
+       "protocol": "tcp",
+       "rule_no": 100,
+       "to_port": 443
+      },
+      {
+       "action": "allow",
+       "cidr_block": "0.0.0.0/0",
+       "from_port": 1024,
+       "icmp_code": null,
+       "icmp_type": null,
+       "ipv6_cidr_block": null,
+       "protocol": "tcp",
+       "rule_no": 110,
+       "to_port": 65535
+      }
+     ],
+     "tags": {
+      "Name": "example-nacl"
+     },
+     "tags_all": {
+      "Name": "example-nacl"
+     },
+     "id": "acl-0example00000001"
+    },
+    "after_unknown": {},
+    "before_sensitive": false,
+    "after_sensitive": false
+   }
+  },
+  {
+   "address": "aws_route_table.public",
+   "mode": "managed",
+   "type": "aws_route_table",
+   "name": "public",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "route": [
+      {
+       "carrier_gateway_id": "",
+       "cidr_block": "0.0.0.0/0",
+       "core_network_arn": "",
+       "destination_prefix_list_id": "",
+       "egress_only_gateway_id": "",
+       "ipv6_cidr_block": "",
+       "local_gateway_id": "",
+       "nat_gateway_id": "",
+       "network_interface_id": "",
+       "transit_gateway_id": "",
+       "vpc_endpoint_id": "",
+       "vpc_peering_connection_id": ""
+      }
+     ],
+     "tags": {
+      "Name": "example-rt"
+     },
+     "tags_all": {
+      "Name": "example-rt"
+     },
+     "timeouts": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "id": true,
+     "owner_id": true,
+     "propagating_vgws": true,
+     "route": [
+      {
+       "gateway_id": true
+      }
+     ],
+     "tags": {},
+     "tags_all": {},
+     "vpc_id": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "propagating_vgws": [],
+     "route": [
+      {}
+     ],
+     "tags": {},
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_route_table_association.public",
+   "mode": "managed",
+   "type": "aws_route_table_association",
+   "name": "public",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "gateway_id": null,
+     "timeouts": null
+    },
+    "after_unknown": {
+     "id": true,
+     "route_table_id": true,
+     "subnet_id": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {}
+   }
+  },
+  {
+   "address": "aws_security_group.instance",
+   "mode": "managed",
+   "type": "aws_security_group",
+   "name": "instance",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "update"
+    ],
+    "before": {
+     "description": "Managed by Terraform (old)",
+     "egress": [
+      {
+       "cidr_blocks": [
+        "0.0.0.0/0"
+       ],
+       "description": "all outbound",
+       "from_port": 0,
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "protocol": "-1",
+       "security_groups": [],
+       "self": false,
+       "to_port": 0
+      }
+     ],
+     "name_prefix": "example-sg-",
+     "revoke_rules_on_delete": false,
+     "tags": {
+      "Name": "example-sg"
+     },
+     "tags_all": {
+      "Name": "example-sg"
+     },
+     "timeouts": null,
+     "id": "sg-0example00000001"
+    },
+    "after": {
+     "description": "Managed by Terraform",
+     "egress": [
+      {
+       "cidr_blocks": [
+        "0.0.0.0/0"
+       ],
+       "description": "all outbound",
+       "from_port": 0,
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "protocol": "-1",
+       "security_groups": [],
+       "self": false,
+       "to_port": 0
+      }
+     ],
+     "name_prefix": "example-sg-",
+     "revoke_rules_on_delete": false,
+     "tags": {
+      "Name": "example-sg"
+     },
+     "tags_all": {
+      "Name": "example-sg"
+     },
+     "timeouts": null,
+     "id": "sg-0example00000001"
+    },
+    "after_unknown": {},
+    "before_sensitive": false,
+    "after_sensitive": false
+   }
+  },
+  {
+   "address": "aws_security_group.ssm_endpoints",
+   "mode": "managed",
+   "type": "aws_security_group",
+   "name": "ssm_endpoints",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "description": "Managed by Terraform",
+     "egress": [
+      {
+       "cidr_blocks": [
+        "0.0.0.0/0"
+       ],
+       "description": "",
+       "from_port": 0,
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "protocol": "-1",
+       "security_groups": [],
+       "self": false,
+       "to_port": 0
+      }
+     ],
+     "ingress": [
+      {
+       "cidr_blocks": [],
+       "description": "HTTPS from instance",
+       "from_port": 443,
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "protocol": "tcp",
+       "self": false,
+       "to_port": 443
+      }
+     ],
+     "name_prefix": "example-ssm-ep-sg-",
+     "revoke_rules_on_delete": false,
+     "tags": {
+      "Name": "example-ssm-ep-sg"
+     },
+     "tags_all": {
+      "Name": "example-ssm-ep-sg"
+     },
+     "timeouts": null
+    },
+    "after_unknown": {
+     "arn": true,
+     "egress": [
+      {
+       "cidr_blocks": [
+        false
+       ],
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "security_groups": []
+      }
+     ],
+     "id": true,
+     "ingress": [
+      {
+       "cidr_blocks": [],
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "security_groups": true
+      }
+     ],
+     "name": true,
+     "owner_id": true,
+     "tags": {},
+     "tags_all": {},
+     "vpc_id": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "egress": [
+      {
+       "cidr_blocks": [
+        false
+       ],
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "security_groups": []
+      }
+     ],
+     "ingress": [
+      {
+       "cidr_blocks": [],
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "security_groups": []
+      }
+     ],
+     "tags": {},
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_subnet.public",
+   "mode": "managed",
+   "type": "aws_subnet",
+   "name": "public",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "update"
+    ],
+    "before": {
+     "assign_ipv6_address_on_creation": false,
+     "availability_zone": "us-east-1a",
+     "cidr_block": "10.20.1.0/24",
+     "customer_owned_ipv4_pool": null,
+     "enable_dns64": false,
+     "enable_lni_at_device_index": null,
+     "enable_resource_name_dns_a_record_on_launch": false,
+     "enable_resource_name_dns_aaaa_record_on_launch": false,
+     "ipv6_cidr_block": null,
+     "ipv6_native": false,
+     "map_customer_owned_ip_on_launch": null,
+     "map_public_ip_on_launch": false,
+     "outpost_arn": null,
+     "tags": {
+      "Name": "example-public-old"
+     },
+     "tags_all": {
+      "Name": "example-public-old"
+     },
+     "timeouts": null,
+     "id": "subnet-0example00000001"
+    },
+    "after": {
+     "assign_ipv6_address_on_creation": false,
+     "availability_zone": "us-east-1a",
+     "cidr_block": "10.20.1.0/24",
+     "customer_owned_ipv4_pool": null,
+     "enable_dns64": false,
+     "enable_lni_at_device_index": null,
+     "enable_resource_name_dns_a_record_on_launch": false,
+     "enable_resource_name_dns_aaaa_record_on_launch": false,
+     "ipv6_cidr_block": null,
+     "ipv6_native": false,
+     "map_customer_owned_ip_on_launch": null,
+     "map_public_ip_on_launch": true,
+     "outpost_arn": null,
+     "tags": {
+      "Name": "example-public"
+     },
+     "tags_all": {
+      "Name": "example-public"
+     },
+     "timeouts": null,
+     "id": "subnet-0example00000001"
+    },
+    "after_unknown": {},
+    "before_sensitive": false,
+    "after_sensitive": false
+   }
+  },
+  {
+   "address": "aws_vpc.main",
+   "mode": "managed",
+   "type": "aws_vpc",
+   "name": "main",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "no-op"
+    ],
+    "before": {
+     "assign_generated_ipv6_cidr_block": null,
+     "cidr_block": "10.20.0.0/16",
+     "enable_dns_hostnames": true,
+     "enable_dns_support": true,
+     "instance_tenancy": "default",
+     "ipv4_ipam_pool_id": null,
+     "ipv4_netmask_length": null,
+     "ipv6_ipam_pool_id": null,
+     "ipv6_netmask_length": null,
+     "tags": {
+      "Name": "example-vpc"
+     },
+     "tags_all": {
+      "Name": "example-vpc"
+     },
+     "id": "vpc-0example00000001"
+    },
+    "after": {
+     "assign_generated_ipv6_cidr_block": null,
+     "cidr_block": "10.20.0.0/16",
+     "enable_dns_hostnames": true,
+     "enable_dns_support": true,
+     "instance_tenancy": "default",
+     "ipv4_ipam_pool_id": null,
+     "ipv4_netmask_length": null,
+     "ipv6_ipam_pool_id": null,
+     "ipv6_netmask_length": null,
+     "tags": {
+      "Name": "example-vpc"
+     },
+     "tags_all": {
+      "Name": "example-vpc"
+     },
+     "id": "vpc-0example00000001"
+    },
+    "after_unknown": {},
+    "before_sensitive": false,
+    "after_sensitive": false
+   }
+  },
+  {
+   "address": "aws_vpc_endpoint.ec2messages",
+   "mode": "managed",
+   "type": "aws_vpc_endpoint",
+   "name": "ec2messages",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "delete"
+    ],
+    "before": {
+     "auto_accept": null,
+     "private_dns_enabled": true,
+     "resource_configuration_arn": null,
+     "service_name": "com.amazonaws.us-east-1.ec2messages",
+     "service_network_arn": null,
+     "tags": null,
+     "timeouts": null,
+     "vpc_endpoint_type": "Interface",
+     "id": "vpce-0example00000001"
+    },
+    "after": null,
+    "after_unknown": {},
+    "before_sensitive": false,
+    "after_sensitive": false
+   },
+   "action_reason": "delete_because_no_resource_config"
+  },
+  {
+   "address": "aws_vpc_endpoint.ssm",
+   "mode": "managed",
+   "type": "aws_vpc_endpoint",
+   "name": "ssm",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "auto_accept": null,
+     "private_dns_enabled": true,
+     "resource_configuration_arn": null,
+     "service_name": "com.amazonaws.us-east-1.ssm",
+     "service_network_arn": null,
+     "tags": null,
+     "timeouts": null,
+     "vpc_endpoint_type": "Interface"
+    },
+    "after_unknown": {
+     "arn": true,
+     "cidr_blocks": true,
+     "dns_entry": true,
+     "dns_options": true,
+     "id": true,
+     "ip_address_type": true,
+     "network_interface_ids": true,
+     "owner_id": true,
+     "policy": true,
+     "prefix_list_id": true,
+     "requester_managed": true,
+     "route_table_ids": true,
+     "security_group_ids": true,
+     "service_region": true,
+     "state": true,
+     "subnet_configuration": true,
+     "subnet_ids": true,
+     "tags_all": true,
+     "vpc_id": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "cidr_blocks": [],
+     "dns_entry": [],
+     "dns_options": [],
+     "network_interface_ids": [],
+     "route_table_ids": [],
+     "security_group_ids": [],
+     "subnet_configuration": [],
+     "subnet_ids": [],
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_vpc_endpoint.ssmmessages",
+   "mode": "managed",
+   "type": "aws_vpc_endpoint",
+   "name": "ssmmessages",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "auto_accept": null,
+     "private_dns_enabled": true,
+     "resource_configuration_arn": null,
+     "service_name": "com.amazonaws.us-east-1.ssmmessages",
+     "service_network_arn": null,
+     "tags": null,
+     "timeouts": null,
+     "vpc_endpoint_type": "Interface"
+    },
+    "after_unknown": {
+     "arn": true,
+     "cidr_blocks": true,
+     "dns_entry": true,
+     "dns_options": true,
+     "id": true,
+     "ip_address_type": true,
+     "network_interface_ids": true,
+     "owner_id": true,
+     "policy": true,
+     "prefix_list_id": true,
+     "requester_managed": true,
+     "route_table_ids": true,
+     "security_group_ids": true,
+     "service_region": true,
+     "state": true,
+     "subnet_configuration": true,
+     "subnet_ids": true,
+     "tags_all": true,
+     "vpc_id": true
+    },
+    "before_sensitive": false,
+    "after_sensitive": {
+     "cidr_blocks": [],
+     "dns_entry": [],
+     "dns_options": [],
+     "network_interface_ids": [],
+     "route_table_ids": [],
+     "security_group_ids": [],
+     "subnet_configuration": [],
+     "subnet_ids": [],
+     "tags_all": {}
+    }
+   }
+  }
+ ],
+ "output_changes": {
+  "connect_command": {
+   "actions": [
+    "create"
+   ],
+   "before": null,
+   "after_unknown": true,
+   "before_sensitive": false,
+   "after_sensitive": false
+  },
+  "instance_id": {
+   "actions": [
+    "create"
+   ],
+   "before": null,
+   "after_unknown": true,
+   "before_sensitive": false,
+   "after_sensitive": false
+  },
+  "target_to_test": {
+   "actions": [
+    "create"
+   ],
+   "before": null,
+   "after": "curl -v https://example.com",
+   "after_unknown": false,
+   "before_sensitive": false,
+   "after_sensitive": false
+  }
+ },
+ "configuration": {
+  "provider_config": {
+   "aws": {
+    "name": "aws",
+    "full_name": "registry.terraform.io/hashicorp/aws",
+    "version_constraint": "~> 5.0",
+    "expressions": {
+     "region": {
+      "references": [
+       "var.region"
+      ]
+     }
+    }
+   }
+  },
+  "root_module": {
+   "outputs": {
+    "connect_command": {
+     "expression": {
+      "references": [
+       "aws_instance.test.id",
+       "aws_instance.test",
+       "var.region"
+      ]
+     }
+    },
+    "instance_id": {
+     "expression": {
+      "references": [
+       "aws_instance.test.id",
+       "aws_instance.test"
+      ]
+     }
+    },
+    "target_to_test": {
+     "expression": {
+      "constant_value": "curl -v https://example.com"
+     }
+    }
+   },
+   "resources": [
+    {
+     "address": "aws_iam_instance_profile.ssm",
+     "mode": "managed",
+     "type": "aws_iam_instance_profile",
+     "name": "ssm",
+     "provider_config_key": "aws",
+     "expressions": {
+      "name_prefix": {
+       "references": [
+        "var.name_prefix"
+       ]
+      },
+      "role": {
+       "references": [
+        "aws_iam_role.ssm.name",
+        "aws_iam_role.ssm"
+       ]
+      }
+     },
+     "schema_version": 0
+    },
+    {
+     "address": "aws_iam_role.ssm",
+     "mode": "managed",
+     "type": "aws_iam_role",
+     "name": "ssm",
+     "provider_config_key": "aws",
+     "expressions": {
+      "assume_role_policy": {},
+      "name_prefix": {
+       "references": [
+        "var.name_prefix"
+       ]
+      }
+     },
+     "schema_version": 0
+    },
+    {
+     "address": "aws_iam_role_policy_attachment.ssm",
+     "mode": "managed",
+     "type": "aws_iam_role_policy_attachment",
+     "name": "ssm",
+     "provider_config_key": "aws",
+     "expressions": {
+      "policy_arn": {
+       "constant_value": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      },
+      "role": {
+       "references": [
+        "aws_iam_role.ssm.name",
+        "aws_iam_role.ssm"
+       ]
+      }
+     },
+     "schema_version": 0
+    },
+    {
+     "address": "aws_instance.test",
+     "mode": "managed",
+     "type": "aws_instance",
+     "name": "test",
+     "provider_config_key": "aws",
+     "expressions": {
+      "ami": {
+       "references": [
+        "data.aws_ami.al2023.id",
+        "data.aws_ami.al2023"
+       ]
+      },
+      "iam_instance_profile": {
+       "references": [
+        "aws_iam_instance_profile.ssm.name",
+        "aws_iam_instance_profile.ssm"
+       ]
+      },
+      "instance_type": {
+       "constant_value": "t3.micro"
+      },
+      "subnet_id": {
+       "references": [
+        "aws_subnet.public.id",
+        "aws_subnet.public"
+       ]
+      },
+      "tags": {
+       "references": [
+        "var.name_prefix"
+       ]
+      },
+      "vpc_security_group_ids": {
+       "references": [
+        "aws_security_group.instance.id",
+        "aws_security_group.instance"
+       ]
+      }
+     },
+     "schema_version": 1
+    },
+    {
+     "address": "aws_internet_gateway.igw",
+     "mode": "managed",
+     "type": "aws_internet_gateway",
+     "name": "igw",
+     "provider_config_key": "aws",
+     "expressions": {
+      "tags": {
+       "references": [
+        "var.name_prefix"
+       ]
+      },
+      "vpc_id": {
+       "references": [
+        "aws_vpc.main.id",
+        "aws_vpc.main"
+       ]
+      }
+     },
+     "schema_version": 0
+    },
+    {
+     "address": "aws_network_acl.main",
+     "mode": "managed",
+     "type": "aws_network_acl",
+     "name": "main",
+     "provider_config_key": "aws",
+     "expressions": {
+      "egress": {
+       "constant_value": [
+        {
+         "action": "allow",
+         "cidr_block": "0.0.0.0/0",
+         "from_port": 443,
+         "icmp_code": null,
+         "icmp_type": null,
+         "ipv6_cidr_block": null,
+         "protocol": "tcp",
+         "rule_no": 100,
+         "to_port": 443
+        }
+       ]
+      },
+      "ingress": {
+       "constant_value": [
+        {
+         "action": "allow",
+         "cidr_block": "10.20.0.0/16",
+         "from_port": 443,
+         "icmp_code": null,
+         "icmp_type": null,
+         "ipv6_cidr_block": null,
+         "protocol": "tcp",
+         "rule_no": 100,
+         "to_port": 443
+        }
+       ]
+      },
+      "subnet_ids": {
+       "references": [
+        "aws_subnet.public.id",
+        "aws_subnet.public"
+       ]
+      },
+      "tags": {
+       "references": [
+        "var.name_prefix"
+       ]
+      },
+      "vpc_id": {
+       "references": [
+        "aws_vpc.main.id",
+        "aws_vpc.main"
+       ]
+      }
+     },
+     "schema_version": 0
+    },
+    {
+     "address": "aws_route_table.public",
+     "mode": "managed",
+     "type": "aws_route_table",
+     "name": "public",
+     "provider_config_key": "aws",
+     "expressions": {
+      "route": {
+       "references": [
+        "aws_internet_gateway.igw.id",
+        "aws_internet_gateway.igw"
+       ]
+      },
+      "tags": {
+       "references": [
+        "var.name_prefix"
+       ]
+      },
+      "vpc_id": {
+       "references": [
+        "aws_vpc.main.id",
+        "aws_vpc.main"
+       ]
+      }
+     },
+     "schema_version": 0
+    },
+    {
+     "address": "aws_route_table_association.public",
+     "mode": "managed",
+     "type": "aws_route_table_association",
+     "name": "public",
+     "provider_config_key": "aws",
+     "expressions": {
+      "route_table_id": {
+       "references": [
+        "aws_route_table.public.id",
+        "aws_route_table.public"
+       ]
+      },
+      "subnet_id": {
+       "references": [
+        "aws_subnet.public.id",
+        "aws_subnet.public"
+       ]
+      }
+     },
+     "schema_version": 0
+    },
+    {
+     "address": "aws_security_group.instance",
+     "mode": "managed",
+     "type": "aws_security_group",
+     "name": "instance",
+     "provider_config_key": "aws",
+     "expressions": {
+      "egress": {
+       "constant_value": [
+        {
+         "cidr_blocks": [
+          "0.0.0.0/0"
+         ],
+         "description": "all outbound",
+         "from_port": 0,
+         "ipv6_cidr_blocks": null,
+         "prefix_list_ids": null,
+         "protocol": "-1",
+         "security_groups": null,
+         "self": null,
+         "to_port": 0
+        }
+       ]
+      },
+      "name_prefix": {
+       "references": [
+        "var.name_prefix"
+       ]
+      },
+      "tags": {
+       "references": [
+        "var.name_prefix"
+       ]
+      },
+      "vpc_id": {
+       "references": [
+        "aws_vpc.main.id",
+        "aws_vpc.main"
+       ]
+      }
+     },
+     "schema_version": 1
+    },
+    {
+     "address": "aws_security_group.ssm_endpoints",
+     "mode": "managed",
+     "type": "aws_security_group",
+     "name": "ssm_endpoints",
+     "provider_config_key": "aws",
+     "expressions": {
+      "egress": {
+       "constant_value": [
+        {
+         "cidr_blocks": [
+          "0.0.0.0/0"
+         ],
+         "description": null,
+         "from_port": 0,
+         "ipv6_cidr_blocks": null,
+         "prefix_list_ids": null,
+         "protocol": "-1",
+         "security_groups": null,
+         "self": null,
+         "to_port": 0
+        }
+       ]
+      },
+      "ingress": {
+       "references": [
+        "aws_security_group.instance.id",
+        "aws_security_group.instance"
+       ]
+      },
+      "name_prefix": {
+       "references": [
+        "var.name_prefix"
+       ]
+      },
+      "tags": {
+       "references": [
+        "var.name_prefix"
+       ]
+      },
+      "vpc_id": {
+       "references": [
+        "aws_vpc.main.id",
+        "aws_vpc.main"
+       ]
+      }
+     },
+     "schema_version": 1
+    },
+    {
+     "address": "aws_subnet.public",
+     "mode": "managed",
+     "type": "aws_subnet",
+     "name": "public",
+     "provider_config_key": "aws",
+     "expressions": {
+      "availability_zone": {
+       "references": [
+        "var.region"
+       ]
+      },
+      "cidr_block": {
+       "constant_value": "10.20.1.0/24"
+      },
+      "map_public_ip_on_launch": {
+       "constant_value": true
+      },
+      "tags": {
+       "references": [
+        "var.name_prefix"
+       ]
+      },
+      "vpc_id": {
+       "references": [
+        "aws_vpc.main.id",
+        "aws_vpc.main"
+       ]
+      }
+     },
+     "schema_version": 1
+    },
+    {
+     "address": "aws_vpc.main",
+     "mode": "managed",
+     "type": "aws_vpc",
+     "name": "main",
+     "provider_config_key": "aws",
+     "expressions": {
+      "cidr_block": {
+       "constant_value": "10.20.0.0/16"
+      },
+      "enable_dns_hostnames": {
+       "constant_value": true
+      },
+      "enable_dns_support": {
+       "constant_value": true
+      },
+      "tags": {
+       "references": [
+        "var.name_prefix"
+       ]
+      }
+     },
+     "schema_version": 1
+    },
+    {
+     "address": "aws_vpc_endpoint.ec2messages",
+     "mode": "managed",
+     "type": "aws_vpc_endpoint",
+     "name": "ec2messages",
+     "provider_config_key": "aws",
+     "expressions": {
+      "private_dns_enabled": {
+       "constant_value": true
+      },
+      "security_group_ids": {
+       "references": [
+        "aws_security_group.ssm_endpoints.id",
+        "aws_security_group.ssm_endpoints"
+       ]
+      },
+      "service_name": {
+       "references": [
+        "var.region"
+       ]
+      },
+      "subnet_ids": {
+       "references": [
+        "aws_subnet.public.id",
+        "aws_subnet.public"
+       ]
+      },
+      "vpc_endpoint_type": {
+       "constant_value": "Interface"
+      },
+      "vpc_id": {
+       "references": [
+        "aws_vpc.main.id",
+        "aws_vpc.main"
+       ]
+      }
+     },
+     "schema_version": 0
+    },
+    {
+     "address": "aws_vpc_endpoint.ssm",
+     "mode": "managed",
+     "type": "aws_vpc_endpoint",
+     "name": "ssm",
+     "provider_config_key": "aws",
+     "expressions": {
+      "private_dns_enabled": {
+       "constant_value": true
+      },
+      "security_group_ids": {
+       "references": [
+        "aws_security_group.ssm_endpoints.id",
+        "aws_security_group.ssm_endpoints"
+       ]
+      },
+      "service_name": {
+       "references": [
+        "var.region"
+       ]
+      },
+      "subnet_ids": {
+       "references": [
+        "aws_subnet.public.id",
+        "aws_subnet.public"
+       ]
+      },
+      "vpc_endpoint_type": {
+       "constant_value": "Interface"
+      },
+      "vpc_id": {
+       "references": [
+        "aws_vpc.main.id",
+        "aws_vpc.main"
+       ]
+      }
+     },
+     "schema_version": 0
+    },
+    {
+     "address": "aws_vpc_endpoint.ssmmessages",
+     "mode": "managed",
+     "type": "aws_vpc_endpoint",
+     "name": "ssmmessages",
+     "provider_config_key": "aws",
+     "expressions": {
+      "private_dns_enabled": {
+       "constant_value": true
+      },
+      "security_group_ids": {
+       "references": [
+        "aws_security_group.ssm_endpoints.id",
+        "aws_security_group.ssm_endpoints"
+       ]
+      },
+      "service_name": {
+       "references": [
+        "var.region"
+       ]
+      },
+      "subnet_ids": {
+       "references": [
+        "aws_subnet.public.id",
+        "aws_subnet.public"
+       ]
+      },
+      "vpc_endpoint_type": {
+       "constant_value": "Interface"
+      },
+      "vpc_id": {
+       "references": [
+        "aws_vpc.main.id",
+        "aws_vpc.main"
+       ]
+      }
+     },
+     "schema_version": 0
+    },
+    {
+     "address": "data.aws_ami.al2023",
+     "mode": "data",
+     "type": "aws_ami",
+     "name": "al2023",
+     "provider_config_key": "aws",
+     "expressions": {
+      "filter": [
+       {
+        "name": {
+         "constant_value": "name"
+        },
+        "values": {
+         "constant_value": [
+          "al2023-ami-*-x86_64"
+         ]
+        }
+       }
+      ],
+      "most_recent": {
+       "constant_value": true
+      },
+      "owners": {
+       "constant_value": [
+        "amazon"
+       ]
+      }
+     },
+     "schema_version": 0
+    }
+   ],
+   "variables": {
+    "name_prefix": {
+     "default": "example"
+    },
+    "region": {
+     "default": "us-east-1"
+    }
+   }
+  }
+ },
+ "timestamp": "2020-01-01T00:00:00Z",
+ "applyable": true,
+ "complete": true,
+ "errored": false,
+ "resource_drift": [
+  {
+   "address": "aws_vpc.main",
+   "mode": "managed",
+   "type": "aws_vpc",
+   "name": "main",
+   "change": {
+    "actions": [
+     "update"
+    ],
+    "before": {
+     "tags": {
+      "Name": "example-vpc"
+     }
+    },
+    "after": {
+     "tags": {
+      "Name": "example-vpc",
+      "Owner": "set-in-console"
+     }
+    }
+   }
+  }
+ ]
+}
+</script>
+</body>
+</html>
