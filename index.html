@@ -32,6 +32,12 @@
 
     --shadow:0 1px 2px rgba(19,26,34,.05), 0 8px 24px -14px rgba(19,26,34,.2);
     --radius:12px;
+
+    /* isometric extrusion: south and east faces, and the container slabs */
+    --face-s:color-mix(in srgb, var(--surface) 76%, #000);
+    --face-e:color-mix(in srgb, var(--surface) 60%, #000);
+    --gface-s:color-mix(in srgb, var(--bg) 72%, #000);
+    --gface-e:color-mix(in srgb, var(--bg) 56%, #000);
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
@@ -45,6 +51,10 @@
       --warn:#F0A93B; --err:#FF6178;
       --warn-soft:#2A2116; --err-soft:#2A1A1F; --ok-soft:#1D2418; --info-soft:#152030;
       --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 28px -16px rgba(0,0,0,.8);
+      --face-s:color-mix(in srgb, var(--surface) 84%, #fff);
+      --face-e:color-mix(in srgb, var(--surface) 70%, #fff);
+      --gface-s:color-mix(in srgb, var(--surface-2) 86%, #fff);
+      --gface-e:color-mix(in srgb, var(--surface-2) 74%, #fff);
     }
   }
   :root[data-theme="dark"]{
@@ -58,6 +68,10 @@
     --warn:#F0A93B; --err:#FF6178;
     --warn-soft:#2A2116; --err-soft:#2A1A1F; --ok-soft:#1D2418; --info-soft:#152030;
     --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 28px -16px rgba(0,0,0,.8);
+    --face-s:color-mix(in srgb, var(--surface) 84%, #fff);
+    --face-e:color-mix(in srgb, var(--surface) 70%, #fff);
+    --gface-s:color-mix(in srgb, var(--surface-2) 86%, #fff);
+    --gface-e:color-mix(in srgb, var(--surface-2) 74%, #fff);
   }
 
   html,body{height:100%;}
@@ -84,8 +98,8 @@
   .tb-spacer{flex:1 1 auto;}
   .src{
     display:inline-flex; align-items:center; gap:7px; font-family:"IBM Plex Mono",monospace;
-    font-size:11.5px; color:var(--muted); background:var(--surface-2);
-    border:1px solid var(--line); border-radius:999px; padding:4px 12px; max-width:360px;
+    font-size:12px; color:var(--muted); background:var(--surface-2);
+    border:1px solid var(--line); border-radius:8px; padding:0 12px; max-width:360px;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;
   }
   .src:hover{color:var(--ink); border-color:var(--faint);}
@@ -98,16 +112,19 @@
   }
   .btn{
     font-family:"Archivo",sans-serif; font-size:13px; font-weight:600;
-    border-radius:8px; padding:8px 14px; cursor:pointer;
+    border-radius:8px; padding:0 14px; cursor:pointer;
     border:1px solid var(--line); background:var(--surface-2); color:var(--ink);
     transition:filter .15s ease;
   }
+  /* every control in the bar shares one height and one corner radius */
+  .topbar .btn, .topbar .src, .topbar .seg{height:34px;}
+  .topbar .btn, .topbar .src{display:inline-flex; align-items:center;}
   .btn:hover{filter:brightness(1.06);}
   .btn-primary{background:var(--aws-net); border-color:transparent; color:#fff;}
   .seg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
   .seg button{
     font-family:"Archivo",sans-serif; font-size:13px; font-weight:600;
-    border:0; border-radius:0; padding:8px 14px; cursor:pointer;
+    border:0; border-radius:0; padding:0 14px; cursor:pointer;
     background:var(--surface-2); color:var(--muted);
   }
   .seg button + button{border-left:1px solid var(--line);}
@@ -235,13 +252,13 @@
   }
   .canvas.iso .grp::after{
     content:""; position:absolute; left:0; right:0; top:100%; height:var(--gh);
-    background:color-mix(in srgb, var(--bg) 70%, #000);
+    background:var(--gface-s);
     border:1px solid var(--line); border-top:0;
     transform-origin:top center; transform:rotateX(-90deg);
   }
   .canvas.iso .grp::before{
     content:""; position:absolute; top:0; bottom:0; left:100%; width:var(--gh);
-    background:color-mix(in srgb, var(--bg) 55%, #000);
+    background:var(--gface-e);
     border:1px solid var(--line); border-left:0;
     transform-origin:center left; transform:rotateY(90deg);
   }
@@ -277,19 +294,19 @@
   /* south face */
   .canvas.iso .node::after{
     content:""; position:absolute; left:0; right:0; top:100%; height:var(--h);
-    background:color-mix(in srgb, var(--surface) 76%, #000);
+    background:var(--face-s);
     border:1px solid var(--line); border-top:0;
     transform-origin:top center; transform:rotateX(-90deg);
   }
   /* east face */
   .canvas.iso .node::before{
     content:""; position:absolute; top:0; bottom:0; left:100%; width:var(--h);
-    background:color-mix(in srgb, var(--surface) 62%, #000);
+    background:var(--face-e);
     border:1px solid var(--line); border-left:0;
     transform-origin:center left; transform:rotateY(90deg);
   }
-  .canvas.iso .node.unsup::after{background:color-mix(in srgb, var(--warn-soft) 76%, #000);}
-  .canvas.iso .node.unsup::before{background:color-mix(in srgb, var(--warn-soft) 62%, #000);}
+  .canvas.iso .node.unsup::after{background:color-mix(in srgb, var(--warn-soft) 80%, var(--face-s));}
+  .canvas.iso .node.unsup::before{background:color-mix(in srgb, var(--warn-soft) 66%, var(--face-e));}
   .canvas.iso #edges{transform:translateZ(26px); overflow:visible;}
   .canvas.iso .node.disabled{--h:6px;}
   #edges{position:absolute; inset:0; pointer-events:none; overflow:visible;}
@@ -399,11 +416,30 @@
   }
 
   .empty-state{
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
-    padding:80px 24px; text-align:center; color:var(--muted);
+    display:flex; align-items:flex-start; justify-content:center;
+    padding:56px 24px; color:var(--muted);
   }
-  .empty-state h2{font-size:18px;}
-  .drop-hint{border:2px dashed var(--line); border-radius:14px; padding:26px 32px; font-size:13.5px;}
+  .intro{max-width:560px; display:flex; flex-direction:column; gap:14px;}
+  .intro h2{font-size:20px; letter-spacing:-.01em;}
+  .intro p{font-size:14px; line-height:1.6; max-width:62ch;}
+  .intro .or{font-size:13.5px; color:var(--faint); padding-top:2px;}
+  .intro .or b{color:var(--body); font-weight:600;}
+  .steps{display:flex; flex-direction:column; gap:14px; margin-top:2px;}
+  .step{display:grid; grid-template-columns:22px 1fr; gap:12px; align-items:start;
+    font-size:13.5px; line-height:1.6;}
+  .step .num{
+    display:flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:50%; margin-top:1px;
+    background:var(--surface-2); border:1px solid var(--line);
+    font-family:"Archivo",sans-serif; font-size:11px; font-weight:700; color:var(--body);
+  }
+  .step b{color:var(--ink); font-weight:600;}
+  .step pre{
+    margin:8px 0 0; padding:10px 12px; background:var(--surface); border:1px solid var(--line);
+    border-radius:8px; font-family:"IBM Plex Mono",monospace; font-size:12px;
+    line-height:1.65; color:var(--ink); overflow-x:auto;
+    -webkit-user-select:all; user-select:all;
+  }
   body.dragging .canvas-wrap{outline:3px dashed var(--aws-net); outline-offset:-8px;}
 
   /* ---------- detail ---------- */
@@ -688,11 +724,33 @@
         <button id="isoReset">reset</button>
       </div>
       <div class="empty-state" id="emptyState" hidden>
-        <h2>No plan loaded</h2>
-        <div class="drop-hint">
-          Drop a <code>terraform show -json</code> file anywhere on this page,
-          or use <b>Load plan.json</b> above.<br>
-          To see how it renders, click <b>Sample plan</b>.
+        <div class="intro">
+          <h2>Visualise a Terraform plan</h2>
+          <p>Reads <code>plan.json</code> and draws it as an AWS architecture diagram.
+             Select any resource to see what the plan changes, its Terraform block,
+             and CLI commands to inspect it.</p>
+
+          <div class="steps">
+            <div class="step">
+              <span class="num">1</span>
+              <div>
+                <b>Turn your plan into JSON.</b> <code>plan.out</code> is a binary
+                archive, so it has to be converted first.
+                <pre>terraform plan -out=plan.out
+terraform show -json plan.out &gt; plan.json</pre>
+              </div>
+            </div>
+            <div class="step">
+              <span class="num">2</span>
+              <div>
+                <b>Open it here.</b> Drop <code>plan.json</code> anywhere on this page,
+                or use <b>Load plan.json</b> in the top bar. The file is read in your
+                browser and never uploaded.
+              </div>
+            </div>
+          </div>
+
+          <p class="or">Or click <b>Sample plan</b> to see it with an example.</p>
         </div>
       </div>
     </main>
