@@ -1,4 +1,5 @@
-// providers/aws/index.js — AWS Provider Plugin
+// providers/aws/index.ts — AWS Provider Plugin
+import { ProviderPlugin } from "../../types/index.js";
 import { AWS_REG, CAT, CAT_LABEL, SIZE_H, awsBlockHeight } from "./catalog.js";
 import { awsCli } from "./cli.js";
 import {
@@ -10,7 +11,7 @@ import {
   placeAwsContainers, containerOfAws, isBoundaryAws
 } from "./placement.js";
 
-export const awsProvider = {
+export const awsProvider: ProviderPlugin = {
   id: "aws",
   name: "AWS",
   prefix: "aws_",

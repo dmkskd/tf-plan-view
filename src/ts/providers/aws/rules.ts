@@ -1,7 +1,8 @@
-// providers/aws/rules.js — AWS Security Group and Network ACL rules
+// providers/aws/rules.ts — AWS Security Group and Network ACL rules
 import { escapeHtml } from "../../core/util.js";
+import { PlanResource, RuleSection, AwsRuleEntry } from "../../types/index.js";
 
-var PORT_NAME = {
+var PORT_NAME: Record<number, string> = {
   20:"ftp-data", 21:"ftp", 22:"ssh", 23:"telnet", 25:"smtp", 53:"dns",
   67:"dhcp", 68:"dhcp", 80:"http", 110:"pop3", 111:"rpc", 123:"ntp",
   135:"rpc", 139:"netbios", 143:"imap", 161:"snmp", 389:"ldap", 443:"https",
@@ -14,54 +15,54 @@ var PORT_NAME = {
   9300:"elasticsearch", 11211:"memcached", 15672:"rabbitmq", 27017:"mongodb"
 };
 
-function portName(e){
+function portName(e: AwsRuleEntry): string {
   if (e.protocol === "-1" || e.protocol === "all") return "";
-  if (e.from_port === e.to_port) return PORT_NAME[e.from_port] || "";
+  if (e.from_port !== undefined && e.from_port === e.to_port) return PORT_NAME[e.from_port] || "";
   if (e.from_port === 1024 && e.to_port === 65535) return "ephemeral";
   if (e.from_port === 32768 && e.to_port === 65535) return "ephemeral";
   if (e.from_port === 0 && e.to_port === 65535) return "all ports";
   return "";
 }
 
-function portText(r){
+function portText(r: AwsRuleEntry): string {
   if (r.protocol === "-1" || r.protocol === "all") return "all";
   if (r.from_port === 0 && r.to_port === 0) return "all";
-  if (r.from_port === r.to_port) return String(r.from_port);
+  if (r.from_port !== undefined && r.from_port === r.to_port) return String(r.from_port);
   return r.from_port + "\u2013" + r.to_port;
 }
-function protoText(p){
+function protoText(p?: string | number | null): string {
   if (p === "-1" || p === undefined || p === null) return "all";
   return String(p);
 }
-function peerText(e){
-  var out = [];
-  (e.cidr_blocks || []).forEach(function(c){ out.push(c); });
-  (e.ipv6_cidr_blocks || []).forEach(function(c){ out.push(c); });
-  (e.prefix_list_ids || []).forEach(function(c){ out.push("pl " + c); });
-  (e.security_groups || []).forEach(function(c){ out.push("sg " + c); });
+function peerText(e: AwsRuleEntry): string {
+  var out: string[] = [];
+  (e.cidr_blocks || []).forEach(function(c: string){ out.push(c); });
+  (e.ipv6_cidr_blocks || []).forEach(function(c: string){ out.push(c); });
+  (e.prefix_list_ids || []).forEach(function(c: string){ out.push("pl " + c); });
+  (e.security_groups || []).forEach(function(c: string){ out.push("sg " + c); });
   if (e.self) out.push("self");
   if (e.cidr_block) out.push(e.cidr_block);
   if (e.ipv6_cidr_block) out.push(e.ipv6_cidr_block);
   return out.length ? out.join(", ") : "\u2014";
 }
 
-function awsRulesHtml(r){
+function awsRulesHtml(r: PlanResource): RuleSection | null {
   var isNacl = r.type === "aws_network_acl";
   var isSg = r.type === "aws_security_group";
-  if (!isNacl && !isSg) return "";
+  if (!isNacl && !isSg) return null;
 
-  function table(dir, entries){
+  function table(dir: string, entries?: any[]): string {
     var peerHd = (dir === "ingress") ? "Source" : "Destination";
     var h = '<div class="rules-cap">' + dir + '</div>';
     if (!entries || !entries.length) return h + '<div class="none">no ' + dir + ' rules</div>';
     var sorted = entries.slice();
-    if (isNacl) sorted.sort(function(a,b){ return (a.rule_no||0) - (b.rule_no||0); });
+    if (isNacl) sorted.sort(function(a: any, b: any){ return (a.rule_no||0) - (b.rule_no||0); });
     h += '<table><thead><tr>' +
          (isNacl ? '<th>#</th>' : '') +
          '<th>Proto</th><th>Ports</th><th></th><th>' + peerHd + '</th>' +
          (isNacl ? '<th>Action</th>' : '') +
          '</tr></thead><tbody>';
-    sorted.forEach(function(e){
+    sorted.forEach(function(e: any){
       h += '<tr>' +
            (isNacl ? '<td>' + escapeHtml(e.rule_no) + '</td>' : '') +
            '<td>' + escapeHtml(protoText(e.protocol)) + '</td>' +
@@ -81,15 +82,16 @@ function awsRulesHtml(r){
   }
 
   var out = '<div class="rules">';
-  out += table("ingress", r.attrs.ingress);
-  out += table("egress", r.attrs.egress);
+  var attrs = r.attrs || {};
+  out += table("ingress", attrs.ingress);
+  out += table("egress", attrs.egress);
   if (isSg) out += '<div class="none" style="padding-top:8px">Stateful: replies to allowed traffic return without a matching rule.</div>';
   if (isNacl) out += '<div class="none" style="padding-top:8px">Stateless: each direction is evaluated independently, first match wins.</div>';
   out += '</div>';
   return {title: isSg ? "Security group rules" : "Network ACL rules", body: out};
 }
 
-function awsIsRuleAttr(kOrR, aOrK, bOrA, maybeB){
+function awsIsRuleAttr(kOrR: any, aOrK?: any, bOrA?: any, maybeB?: any): boolean {
   var k = maybeB !== undefined ? aOrK : kOrR;
   var a = maybeB !== undefined ? bOrA : aOrK;
   var b = maybeB !== undefined ? maybeB : bOrA;
@@ -97,13 +99,13 @@ function awsIsRuleAttr(kOrR, aOrK, bOrA, maybeB){
   return (Array.isArray(a) || a == null) && (Array.isArray(b) || b == null);
 }
 
-function awsRuleKey(rOrE, maybeE){
+function awsRuleKey(rOrE: any, maybeE?: any): string {
   var e = maybeE !== undefined ? maybeE : rOrE;
   return [e.action || "", e.protocol, e.from_port, e.to_port,
           peerText(e), e.rule_no == null ? "" : e.rule_no].join("|");
 }
 
-function awsRuleRow(rOrE, markOrE, dirOrMark, maybeDir){
+function awsRuleRow(rOrE: any, markOrE?: any, dirOrMark?: any, maybeDir?: any): string {
   var e = maybeDir !== undefined ? markOrE : rOrE;
   var mark = maybeDir !== undefined ? dirOrMark : markOrE;
   var dir = maybeDir !== undefined ? maybeDir : dirOrMark;
@@ -119,7 +121,7 @@ function awsRuleRow(rOrE, markOrE, dirOrMark, maybeDir){
          '</div>';
 }
 
-function awsPopRow(e, dir, isNacl, mark){
+function awsPopRow(e: AwsRuleEntry, dir: string, isNacl?: boolean, mark?: string): string {
   var arrow = dir === "ingress" ? "\u2190" : "\u2192";
   var deny = e.action === "deny";
   var cls = mark === "+" ? "added" : mark === "-" ? "removed" : (deny ? "deny" : "allow");
@@ -135,7 +137,7 @@ function awsPopRow(e, dir, isNacl, mark){
          '</div>';
 }
 
-function awsRuleLines(r, dir, isNacl, opts, matchRulesFn, attrKindFn, sameValFn){
+function awsRuleLines(r: PlanResource, dir: string, isNacl?: boolean, opts?: any, matchRulesFn?: any, attrKindFn?: any, sameValFn?: any): string {
   var after = (r.attrs || {})[dir];
   var before = (r.before || {})[dir];
   var mode = (opts && opts.mode) ? opts.mode : "all";
@@ -144,16 +146,16 @@ function awsRuleLines(r, dir, isNacl, opts, matchRulesFn, attrKindFn, sameValFn)
                 r.action !== "create" && r.action !== "no-op" &&
                 Array.isArray(before) && !isSame;
 
-  var out;
+  var out: string;
   if (changed && matchRulesFn && attrKindFn){
     out = matchRulesFn(before, after, attrKindFn(r.type, dir))
-            .map(function(m){ return awsPopRow(m.rule, dir, isNacl, m.mark); }).join("");
+            .map(function(m: any){ return awsPopRow(m.rule, dir, isNacl, m.mark); }).join("");
   } else {
     var entries = Array.isArray(after) ? after : [];
     if (!entries.length) return '<div class="rp-none">no ' + dir + ' rules</div>';
     var list = entries.slice();
-    if (isNacl) list.sort(function(a, b){ return (a.rule_no || 0) - (b.rule_no || 0); });
-    out = list.map(function(e){ return awsPopRow(e, dir, isNacl, ""); }).join("");
+    if (isNacl) list.sort(function(a: any, b: any){ return (a.rule_no || 0) - (b.rule_no || 0); });
+    out = list.map(function(e: any){ return awsPopRow(e, dir, isNacl, ""); }).join("");
   }
   if (!out) return '<div class="rp-none">no ' + dir + ' rules</div>';
 

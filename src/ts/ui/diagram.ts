@@ -5,6 +5,7 @@ import { TW, TH, tileHeight, setTileHeight, buildTree } from "../core/layout.js"
 import { fitCanvas, applyTransform } from "./iso.js";
 import { sameVal } from "../core/diff.js";
 import { state, setSelected, notifySelect, notifyRender } from "../core/state.js";
+import type { PlanModel, PlanResource, CatalogEntry, LayoutGroup } from "../types/index.js";
 
 var canvas = $("canvas"), edgesSvg = $("edges"), detailEl = $("detail"), splitEl = $("split");
 
@@ -13,47 +14,47 @@ var ACTION_COLOR = {
   delete:"var(--destroy)", "no-op":"var(--noop)", read:"var(--update)"
 };
 
-function icoSvg(spec, size){
-  var color = spec ? CAT[spec.cat] : "var(--warn)";
+function icoSvg(spec: CatalogEntry | null | undefined, size: number): string {
+  var color = (spec && spec.cat && (CAT as any)[spec.cat]) ? (CAT as any)[spec.cat] : "var(--warn)";
   var id = spec ? spec.icon : "i-unknown";
   return '<svg class="ico" style="color:' + color + '" width="' + size + '" height="' + size + '" viewBox="0 0 48 48" aria-hidden="true"><use href="#' + id + '"/></svg>';
 }
 
-function changedKeys(r){
+function changedKeys(r: PlanResource): string[] {
   if (r.action === "create" || r.action === "no-op") return [];
-  var before = r.before || {}, after = r.attrs || {}, keys = [];
-  Object.keys(before).concat(Object.keys(after)).forEach(function(k){
+  var before: Record<string, any> = r.before || {}, after: Record<string, any> = r.attrs || {}, keys: string[] = [];
+  Object.keys(before).concat(Object.keys(after)).forEach(function(k: string){
     if (keys.indexOf(k) < 0 && !sameVal(before[k], after[k])) keys.push(k);
   });
-  Object.keys(r.unknown || {}).forEach(function(k){
-    if (r.unknown[k] === true && keys.indexOf(k) < 0 && before[k] !== undefined) keys.push(k);
+  Object.keys(r.unknown || {}).forEach(function(k: string){
+    if ((r.unknown as any)[k] === true && keys.indexOf(k) < 0 && before[k] !== undefined) keys.push(k);
   });
   return keys.sort();
 }
 
-function titleFor(r){
+function titleFor(r: PlanResource): string {
   if (r.spec) return r.spec.label;
-  return r.type.replace(/^aws_/, "").replace(/_/g, " ").replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+  return r.type.replace(/^aws_/, "").replace(/_/g, " ").replace(/\b\w/g, function(c: string){ return c.toUpperCase(); });
 }
 
-function subFor(r){
-  if (r.spec && r.spec.sub && r.attrs[r.spec.sub]){
-    var v = String(r.attrs[r.spec.sub]);
+function subFor(r: PlanResource): string {
+  if (r.spec && r.spec.sub && (r.attrs as any)[r.spec.sub]){
+    var v = String((r.attrs as any)[r.spec.sub]);
     if (r.type === "aws_vpc_endpoint") return v.split(".").slice(3).join(".") || v;
     return v;
   }
-  if (r.attrs.cidr_block) return String(r.attrs.cidr_block);
+  if ((r.attrs as any).cidr_block) return String((r.attrs as any).cidr_block);
   return "";
 }
 
-function setEmpty(on){
+function setEmpty(on: boolean): void {
   var es = $("emptyState");
   if (es) es.hidden = !on;
   var c = $("canvas");
   if (c) c.style.display = on ? "none" : "";
 }
 
-function syncFilterBanner(){
+function syncFilterBanner(): void {
   var b = $("filterBanner");
   if (!b) return;
   if (!state.model || !state.opts.action){
@@ -62,7 +63,7 @@ function syncFilterBanner(){
     if (pane) pane.classList.remove("filtered");
     return;
   }
-  var c = ACTION_COLOR[state.opts.action];
+  var c = (ACTION_COLOR as any)[state.opts.action];
   b.hidden = false;
   b.innerHTML = 'showing only <b style="color:' + c + '">' + escapeHtml(state.opts.action) +
                 '</b><span class="x">\u00d7</span>';
@@ -72,17 +73,17 @@ function syncFilterBanner(){
   if (p) p.classList.add("filtered");
 }
 
-function render(){
+function render(): void {
   syncFilterBanner();
   if (!state.model){ setEmpty(true); return; }
   if (state.opts.render === "text"){ notifyRender(); return; }
   setEmpty(!state.model.resources.length);
   // recompute enabledType flags
-  state.model.resources.forEach(function(r){
+  state.model.resources.forEach(function(r: PlanResource){
     if (r.enabledType === undefined) r.enabledType = true;
   });
 
-  var S = state.model.summary || {};
+  var S: any = state.model.summary || {};
   var hasEdits = (S.update || 0) + (S.replace || 0) + (S["delete"] || 0) > 0;
   state.model.hasEdits = hasEdits;
 
@@ -91,14 +92,14 @@ function render(){
   if (canvas) {
     canvas.classList.toggle("mode-changes", state.opts.mode === "changes");
     canvas.classList.toggle("emphasise", state.opts.mode === "changes" && hasEdits);
-    canvas.classList.toggle("pulse", state.opts.pulse && state.opts.mode === "changes" && hasEdits);
+    canvas.classList.toggle("pulse", !!state.opts.pulse && state.opts.mode === "changes" && hasEdits);
   }
 
   var tree = buildTree(state.model, state.opts);
 
   // clear
   if (canvas) {
-    Array.prototype.slice.call(canvas.querySelectorAll(".grp,.node")).forEach(function(n){ n.remove(); });
+    Array.prototype.slice.call(canvas.querySelectorAll(".grp,.node")).forEach(function(n: HTMLElement){ n.remove(); });
   }
   state.nodeEls = {};
 
@@ -111,20 +112,20 @@ function render(){
 
   if (!edgesSvg) edgesSvg = $("edges");
   if (edgesSvg) {
-    edgesSvg.setAttribute("width", tree.w);
-    edgesSvg.setAttribute("height", tree.h);
+    edgesSvg.setAttribute("width", String(tree.w));
+    edgesSvg.setAttribute("height", String(tree.h));
     edgesSvg.setAttribute("viewBox", "0 0 " + tree.w + " " + tree.h);
   }
 
-  (function walk(g, depth){
+  (function walk(g: LayoutGroup, depth: number){
     depth = depth || 0;
     if (g.box){
       var d = document.createElement("div");
       var gChanged = g.res && g.res.action !== "no-op" && g.res.action !== "read";
       d.className = "grp " + g.cls + (g.res ? " act-" + g.res.action : "") +
                     (gChanged ? " is-changed" : "");
-      if (gChanged) d.style.setProperty("--pulse", ACTION_COLOR[g.res.action]);
-      d.style.setProperty("--z", depth * 3);
+      if (gChanged && g.res) d.style.setProperty("--pulse", (ACTION_COLOR as any)[g.res.action]);
+      d.style.setProperty("--z", String(depth * 3));
       d.style.left = g.x + "px"; d.style.top = g.y + "px";
       d.style.width = g.w + "px"; d.style.height = g.h + "px";
       /* Cloud, Region and AZ are drawn as outlines in the group's own colour;
@@ -136,12 +137,12 @@ function render(){
         ic = '<svg viewBox="0 0 48 48" aria-hidden="true"><use href="#i-region"/></svg>';
       } else if (g.res && g.res.spec){
         ic = '<svg class="tile" viewBox="0 0 48 48" aria-hidden="true" style="color:' +
-             CAT[g.res.spec.cat] + '"><use href="#' + g.res.spec.icon + '"/></svg>';
+             (g.res.spec.cat && (CAT as any)[g.res.spec.cat] ? (CAT as any)[g.res.spec.cat] : "var(--warn)") + '"><use href="#' + g.res.spec.icon + '"/></svg>';
       }
       var gAct = "";
       if (g.res && state.opts.mode === "changes" &&
           g.res.action !== "no-op" && g.res.action !== "read"){
-        var gc = ACTION_COLOR[g.res.action] || "var(--noop)";
+        var gc = (ACTION_COLOR as any)[g.res.action] || "var(--noop)";
         var gk = changedKeys(g.res);
         gAct = '<span class="grp-act" style="color:' + gc +
                '; background:color-mix(in srgb, ' + gc + ' 15%, var(--surface))"' +
@@ -152,20 +153,22 @@ function render(){
         escapeHtml(g.label) + (g.meta ? ' <em>' + escapeHtml(g.meta) + '</em>' : '') +
         gAct + '</div>';
       if (g.res){
-        d.dataset.addr = g.res.addr;
+        const res = g.res;
+        d.dataset.addr = res.addr;
         d.style.cursor = "pointer";
-        d.addEventListener("click", function(e){ if (state.suppressClick) return; e.stopPropagation(); select(g.res.addr); });
-        state.nodeEls[g.res.addr] = d;
+        d.addEventListener("click", function(e: MouseEvent){ if (state.suppressClick) return; e.stopPropagation(); select(res.addr); });
+        state.nodeEls[res.addr] = d;
       }
       if (canvas) canvas.appendChild(d);
-      g.children.forEach(function(k){ walk(k, depth + 1); });
+      g.children.forEach(function(k: any){ walk(k, depth + 1); });
     } else {
       var r = g.res;
+      if (!r) return;
       var n = document.createElement("div");
       var isChanged = r.action !== "no-op" && r.action !== "read";
       n.className = "node act-" + r.action + (isChanged ? " is-changed" : "") +
                     (r.supported ? "" : " unsup") + (r.enabled ? "" : " impact-src");
-      if (isChanged) n.style.setProperty("--pulse", ACTION_COLOR[r.action]);
+      if (isChanged) n.style.setProperty("--pulse", (ACTION_COLOR as any)[r.action]);
       n.style.left = g.x + "px"; n.style.top = g.y + "px";
       n.style.width = TW + "px"; n.style.height = TH + "px";
       n.style.setProperty("--h", blockHeight(r) + "px");
@@ -180,34 +183,35 @@ function render(){
       if (!plain) n.className += " has-chip";
       n.innerHTML =
         (plain
-          ? '<span class="act" style="background:' + (ACTION_COLOR[r.action] || "var(--noop)") + '" title="' + r.action + '"></span>'
-          : '<span class="actw" style="color:' + ACTION_COLOR[r.action] +
-            '; background:color-mix(in srgb, ' + ACTION_COLOR[r.action] + ' 16%, var(--surface))">' +
+          ? '<span class="act" style="background:' + ((ACTION_COLOR as any)[r.action] || "var(--noop)") + '" title="' + r.action + '"></span>'
+          : '<span class="actw" style="color:' + (ACTION_COLOR as any)[r.action] +
+            '; background:color-mix(in srgb, ' + (ACTION_COLOR as any)[r.action] + ' 16%, var(--surface))">' +
             escapeHtml(r.action) + '</span>') +
         icoSvg(r.spec, 24) +
         '<div class="ttl">' + escapeHtml(titleFor(r)) + '</div>' +
         '<div class="nm" title="' + escapeHtml(r.name + (sub ? "  ·  " + sub : "")) + '">' + line2 + '</div>' +
         '<i class="fc n"></i><i class="fc w"></i>';
 
-      if (state.opts.mode === "changes" && state.model.hasEdits && r.action !== "no-op" && r.action !== "read"){
+      if (state.opts.mode === "changes" && state.model && state.model.hasEdits && r.action !== "no-op" && r.action !== "read"){
         var ck = changedKeys(r);
-        var forced = (r.replacePaths || []).map(function(pp){ return Array.isArray(pp) ? pp[0] : pp; });
-        var body;
+        var forced = (r.replacePaths || []).map(function(pp: any){ return Array.isArray(pp) ? pp[0] : pp; });
+        var body: string;
         if (!ck.length){
           body = '<span class="q">' + (r.action === "create" ? "new resource" : "no attribute changes") + '</span>';
         } else {
-          body = ck.slice(0, 3).map(function(k){
+          body = ck.slice(0, 3).map(function(k: string){
             return forced.indexOf(k) >= 0
               ? '<b title="forces replacement">' + escapeHtml(k) + '</b>'
               : escapeHtml(k);
           }).join(", ") + (ck.length > 3 ? ' <span class="q">+' + (ck.length - 3) + '</span>' : '');
         }
-        var d = document.createElement("div");
-        d.className = "chgline";
-        d.innerHTML = body;
-        n.appendChild(d);
+        var cd = document.createElement("div");
+        cd.className = "chgline";
+        cd.innerHTML = body;
+        n.appendChild(cd);
       }
-      n.addEventListener("click", function(e){ if (state.suppressClick) return; e.stopPropagation(); select(r.addr); });
+      const res = r;
+      n.addEventListener("click", function(e: MouseEvent){ if (state.suppressClick) return; e.stopPropagation(); select(res.addr); });
       if (canvas) canvas.appendChild(n);
       state.nodeEls[r.addr] = n;
     }
@@ -220,22 +224,23 @@ function render(){
 }
 
 /* --- disabling a component: mark transitive dependents --- */
-function applyDisabledCascade(){
-  if (!state.model) return;
-  var broken = {};
+function applyDisabledCascade(): void {
+  const model = state.model;
+  if (!model) return;
+  var broken: Record<string, boolean> = {};
   var changed = true;
   while (changed){
     changed = false;
-    state.model.resources.forEach(function(r){
+    model.resources.forEach(function(r: PlanResource){
       if (!r.enabled || broken[r.addr]) return;
-      for (var i=0;i<r.refs.length;i++){
-        var t = state.model.byAddr[r.refs[i]];
+      for (var i = 0; i < r.refs.length; i++){
+        var t = model.byAddr[r.refs[i]];
         if (t && (!t.enabled || broken[t.addr])){ broken[r.addr] = true; changed = true; return; }
       }
     });
   }
-  state.model.brokenSet = broken;
-  state.model.resources.forEach(function(r){
+  model.brokenSet = broken;
+  model.resources.forEach(function(r: PlanResource){
     var el = state.nodeEls[r.addr];
     if (!el) return;
     el.classList.toggle("impact-src", !r.enabled);
@@ -248,8 +253,18 @@ function applyDisabledCascade(){
   });
 }
 
+interface BoxInfo {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  cx: number;
+  cy: number;
+  grp: boolean;
+}
+
 /* --- edges --- */
-function boxOf(addr){
+function boxOf(addr: string): BoxInfo | null {
   var el = state.nodeEls[addr];
   if (!el) return null;
   var x = parseFloat(el.style.left), y = parseFloat(el.style.top);
@@ -259,7 +274,7 @@ function boxOf(addr){
 
 /* a tile connects at its centre; a container connects where the line meets
    its edge, so the arrow does not stop in the middle of its contents */
-function anchor(b, toward){
+function anchor(b: BoxInfo, toward: {x: number; y: number}): {x: number; y: number} {
   if (!b.grp) return {x:b.cx, y:b.cy};
   var dx = toward.x - b.cx, dy = toward.y - b.cy;
   if (!dx && !dy) return {x:b.cx, y:b.cy};
@@ -268,22 +283,22 @@ function anchor(b, toward){
   return {x:b.cx + dx*s, y:b.cy + dy*s};
 }
 
-function encloses(a, b){
+function encloses(a: string, b: string): boolean {
   if (!state.model) return false;
   var ka = state.model.anc && state.model.anc[a], kb = state.model.anc && state.model.anc[b];
-  return (ka && ka.indexOf(b) >= 0) || (kb && kb.indexOf(a) >= 0);
+  return !!((ka && ka.indexOf(b) >= 0) || (kb && kb.indexOf(a) >= 0));
 }
 
-function drawEdges(){
+function drawEdges(): void {
   if (!edgesSvg) edgesSvg = $("edges");
   if (!edgesSvg) return;
   edgesSvg.innerHTML = "";
   if (!state.model || state.opts.edges === "none") return;
-  var show = [];
+  var show: [string, string][] = [];
   var selected = state.selected;
-  state.model.resources.forEach(function(r){
+  state.model.resources.forEach(function(r: PlanResource){
     if (!state.nodeEls[r.addr]) return;
-    r.refs.forEach(function(a){
+    r.refs.forEach(function(a: string){
       if (!state.nodeEls[a]) return;
       if (encloses(r.addr, a)) return;                       /* nesting shows it */
       if (state.nodeEls[r.addr].classList.contains("grp")) return; /* containers are */
@@ -295,7 +310,7 @@ function drawEdges(){
       show.push([r.addr, a]);
     });
   });
-  show.forEach(function(pair){
+  show.forEach(function(pair: [string, string]){
     var ba = boxOf(pair[0]), bb = boxOf(pair[1]);
     if (!ba || !bb) return;
     var a = anchor(ba, {x:bb.cx, y:bb.cy});
@@ -308,30 +323,30 @@ function drawEdges(){
     p.setAttribute("stroke-width", (selected && (pair[0]===selected||pair[1]===selected)) ? "2" : "1.2");
     p.setAttribute("stroke-dasharray", "5 4");
     p.setAttribute("opacity", state.opts.edges === "all" && !selected ? ".55" : "1");
-    edgesSvg.appendChild(p);
+    if (edgesSvg) edgesSvg.appendChild(p);
   });
 }
 
 /* --- selection --- */
-function select(addr){
+function select(addr: string | null): void {
   setSelected(state.selected === addr ? null : addr);
   applySelection();
   drawEdges();
   notifySelect(state.selected);
 }
 
-function applySelection(){
+function applySelection(): void {
   var selected = state.selected;
-  var related = {};
+  var related: Record<string, boolean> = {};
   if (selected && state.model){
     related[selected] = true;
     var r = state.model.byAddr[selected];
     if (r){
-      r.refs.forEach(function(a){ related[a] = true; });
-      (r.dependents||[]).forEach(function(a){ related[a] = true; });
+      r.refs.forEach(function(a: string){ related[a] = true; });
+      (r.dependents||[]).forEach(function(a: string){ related[a] = true; });
     }
   }
-  Object.keys(state.nodeEls).forEach(function(addr){
+  Object.keys(state.nodeEls).forEach(function(addr: string){
     var el = state.nodeEls[addr];
     el.classList.toggle("sel", addr === selected);
     el.classList.toggle("rel", !!selected && related[addr] && addr !== selected);

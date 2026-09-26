@@ -1,28 +1,28 @@
-// providers/gcp/index.js — Google Cloud Platform Provider Plugin (Starter Scaffold)
-import { q } from "../../core/util.js";
+// providers/gcp/index.ts — Google Cloud Platform Provider Plugin (Starter Scaffold)
+import { ProviderPlugin, CatalogEntry, CliCommand, PlanResource } from "../../types/index.js";
 import {
   placeGcpNetworks, placeGcpSubnetworks,
   placeGcpContainers, containerOfGcp
 } from "./placement.js";
 
-export var GCP_REG = {
+export var GCP_REG: Record<string, CatalogEntry> = {
   google_compute_network:    {kind:"group", g:"vpc",    label:"VPC Network",    icon:"i-vpc",    cat:"net",
-                               preview:["auto_create_subnetworks","routing_mode"]},
+                              preview:["auto_create_subnetworks","routing_mode"]},
   google_compute_subnetwork: {kind:"group", g:"subnet", label:"Subnetwork",     icon:"i-subnet", cat:"net",
-                               preview:["ip_cidr_range","region","private_ip_google_access"]},
+                              preview:["ip_cidr_range","region","private_ip_google_access"]},
   google_compute_instance:   {kind:"node",              label:"Compute Engine", icon:"i-ec2",    cat:"compute", sub:"machine_type",
-                               preview:["zone","machine_type"]},
+                              preview:["zone","machine_type"]},
   google_storage_bucket:     {kind:"node",              label:"Cloud Storage",  icon:"i-s3",     cat:"storage", scope:"region",
-                               preview:["location","storage_class"]}
+                              preview:["location","storage_class"]}
 };
 
-export function GCP_CLI(r, ctx) {
-  var L = [];
-  function add(label, cmd) { L.push({label:label, cmd:cmd}); }
+export function GCP_CLI(r: PlanResource, ctx?: any): CliCommand[] {
+  var L: CliCommand[] = [];
+  function add(label: string, cmd: string) { L.push({label:label, cmd:cmd}); }
   var t = r.type;
   switch (t) {
     case "google_compute_instance":
-      add("Describe", "gcloud compute instances describe " + r.name + (ctx.zone ? " --zone " + ctx.zone : ""));
+      add("Describe", "gcloud compute instances describe " + r.name + (ctx && ctx.zone ? " --zone " + ctx.zone : ""));
       break;
     case "google_compute_network":
       add("Describe", "gcloud compute networks describe " + r.name);
@@ -34,7 +34,7 @@ export function GCP_CLI(r, ctx) {
   return L;
 }
 
-export const gcpProvider = {
+export const gcpProvider: ProviderPlugin = {
   id: "google",
   name: "Google Cloud",
   prefix: "google_",

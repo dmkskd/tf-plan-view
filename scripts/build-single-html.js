@@ -5,6 +5,7 @@
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
+const ts = require("typescript");
 
 console.log("📦 Building single self-contained HTML asset for tf plan view...");
 
@@ -44,7 +45,7 @@ const planData = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan.json"),
 const minKinds = JSON.stringify(JSON.parse(kindsData));
 const minPlan = JSON.stringify(JSON.parse(planData));
 
-// 3. Module Dependency Graph Resolution starting at main.js
+// 3. Module Dependency Graph Resolution starting at main.ts
 function crawlDependencyGraph(entryFile) {
   const visited = new Set();
   const graph = [];
@@ -57,10 +58,19 @@ function crawlDependencyGraph(entryFile) {
     const importRegex = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+)?['"]([^'"]+)['"]/g;
     let match;
     while ((match = importRegex.exec(code)) !== null) {
-      const target = path.resolve(dir, match[1]);
-      const fullTarget = target.endsWith(".js") ? target : target + ".js";
-      if (fs.existsSync(fullTarget)) {
-        visit(fullTarget);
+      const rawTarget = match[1];
+      let target = path.resolve(dir, rawTarget);
+      if (!fs.existsSync(target)) {
+        if (target.endsWith(".js") && fs.existsSync(target.slice(0, -3) + ".ts")) {
+          target = target.slice(0, -3) + ".ts";
+        } else if (fs.existsSync(target + ".ts")) {
+          target = target + ".ts";
+        } else if (fs.existsSync(target + ".js")) {
+          target = target + ".js";
+        }
+      }
+      if (fs.existsSync(target)) {
+        visit(target);
       } else {
         throw new Error(`Import target not found: ${match[1]} in ${file}`);
       }
@@ -72,26 +82,37 @@ function crawlDependencyGraph(entryFile) {
   return graph;
 }
 
-const entryPoint = path.join(SRC_DIR, "js", "main.js");
+const entryPoint = path.join(SRC_DIR, "ts", "main.ts");
 const resolvedModules = crawlDependencyGraph(entryPoint);
-console.log(`  ✓ Resolved ${resolvedModules.length} modules from dependency graph starting at main.js`);
+console.log(`  ✓ Resolved ${resolvedModules.length} modules from dependency graph starting at main.ts`);
 
-// Helper to read and strip module syntax
+// Helper to read and strip module syntax and TypeScript types
 function transformModule(fullPath) {
-  let code = fs.readFileSync(fullPath, "utf8");
+  let raw = fs.readFileSync(fullPath, "utf8");
+  let code = ts.transpileModule(raw, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+      removeComments: false
+    }
+  }).outputText;
   code = code.replace(/^\/\/.*$/gm, ""); // remove line comments at start
   code = code.replace(/^import\s+[^;]+;\s*$/gm, "");
   code = code.replace(/^import\s*\{[\s\S]*?\}\s*from\s*[^;]+;\s*$/gm, "");
   code = code.replace(/^export\s*\{[\s\S]*?\};?\s*$/gm, "");
   code = code.replace(/^export\s+default\s+[^;]+;?\s*$/gm, "");
-  code = code.replace(/^export\s+(function|var|const|let)\s+/gm, "$1 ");
+  code = code.replace(/^export\s+(function|var|const|let|class)\s+/gm, "$1 ");
   return code.trim();
 }
 
 function getModuleByRelative(relPath) {
-  const target = path.join(SRC_DIR, "js", relPath);
+  const tsPath = relPath.replace(/\.js$/, ".ts");
+  let target = path.join(SRC_DIR, "ts", tsPath);
+  if (!fs.existsSync(target)) {
+    target = path.join(SRC_DIR, "ts", relPath);
+  }
   if (!resolvedModules.includes(target)) {
-    throw new Error(`Module ${relPath} is not reachable from main.js dependency graph!`);
+    throw new Error(`Module ${relPath} (${target}) is not reachable from main.ts dependency graph!`);
   }
   return transformModule(target);
 }
@@ -239,7 +260,7 @@ ${section5}
 // Top-level declarations are the ones at column 0 in a module file.
 const declaredIn = new Map();
 for (const file of resolvedModules) {
-  const code = fs.readFileSync(file, "utf8");
+  const code = transformModule(file);
   for (const m of code.matchAll(/^(?:export\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)/gm)) {
     const name = m[1];
     if (!declaredIn.has(name)) declaredIn.set(name, []);

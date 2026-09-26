@@ -1,4 +1,4 @@
-// ui/iso.js — Isometric 3D projection, camera rotation, pan & zoom controls
+// ui/iso.ts — Isometric 3D projection, camera rotation, pan & zoom controls
 import { $ } from "../core/util.js";
 import { state, setSuppressClick } from "../core/state.js";
 
@@ -6,14 +6,14 @@ var isoCanvas = $("canvas");
 var ISO = {on:false, rx:54, rz:-45, scale:1, px:0, py:0};
 var ISO_HOME = {rx:54, rz:-45, scale:1, px:0, py:0};
 
-function applyTransform(){
+function applyTransform(): void {
   if (!isoCanvas) isoCanvas = $("canvas");
   var t = "translate(" + ISO.px + "px," + ISO.py + "px) scale(" + ISO.scale + ")";
   if (ISO.on) t += " rotateX(" + ISO.rx + "deg) rotateZ(" + ISO.rz + "deg)";
   if (isoCanvas) isoCanvas.style.transform = t;
 }
 
-function fitCanvas(w, h){
+function fitCanvas(w: number, h: number): void {
   if (!isoCanvas) isoCanvas = $("canvas");
   if (!isoCanvas) return;
   if (!ISO.on){ isoCanvas.style.margin = "20px"; return; }
@@ -26,14 +26,14 @@ function fitCanvas(w, h){
   isoCanvas.style.margin = padY + "px " + padX + "px";
 }
 
-function centerScroll(){
+function centerScroll(): void {
   var w = $("canvasWrap");
   if (!w) return;
   w.scrollLeft = Math.max(0, (w.scrollWidth - w.clientWidth) / 2);
   w.scrollTop  = Math.max(0, (w.scrollHeight - w.clientHeight) / 2);
 }
 
-function fitView(){
+function fitView(): void {
   var w = $("canvasWrap");
   if (!isoCanvas) isoCanvas = $("canvas");
   if (!w || !isoCanvas) return;
@@ -55,7 +55,7 @@ function fitView(){
   requestAnimationFrame(centerScroll);
 }
 
-function setIso(on){
+function setIso(on: boolean): void {
   if (!isoCanvas) isoCanvas = $("canvas");
   ISO.on = on;
   if (isoCanvas) isoCanvas.classList.toggle("iso", on);
@@ -68,17 +68,17 @@ function setIso(on){
   var isoBtn = $("renderIso");
   if (isoBtn) isoBtn.classList.toggle("on", on && state.opts.render === "diagram");
   try { localStorage.setItem("tfplanview-iso", on ? "1" : "0"); } catch(e){}
-  fitCanvas(parseFloat(isoCanvas ? isoCanvas.style.width : 0) || 0, parseFloat(isoCanvas ? isoCanvas.style.height : 0) || 0);
+  fitCanvas(parseFloat(isoCanvas ? isoCanvas.style.width : "0") || 0, parseFloat(isoCanvas ? isoCanvas.style.height : "0") || 0);
   applyTransform();
   if (state.model) fitView();
 }
 
-(function isoControls(){
+(function isoControls(): void {
   var wrap = $("canvasWrap");
   if (!wrap) return;
-  var drag = null;
+  var drag: any = null;
 
-  wrap.addEventListener("pointerdown", function(e){
+  wrap.addEventListener("pointerdown", function(e: PointerEvent){
     if (e.button === 2 || !state.model) return;
     drag = {x:e.clientX, y:e.clientY, moved:0,
             /* flat has nothing to orbit, so a drag always pans there */
@@ -86,14 +86,14 @@ function setIso(on){
             rx:ISO.rx, rz:ISO.rz, px:ISO.px, py:ISO.py, active:false};
   });
 
-  window.addEventListener("pointermove", function(e){
+  window.addEventListener("pointermove", function(e: PointerEvent){
     if (!drag) return;
     var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     drag.moved = Math.max(drag.moved, Math.abs(dx) + Math.abs(dy));
     if (drag.moved <= 4) return;            /* a click is not a drag */
     if (!drag.active){
       drag.active = true;
-      wrap.classList.add("grabbing");
+      if (wrap) wrap.classList.add("grabbing");
       if (isoCanvas) isoCanvas.classList.add("dragging");
     }
     if (drag.pan){
@@ -108,11 +108,11 @@ function setIso(on){
     applyTransform();
   });
 
-  function endDrag(){
+  function endDrag(): void {
     if (!drag) return;
     var wasDrag = drag.moved > 4;
     drag = null;
-    wrap.classList.remove("grabbing");
+    if (wrap) wrap.classList.remove("grabbing");
     if (isoCanvas) isoCanvas.classList.remove("dragging");
     setSuppressClick(wasDrag);
     if (wasDrag) setTimeout(function(){ setSuppressClick(false); }, 0);
@@ -121,7 +121,7 @@ function setIso(on){
   window.addEventListener("pointerup", endDrag);
   window.addEventListener("pointercancel", endDrag);
 
-  wrap.addEventListener("wheel", function(e){
+  wrap.addEventListener("wheel", function(e: WheelEvent){
     if (!state.model) return;
     e.preventDefault();
     var f = Math.exp(-e.deltaY * 0.0015);
@@ -130,7 +130,7 @@ function setIso(on){
   }, {passive:false});
 
   var resetBtn = $("isoReset");
-  if (resetBtn) resetBtn.addEventListener("click", function(e){
+  if (resetBtn) resetBtn.addEventListener("click", function(e: MouseEvent){
     e.stopPropagation();
     ISO.rx = ISO_HOME.rx; ISO.rz = ISO_HOME.rz;
     ISO.px = 0; ISO.py = 0; ISO.scale = 1;

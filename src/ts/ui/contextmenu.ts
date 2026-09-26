@@ -1,4 +1,4 @@
-// ui/contextmenu.js — Canvas node right-click context menu
+// ui/contextmenu.ts — Canvas node right-click context menu
 import { $, escapeHtml } from "../core/util.js";
 import { CLI } from "../providers/registry.js";
 import { state, setSelected } from "../core/state.js";
@@ -11,23 +11,23 @@ import { renderDetail } from "./detail.js";
    the detail pane.
    ------------------------------------------------------------------ */
 
-var ctxEl = $("ctxMenu"), ctxAddr = null;
+var ctxEl: HTMLElement | null = $("ctxMenu"), ctxAddr: string | null = null;
 
-function closeCtx(){
+function closeCtx(): void {
   if (!ctxEl) ctxEl = $("ctxMenu");
   if (ctxEl) ctxEl.hidden = true;
   ctxAddr = null;
 }
 
-function ctxItem(label, hint, fn){
+function ctxItem(label: string, hint: string, fn: () => void): HTMLButtonElement {
   var b = document.createElement("button");
   b.innerHTML = escapeHtml(label) + (hint ? '<span class="k">' + escapeHtml(hint) + '</span>' : '');
-  b.addEventListener("click", function(e){ e.stopPropagation(); closeCtx(); fn(); });
+  b.addEventListener("click", function(e: MouseEvent){ e.stopPropagation(); closeCtx(); fn(); });
   return b;
 }
 
-function openCtx(addr, x, y){
-  var model = state.model;
+function openCtx(addr: string, x: number, y: number): void {
+  const model = state.model;
   if (!model) return;
   var r = model.byAddr[addr];
   if (!r) return;
@@ -60,14 +60,14 @@ function openCtx(addr, x, y){
     render();
   }));
   ctxEl.appendChild(ctxItem("Hide all " + r.type, String(model.typeCounts[r.type] || 1), function(){
-    model.resources.forEach(function(x){ if (x.type === r.type) x.enabledType = false; });
+    model.resources.forEach(function(x: any){ if (x.type === r.type) x.enabledType = false; });
     render();
   }));
 
-  var anyHidden = model.resources.some(function(x){ return x.hidden || x.enabledType === false; });
+  var anyHidden = model.resources.some(function(x: any){ return x.hidden || x.enabledType === false; });
   if (anyHidden){
     ctxEl.appendChild(ctxItem("Show everything", "", function(){
-      model.resources.forEach(function(x){ x.hidden = false; x.enabledType = true; });
+      model.resources.forEach(function(x: any){ x.hidden = false; x.enabledType = true; });
       render();
     }));
   }
@@ -91,7 +91,7 @@ function openCtx(addr, x, y){
   ctxEl.style.top  = Math.min(y, window.innerHeight - hgt - 8) + "px";
 }
 
-function copyTextSilent(text){
+function copyTextSilent(text: string): void {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(text);
@@ -107,15 +107,17 @@ function copyTextSilent(text){
 
 var wrapEl = $("canvasWrap");
 if (wrapEl){
-  wrapEl.addEventListener("contextmenu", function(e){
-    var el = e.target.closest ? e.target.closest("[data-addr]") : null;
-    if (!el || !state.model) return;
+  wrapEl.addEventListener("contextmenu", function(e: MouseEvent){
+    var target = e.target as HTMLElement | null;
+    var el = target && target.closest ? (target.closest("[data-addr]") as HTMLElement) : null;
+    if (!el || !state.model || !el.dataset.addr) return;
     e.preventDefault();
     openCtx(el.dataset.addr, e.clientX, e.clientY);
   });
   wrapEl.addEventListener("scroll", closeCtx);
 }
 document.addEventListener("click", function(){ if (ctxEl && !ctxEl.hidden) closeCtx(); });
-document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeCtx(); });
+document.addEventListener("keydown", function(e: KeyboardEvent){ if (e.key === "Escape") closeCtx(); });
 
 export { ctxEl, closeCtx, ctxItem, openCtx };
+

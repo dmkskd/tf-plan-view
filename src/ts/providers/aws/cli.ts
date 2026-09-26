@@ -1,17 +1,19 @@
-// providers/aws/cli.js — AWS CLI recipes
+// providers/aws/cli.ts — AWS CLI recipes
+import { PlanResource, CliCommand } from "../../types/index.js";
+
 /* ---- AWS CLI: one inspect recipe per type. Plan-time IDs are unknown, so
    these filter by Name tag or name_prefix instead of by id. ---- */
 
-function cliQuote(s){ return String(s).replace(/"/g, '\\"'); }
+function cliQuote(s: any): string { return String(s).replace(/"/g, '\\"'); }
 
-function awsCli(r, ctx){
-  var reg = ctx.region ? ' --region ' + ctx.region : '';
+function awsCli(r: PlanResource, ctx?: any): CliCommand[] {
+  var reg = (ctx && ctx.region) ? ' --region ' + ctx.region : '';
   var tag = r.attrs && r.attrs.tags && r.attrs.tags.Name;
   var byTag = tag ? ' --filters "Name=tag:Name,Values=' + cliQuote(tag) + '"' : '';
   var pfx = r.attrs && r.attrs.name_prefix;
   var t = r.type;
-  var L = [];
-  function add(label, cmd){ L.push({label:label, cmd:cmd}); }
+  var L: CliCommand[] = [];
+  function add(label: string, cmd: string): void { L.push({label:label, cmd:cmd}); }
 
   switch (t){
     case "aws_vpc":
@@ -60,7 +62,7 @@ function awsCli(r, ctx){
       break;
     case "aws_vpc_endpoint":
       add("Describe", "aws ec2 describe-vpc-endpoints" + reg +
-          ' --filters "Name=service-name,Values=' + cliQuote(r.attrs.service_name || "<service>") + '"');
+          ' --filters "Name=service-name,Values=' + cliQuote((r.attrs && r.attrs.service_name) || "<service>") + '"');
       add("Endpoint ENI addresses", "aws ec2 describe-network-interfaces" + reg +
           ' --filters "Name=description,Values=*<vpce-id>*" --query "NetworkInterfaces[].PrivateIpAddress"');
       break;
@@ -91,30 +93,30 @@ function awsCli(r, ctx){
       break;
     case "aws_lb":
     case "aws_alb":
-      add("Describe", "aws elbv2 describe-load-balancers" + reg + (r.attrs.name ? " --names " + r.attrs.name : ""));
+      add("Describe", "aws elbv2 describe-load-balancers" + reg + ((r.attrs && r.attrs.name) ? " --names " + r.attrs.name : ""));
       break;
     case "aws_lb_target_group":
-      add("Describe", "aws elbv2 describe-target-groups" + reg + (r.attrs.name ? " --names " + r.attrs.name : ""));
+      add("Describe", "aws elbv2 describe-target-groups" + reg + ((r.attrs && r.attrs.name) ? " --names " + r.attrs.name : ""));
       add("Target health", "aws elbv2 describe-target-health" + reg + " --target-group-arn <tg-arn> --output table");
       break;
     case "aws_db_instance":
       add("Describe", "aws rds describe-db-instances" + reg +
-          (r.attrs.identifier ? " --db-instance-identifier " + r.attrs.identifier : ""));
+          ((r.attrs && r.attrs.identifier) ? " --db-instance-identifier " + r.attrs.identifier : ""));
       break;
     case "aws_rds_cluster":
       add("Describe", "aws rds describe-db-clusters" + reg +
-          (r.attrs.cluster_identifier ? " --db-cluster-identifier " + r.attrs.cluster_identifier : ""));
+          ((r.attrs && r.attrs.cluster_identifier) ? " --db-cluster-identifier " + r.attrs.cluster_identifier : ""));
       break;
     case "aws_s3_bucket":
-      add("Describe", "aws s3api get-bucket-location --bucket " + (r.attrs.bucket || "<bucket>"));
-      add("List contents", "aws s3 ls s3://" + (r.attrs.bucket || "<bucket>") + "/");
+      add("Describe", "aws s3api get-bucket-location --bucket " + ((r.attrs && r.attrs.bucket) || "<bucket>"));
+      add("List contents", "aws s3 ls s3://" + ((r.attrs && r.attrs.bucket) || "<bucket>") + "/");
       break;
     case "aws_lambda_function":
-      add("Describe", "aws lambda get-function" + reg + " --function-name " + (r.attrs.function_name || "<function>"));
-      add("Recent logs", "aws logs tail" + reg + " /aws/lambda/" + (r.attrs.function_name || "<function>") + " --since 15m");
+      add("Describe", "aws lambda get-function" + reg + " --function-name " + ((r.attrs && r.attrs.function_name) || "<function>"));
+      add("Recent logs", "aws logs tail" + reg + " /aws/lambda/" + ((r.attrs && r.attrs.function_name) || "<function>") + " --since 15m");
       break;
     case "aws_cloudwatch_log_group":
-      add("Tail", "aws logs tail" + reg + " " + (r.attrs.name || "<log-group>") + " --follow");
+      add("Tail", "aws logs tail" + reg + " " + ((r.attrs && r.attrs.name) || "<log-group>") + " --follow");
       break;
     default:
       if (tag) add("Find by tag", "aws resourcegroupstaggingapi get-resources" + reg +
@@ -124,5 +126,5 @@ function awsCli(r, ctx){
   return L;
 }
 
-
 export { awsCli, cliQuote };
+

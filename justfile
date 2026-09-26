@@ -12,11 +12,11 @@ dev port="3000":
     npx vite src --port {{port}}
 
 # Build the single self-contained HTML asset (dist/index.html)
-build:
+build: typecheck
     node scripts/build-single-html.js
 
 # Run the entire test suite and regression baselines
-test: build test-unit test-boot test-render test-pure test-parse test-layout
+test: typecheck build test-unit test-boot test-render test-pure test-parse test-layout
     @echo "✅ All tests and regression baselines passed!"
 
 # Run unit assertions (optional suite filter, e.g. `just test-unit placement`)
@@ -50,11 +50,16 @@ record-baselines:
     node tools/check-layout.js > tools/baseline/check-layout.txt
     @echo "✅ All baselines re-recorded in tools/baseline/"
 
-# Validate JavaScript syntax across all source, script, and test files
-check:
-    @echo "Checking JS syntax across modules..."
-    @for f in `find src/js scripts tools -name "*.js"`; do node --check "$f" || exit 1; done
-    @echo "✅ All JavaScript files passed syntax verification!"
+# Run TypeScript type verification
+typecheck:
+    npx tsc --noEmit
+    @echo "✅ TypeScript type check passed with 0 errors!"
+
+# Validate TypeScript types and script syntax
+check: typecheck
+    @echo "Checking script syntax..."
+    @for f in `find scripts tools -name "*.js"`; do node --check "$f" || exit 1; done
+    @echo "✅ All files passed syntax verification!"
 
 # Build and open the self-contained app directly in the default browser
 open: build

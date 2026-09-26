@@ -1,5 +1,6 @@
-// providers/aws/catalog.js — AWS resource type registry, categories & sizing
-var AWS_REG = {
+import { CatalogEntry, PlanResource } from "../../types/index.js";
+
+var AWS_REG: Record<string, CatalogEntry> = {
   aws_vpc:                          {kind:"group", g:"vpc",    label:"VPC",                  icon:"i-vpc",    cat:"net",
                                       preview:["cidr_block","enable_dns_support","enable_dns_hostnames"]},
   aws_subnet:                       {kind:"group", g:"subnet", label:"Subnet",               icon:"i-subnet", cat:"net",
@@ -74,7 +75,7 @@ var AWS_REG = {
                                           preview:["route_table_id"]}
 };
 
-var CAT = {
+var CAT: Record<string, string> = {
   compute:  "var(--aws-compute)",
   net:      "var(--aws-net)",
   sec:      "var(--aws-sec)",
@@ -83,7 +84,7 @@ var CAT = {
   mgmt:     "var(--aws-mgmt)"
 };
 
-var CAT_LABEL = [
+var CAT_LABEL: [string, string][] = [
   ["compute", "Compute"],
   ["net",     "Networking"],
   ["sec",     "Security & identity"],
@@ -93,11 +94,11 @@ var CAT_LABEL = [
   ["other",   "Not implemented"]
 ];
 
-var SIZE_H = {nano:16, micro:20, small:26, medium:32, large:40, xlarge:52,
+var SIZE_H: Record<string, number> = {nano:16, micro:20, small:26, medium:32, large:40, xlarge:52,
               "2xlarge":64, "4xlarge":78, "8xlarge":92, "12xlarge":104,
               "16xlarge":116, "24xlarge":128, metal:140};
 
-function awsBlockHeight(r){
+function awsBlockHeight(r: PlanResource): number {
   var t = r.attrs && (r.attrs.instance_type || r.attrs.node_type || r.attrs.instance_class);
   if (t){
     var sz = String(t).split(".").slice(1).join(".");

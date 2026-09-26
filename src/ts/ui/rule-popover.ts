@@ -1,4 +1,4 @@
-// ui/rule-popover.js — Hover preview popover for security groups, network
+// ui/rule-popover.ts — Hover preview popover for security groups, network
 // ACLs and every other resource tile
 import { $, escapeHtml } from "../core/util.js";
 import { popRow } from "../providers/registry.js";
@@ -6,6 +6,7 @@ import { sameVal, matchRules } from "../core/diff.js";
 import { attrKind } from "../core/schema.js";
 import { icoSvg } from "./diagram.js";
 import { state } from "../core/state.js";
+import { PlanResource } from "../types/index.js";
 
 /* ------------------------------------------------------------------
    Rule preview. Security groups and network ACLs are the two things you
@@ -19,9 +20,9 @@ import { state } from "../core/state.js";
    whose preview attributes are all empty, gets no popover at all.
    ------------------------------------------------------------------ */
 
-var popEl = $("rulePop"), popTimer = null, popAddr = null;
+var popEl: HTMLElement | null = $("rulePop"), popTimer: any = null, popAddr: string | null = null;
 
-function popRuleLines(r, dir, isNacl){
+function popRuleLines(r: PlanResource, dir: string, isNacl?: boolean): string {
   var after = (r.attrs || {})[dir];
   var before = (r.before || {})[dir];
   /* Topology shows the rules as they will be; only Changes marks the diff,
@@ -30,16 +31,16 @@ function popRuleLines(r, dir, isNacl){
                 r.action !== "create" && r.action !== "no-op" &&
                 Array.isArray(before) && !sameVal(before, after);
 
-  var out;
+  var out: string;
   if (changed){
     out = matchRules(before, after, attrKind(r.type, dir), r)
-            .map(function(m){ return popRow(r, m.rule, dir, isNacl, m.mark); }).join("");
+            .map(function(m: any){ return popRow(r, m.rule, dir, isNacl, m.mark); }).join("");
   } else {
     var entries = Array.isArray(after) ? after : [];
     if (!entries.length) return '<div class="rp-none">no ' + dir + ' rules</div>';
     var list = entries.slice();
-    if (isNacl) list.sort(function(a, b){ return (a.rule_no || 0) - (b.rule_no || 0); });
-    out = list.map(function(e){ return popRow(r, e, dir, isNacl, ""); }).join("");
+    if (isNacl) list.sort(function(a: any, b: any){ return (a.rule_no || 0) - (b.rule_no || 0); });
+    out = list.map(function(e: any){ return popRow(r, e, dir, isNacl, ""); }).join("");
   }
   if (!out) return '<div class="rp-none">no ' + dir + ' rules</div>';
 
@@ -55,24 +56,24 @@ function popRuleLines(r, dir, isNacl){
    plan cannot resolve it yet. Sensitive attributes are dropped, and the
    attribute already surfaced as the tile's subtitle (spec.sub) is not
    repeated. */
-function attrPreviewVal(v){
+function attrPreviewVal(v: any): string | null {
   if (Array.isArray(v)){
     if (!v.length) return null;
     var s = v.slice(0, 3).map(String).join(", ");
     return v.length > 3 ? s + " …" : s;
   }
   if (v && typeof v === "object") return null;
-  var s = String(v);
-  return s.length > 64 ? s.slice(0, 64) + "…" : s;
+  var str = String(v);
+  return str.length > 64 ? str.slice(0, 64) + "…" : str;
 }
 
-function attrPreviewRows(r){
+function attrPreviewRows(r: PlanResource): string {
   var keys = (r.spec && r.spec.preview) || [];
   var rows = "";
-  keys.forEach(function(k){
+  keys.forEach(function(k: string){
     if (k === (r.spec && r.spec.sub)) return;
-    if (r.sensitive && r.sensitive[k]) return;
-    var known = r.unknown && r.unknown[k] === true;
+    if (r.sensitive && (r.sensitive as any)[k]) return;
+    var known = r.unknown && (r.unknown as any)[k] === true;
     var text = known ? "known after apply" : attrPreviewVal(r.attrs ? r.attrs[k] : undefined);
     if (text === null || text === undefined || text === "") return;
     rows += '<div class="rp-attr"><span class="rp-k">' + escapeHtml(k.replace(/_/g, " ")) +
@@ -82,13 +83,13 @@ function attrPreviewRows(r){
   return rows;
 }
 
-function hasPreview(r){
+function hasPreview(r: PlanResource | null | undefined): boolean {
   if (!r) return false;
   if (r.type === "aws_security_group" || r.type === "aws_network_acl") return true;
   return !!attrPreviewRows(r);
 }
 
-function showRulePop(addr, x, y){
+function showRulePop(addr: string, x: number, y: number): void {
   if (!popEl) popEl = $("rulePop");
   if (!popEl) return;
   var r = state.model && state.model.byAddr[addr];
@@ -96,7 +97,7 @@ function showRulePop(addr, x, y){
   var isSg = r.type === "aws_security_group";
   var isNacl = r.type === "aws_network_acl";
 
-  var body;
+  var body: string;
   if (isSg || isNacl){
     body =
       '<div class="rp-dir">inbound</div>' + popRuleLines(r, "ingress", isNacl) +
@@ -123,18 +124,19 @@ function showRulePop(addr, x, y){
   popAddr = addr;
 }
 
-function hideRulePop(){
+function hideRulePop(): void {
   clearTimeout(popTimer);
   if (!popEl) popEl = $("rulePop");
   if (popEl) popEl.hidden = true;
   popAddr = null;
 }
 
-(function wireRulePop(){
+(function wireRulePop(): void {
   var wrap = $("canvasWrap");
   if (!wrap) return;
-  wrap.addEventListener("mousemove", function(e){
-    var el = e.target.closest ? e.target.closest("[data-addr]") : null;
+  wrap.addEventListener("mousemove", function(e: MouseEvent){
+    var target = e.target as HTMLElement | null;
+    var el = target && target.closest ? (target.closest("[data-addr]") as HTMLElement) : null;
     var addr = el ? el.dataset.addr : null;
     var r = addr && state.model ? state.model.byAddr[addr] : null;
     var wants = hasPreview(r);
@@ -144,7 +146,7 @@ function hideRulePop(){
 
     clearTimeout(popTimer);
     var x = e.clientX, y = e.clientY;
-    popTimer = setTimeout(function(){ showRulePop(addr, x, y); }, 280);
+    popTimer = setTimeout(function(){ if (addr) showRulePop(addr, x, y); }, 280);
   });
   wrap.addEventListener("mouseleave", hideRulePop);
   wrap.addEventListener("pointerdown", hideRulePop);
@@ -152,3 +154,4 @@ function hideRulePop(){
 })();
 
 export { popEl, popRow, popRuleLines, showRulePop, hideRulePop };
+
