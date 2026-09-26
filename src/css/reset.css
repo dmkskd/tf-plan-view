@@ -1,0 +1,6 @@
+/* standalone shell: mirrors the minimal reset the app was authored against */
+  *,*::before,*::after{box-sizing:border-box;}
+  :root{color-scheme:light dark; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);}
+  html,body{margin:0;}
+  img{max-width:100%;}
+  [hidden]{display:none!important;}

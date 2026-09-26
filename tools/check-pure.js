@@ -30,8 +30,9 @@ function slice(from, to) {
 global.escapeHtml = s => String(s).replace(/[&<>"']/g,
   c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+eval(slice("var AWS_REG = {", "var ACTION_COLOR"));
 eval(slice("function hclLit", "/* ---- AWS CLI"));
-eval(slice("function q(s)", "var ACTION_COLOR"));
+eval(slice("function cliQuote(s)", "var ACTION_COLOR"));
 eval(slice("var ACTION_COLOR", "function actionOf"));
 eval(slice("function actionOf", "function parsePlan"));
 // the kind lookup lives in the schema section; stub the DOM it reads
@@ -43,7 +44,6 @@ global.document = {
 eval(slice("var SCHEMA = null;", "/* ------------------------------------------------------------------\n     Rule preview."));
 eval(slice("var PORT_NAME", "/* --- collapsible sections"));
 eval(slice("function changedKeys", "function titleFor"));
-eval(slice("var REG = {", "var ACTION_COLOR"));
 
 const out = [];
 {

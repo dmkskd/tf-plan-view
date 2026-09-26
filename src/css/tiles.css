@@ -1,0 +1,173 @@
+#edges{position:absolute; inset:0; pointer-events:none; overflow:visible;}
+
+  .grp{
+    position:absolute; border-radius:10px; box-sizing:border-box;
+    transition:opacity .18s ease;
+  }
+  .grp > .grp-hd{
+    position:absolute; top:6px; left:11px; right:11px;
+    display:flex; align-items:center; gap:6px;
+    font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600;
+    letter-spacing:.07em; text-transform:uppercase;
+    white-space:nowrap; pointer-events:none; overflow:hidden;
+  }
+  .grp > .grp-hd > :first-child{flex:none;}
+  .grp[data-addr]{cursor:pointer;}
+  .grp[data-addr] > .grp-hd{pointer-events:auto;}
+  .grp[data-addr] > .grp-hd:hover{text-decoration:underline; text-underline-offset:3px;}
+  .grp.sel{box-shadow:0 0 0 2px color-mix(in srgb, var(--aws-net) 45%, transparent);}
+
+  .grp > .grp-hd em{font-style:normal; font-family:"IBM Plex Mono",monospace; font-size:10.5px;
+    font-weight:400; letter-spacing:0; text-transform:none; color:var(--muted);}
+  .grp > .grp-hd svg{width:13px; height:13px;}
+  .grp > .grp-hd svg.tile{width:14px; height:14px; border-radius:3px;}
+
+  .grp.cloud{border:1px solid var(--aws-cloud);}
+  .grp.cloud > .grp-hd{color:var(--aws-cloud);}
+  .grp.region{border:1px dashed var(--aws-region);}
+  .grp.region > .grp-hd{color:var(--aws-region);}
+  .grp.vpc{border:1.5px solid var(--aws-net);}
+  .grp.vpc > .grp-hd{color:var(--aws-net);}
+  .grp.az{border:1px dashed var(--aws-region); border-radius:9px;}
+  .grp.az > .grp-hd{color:var(--aws-region);}
+  .grp.subnet{border:1px solid var(--aws-public); background:color-mix(in srgb, var(--aws-public) 5%, transparent);}
+  .grp.subnet > .grp-hd{color:var(--aws-public);}
+  .grp.subnet.private{border-color:var(--aws-region); background:color-mix(in srgb, var(--aws-region) 6%, transparent);}
+  .grp.subnet.private > .grp-hd{color:var(--aws-region);}
+  .grp.sg{border:1.3px dashed var(--aws-sec); border-radius:9px;
+    background:color-mix(in srgb, var(--aws-sec) 4%, transparent);}
+  .grp.sg > .grp-hd{color:var(--aws-sec);}
+  .grp.loose{border:1.3px dashed var(--line); background:var(--surface-2);}
+  .grp.loose > .grp-hd{color:var(--muted);}
+
+  .node{
+    position:absolute; box-sizing:border-box; border-radius:8px;
+    background:var(--surface); border:1px solid var(--line);
+    padding:11px 12px; cursor:pointer; overflow:hidden;
+    display:grid; grid-template-columns:24px minmax(0,1fr); gap:0 10px; align-content:center;
+    box-shadow:0 1px 1px rgba(19,26,34,.04);
+    transition:border-color .12s ease, opacity .18s ease, box-shadow .12s ease;
+  }
+  .node:hover{border-color:var(--faint); box-shadow:0 2px 8px -2px rgba(19,26,34,.16);}
+  .node .ico{width:24px; height:24px; flex:none; border-radius:5px; grid-row:1 / span 2; align-self:center;}
+  .node .ttl{font-family:"Archivo",sans-serif; font-size:12px; font-weight:600; color:var(--ink); line-height:1.3;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .node .nm{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--muted); line-height:1.45;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .node .nm i{font-style:normal; color:var(--faint);}
+  .node .act{
+    position:absolute; top:9px; right:9px; width:6px; height:6px; border-radius:50%;
+  }
+  .node .chgline{
+    grid-column:1 / -1; margin-top:7px; padding-top:7px;
+    border-top:1px dashed var(--line);
+    font-family:"IBM Plex Mono",monospace; font-size:10px; line-height:1.45;
+    color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .node .chgline b{color:var(--replace); font-weight:600;}
+  .node .chgline .q{color:var(--faint);}
+  /* Dimming is only useful when there is something to contrast against:
+     applied when the plan holds updates, replacements or destroys, so an
+     all-creates plan is never greyed out for no reason. */
+  .canvas.mode-changes.emphasise .grp{opacity:.72;}
+  .canvas.mode-changes.emphasise .node.act-no-op{opacity:.4;}
+  .canvas.mode-changes.emphasise .node.act-read{opacity:.4;}
+  /* A slow, low-amplitude outline on whatever the plan touches. Outline is
+     used rather than a pseudo-element because ::before and ::after already
+     draw the isometric side faces. */
+  .canvas.mode-changes.pulse .is-changed{
+    outline:2px solid transparent; outline-offset:2px; border-radius:9px;
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .canvas.mode-changes.pulse .is-changed{
+      animation:chgPulse 3.2s ease-in-out infinite;
+    }
+  }
+  @keyframes chgPulse{
+    0%,100%{outline-color:transparent;}
+    50%    {outline-color:color-mix(in srgb, var(--pulse, var(--aws-net)) 42%, transparent);}
+  }
+
+  /* a container that is itself changing must not recede with the rest */
+  .canvas.mode-changes.emphasise .grp.act-update,
+  .canvas.mode-changes.emphasise .grp.act-replace,
+  .canvas.mode-changes.emphasise .grp.act-delete,
+  .canvas.mode-changes.emphasise .grp.act-create{opacity:1;}
+  .grp-act{
+    margin-left:auto; display:inline-flex; align-items:center; gap:5px;
+    font-family:"Archivo",sans-serif; font-size:8px; font-weight:700;
+    letter-spacing:.08em; text-transform:uppercase;
+    padding:1px 6px; border-radius:3px; white-space:nowrap;
+  }
+
+  .canvas.mode-changes.emphasise .grp.rel,
+  .canvas.mode-changes.emphasise .grp.sel{opacity:1;}
+  .node .actw{
+    position:absolute; top:6px; right:6px;
+    font-family:"Archivo",sans-serif; font-size:8.5px; font-weight:700;
+    letter-spacing:.07em; text-transform:uppercase; padding:2px 6px; border-radius:999px;
+  }
+  .node.has-chip .ttl{padding-right:58px;}
+  .canvas.no-actions .node .actw{display:none;}
+  .canvas.no-actions .node .act{display:none;}
+  .act-legend{display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11.5px; margin-top:2px;}
+  .act-legend span{display:inline-flex; align-items:center; gap:5px; color:var(--muted);}
+  .node.sel{border-color:var(--aws-net); box-shadow:0 0 0 2px color-mix(in srgb, var(--aws-net) 40%, transparent), var(--shadow);}
+  .node.dim, .grp.dim{opacity:.22;}
+  .node.rel{border-color:var(--aws-net);}
+  .grp.rel{box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--aws-net) 55%, transparent);}
+  .grp.rel > .grp-hd{color:var(--aws-net);}
+  /* action colouring belongs to Changes mode only */
+  .canvas.mode-changes .node.act-update{border-color:var(--update); box-shadow:inset 3px 0 0 var(--update);}
+  .canvas.mode-changes .node.act-replace{border-color:var(--replace); box-shadow:inset 3px 0 0 var(--replace);}
+  .canvas.mode-changes .node.act-delete{border-color:var(--destroy); box-shadow:inset 3px 0 0 var(--destroy);}
+  .node.unsup{border-style:dashed; border-color:var(--warn); background:var(--warn-soft);}
+  .node.unsup .ttl{color:var(--warn);}
+  .node.impact-src{
+    border-color:var(--replace);
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--replace) 45%, transparent);
+  }
+  .node.broken{
+    border-color:var(--replace);
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--replace) 22%, transparent);
+    background:var(--warn-soft);
+  }
+  .node .flag{
+    position:absolute; right:8px; bottom:7px;
+    font-family:"Archivo",sans-serif; font-size:8.5px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--replace);
+  }
+
+  .empty-state{
+    position:absolute; inset:0; overflow:auto; z-index:2;
+    display:flex; align-items:flex-start; justify-content:center;
+    padding:56px 24px; color:var(--muted); background:var(--bg);
+  }
+  .intro{max-width:560px; display:flex; flex-direction:column; gap:14px;}
+  .intro h2{font-size:20px; letter-spacing:-.01em;}
+  .intro p{font-size:14px; line-height:1.6; max-width:62ch;}
+  .intro .or{font-size:13.5px; color:var(--faint); padding-top:2px;}
+  .intro .scope-note{
+    font-size:13px; color:var(--body); background:var(--surface-2);
+    border-left:3px solid var(--aws-compute); border-radius:0 7px 7px 0;
+    padding:9px 12px; max-width:62ch;
+  }
+  .intro .scope-note b{color:var(--ink); font-weight:600;}
+  .intro .or b{color:var(--body); font-weight:600;}
+  .steps{display:flex; flex-direction:column; gap:14px; margin-top:2px;}
+  .step{display:grid; grid-template-columns:22px 1fr; gap:12px; align-items:start;
+    font-size:13.5px; line-height:1.6;}
+  .step .num{
+    display:flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:50%; margin-top:1px;
+    background:var(--surface-2); border:1px solid var(--line);
+    font-family:"Archivo",sans-serif; font-size:11px; font-weight:700; color:var(--body);
+  }
+  .step b{color:var(--ink); font-weight:600;}
+  .step pre{
+    margin:8px 0 0; padding:10px 12px; background:var(--surface); border:1px solid var(--line);
+    border-radius:8px; font-family:"IBM Plex Mono",monospace; font-size:12px;
+    line-height:1.65; color:var(--ink); overflow-x:auto;
+    -webkit-user-select:all; user-select:all;
+  }
+  body.dragging .canvas-wrap{outline:3px dashed var(--aws-net); outline-offset:-8px;}

@@ -32,7 +32,7 @@ function load(htmlPath) {
     })
   };
 
-  eval.call(null, slice("var REG = {", "var ACTION_COLOR"));
+  eval.call(null, slice("var AWS_REG = {", "var ACTION_COLOR"));
   eval.call(null, slice("var ACTION_COLOR", "function actionOf"));
   eval.call(null, slice("function actionOf", "/* ============================================================\n     3. LAYOUT"));
   eval.call(null, slice("/* ============================================================\n     3. LAYOUT", "/* ============================================================\n     4. RENDER"));

@@ -22,7 +22,7 @@ const js = h.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/)[1];
 const slice = (a, b) => js.slice(js.indexOf(a), js.indexOf(b));
 global.escapeHtml = s => String(s).replace(/[&<>"']/g,
   c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-eval(slice("var REG = {", "var ACTION_COLOR"));
+eval(slice("var AWS_REG = {", "var ACTION_COLOR"));
 eval(slice("function actionOf", "/* ============================================================\n     3. LAYOUT"));
 
 const plans = {

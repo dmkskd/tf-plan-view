@@ -1,0 +1,63 @@
+/* ---------- canvas ---------- */
+  .textview{display:flex; flex-direction:column; min-height:0; background:var(--surface);}
+  .textview[hidden]{display:none;}
+  .tv-bar{
+    display:flex; align-items:center; gap:12px; flex:none;
+    padding:10px 18px; border-bottom:1px solid var(--line); background:var(--surface);
+  }
+  .tv-bar span{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--muted);}
+  .tv-bar .btn{height:28px;}
+  .tv-bar #tvAll{margin-left:auto;}
+
+  .tsec > summary{
+    display:flex; align-items:baseline; gap:9px; cursor:pointer; list-style:none;
+    padding:9px 0 7px; border-bottom:1px solid var(--line-soft); margin-bottom:8px;
+    font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:700;
+    letter-spacing:.12em; text-transform:uppercase; color:var(--ink);
+  }
+  .tsec > summary::-webkit-details-marker{display:none;}
+  .tsec > summary:hover{color:var(--aws-net);}
+  .tsec .chev{width:9px; height:9px; flex:none; color:var(--faint); align-self:center;
+    transition:transform .18s ease;}
+  .tsec[open] > summary .chev{transform:rotate(90deg);}
+  .tsec .n{font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:400;
+    letter-spacing:0; color:var(--faint);}
+  .tsec .note{font-family:"IBM Plex Sans",sans-serif; font-size:11px; font-weight:400;
+    letter-spacing:0; text-transform:none; color:var(--faint); margin-left:auto;}
+  .tsec > pre{margin:0 0 22px; font:inherit; white-space:pre;}
+  #textPlan{
+    margin:0; padding:16px 18px 40px; overflow:auto; flex:1;
+    font-family:"IBM Plex Mono",monospace; font-size:12.5px; line-height:1.65;
+    color:var(--body); white-space:pre;
+  }
+  #textPlan .a{color:var(--muted);}
+  #textPlan .t{color:var(--aws-compute);}
+  #textPlan .n{color:var(--update);}
+  #textPlan .b{color:var(--replace);}
+  #textPlan .r{color:var(--aws-db);}
+  #textPlan .c{color:var(--faint);}
+  #textPlan .k{color:var(--ink); font-weight:600;}
+  #textPlan .add{color:var(--create); font-weight:700;}
+  #textPlan .upd{color:var(--update); font-weight:700;}
+  #textPlan .rep{color:var(--replace); font-weight:700;}
+  #textPlan .del{color:var(--destroy); font-weight:700;}
+  #textPlan .old{color:var(--destroy);}
+  #textPlan .new{color:var(--create);}
+  #textPlan .unk{color:var(--faint); font-style:italic;}
+  #textPlan .force{color:var(--replace); font-weight:600;}
+  #textPlan .sum{color:var(--ink); font-weight:600;}
+  #textPlan .head{
+    display:inline-block; margin-top:6px;
+    font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:700;
+    letter-spacing:.12em; text-transform:uppercase; color:var(--ink);
+    border-bottom:1px solid var(--line); padding-bottom:3px; min-width:180px;
+  }
+  #textPlan .head .c{letter-spacing:0; font-weight:400;}
+
+  /* The pane itself does not scroll, so the controls anchored to it stay put;
+     only the wrap inside it scrolls. */
+  .canvas-pane{position:relative; overflow:hidden; display:flex; min-width:0; min-height:0;
+    background:var(--bg);}
+  .canvas-pane[hidden]{display:none;}
+  .canvas-wrap{position:relative; overflow:auto; background:var(--bg); flex:1; min-height:0;}
+  .canvas{position:relative; margin:20px; transform-origin:50% 50%;}

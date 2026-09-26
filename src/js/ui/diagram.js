@@ -1,0 +1,346 @@
+// ui/diagram.js — Canvas DOM node rendering, SVG edge wiring & tile interactions
+import { escapeHtml, $ } from "../core/util.js";
+import { CAT, blockHeight } from "../providers/registry.js";
+import { TW, TH, tileHeight, setTileHeight, buildTree } from "../core/layout.js";
+import { fitCanvas, applyTransform } from "./iso.js";
+import { sameVal } from "../core/diff.js";
+import { state, setSelected, notifySelect, notifyRender } from "../core/state.js";
+
+var canvas = $("canvas"), edgesSvg = $("edges"), detailEl = $("detail"), splitEl = $("split");
+
+var ACTION_COLOR = {
+  create:"var(--create)", update:"var(--update)", replace:"var(--replace)",
+  delete:"var(--destroy)", "no-op":"var(--noop)", read:"var(--update)"
+};
+
+function icoSvg(spec, size){
+  var color = spec ? CAT[spec.cat] : "var(--warn)";
+  var id = spec ? spec.icon : "i-unknown";
+  return '<svg class="ico" style="color:' + color + '" width="' + size + '" height="' + size + '" viewBox="0 0 48 48" aria-hidden="true"><use href="#' + id + '"/></svg>';
+}
+
+function changedKeys(r){
+  if (r.action === "create" || r.action === "no-op") return [];
+  var before = r.before || {}, after = r.attrs || {}, keys = [];
+  Object.keys(before).concat(Object.keys(after)).forEach(function(k){
+    if (keys.indexOf(k) < 0 && !sameVal(before[k], after[k])) keys.push(k);
+  });
+  Object.keys(r.unknown || {}).forEach(function(k){
+    if (r.unknown[k] === true && keys.indexOf(k) < 0 && before[k] !== undefined) keys.push(k);
+  });
+  return keys.sort();
+}
+
+function titleFor(r){
+  if (r.spec) return r.spec.label;
+  return r.type.replace(/^aws_/, "").replace(/_/g, " ").replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+}
+
+function subFor(r){
+  if (r.spec && r.spec.sub && r.attrs[r.spec.sub]){
+    var v = String(r.attrs[r.spec.sub]);
+    if (r.type === "aws_vpc_endpoint") return v.split(".").slice(3).join(".") || v;
+    return v;
+  }
+  if (r.attrs.cidr_block) return String(r.attrs.cidr_block);
+  return "";
+}
+
+function setEmpty(on){
+  var es = $("emptyState");
+  if (es) es.hidden = !on;
+  var c = $("canvas");
+  if (c) c.style.display = on ? "none" : "";
+}
+
+function syncFilterBanner(){
+  var b = $("filterBanner");
+  if (!b) return;
+  if (!state.model || !state.opts.action){
+    b.hidden = true;
+    var pane = $("canvasPane");
+    if (pane) pane.classList.remove("filtered");
+    return;
+  }
+  var c = ACTION_COLOR[state.opts.action];
+  b.hidden = false;
+  b.innerHTML = 'showing only <b style="color:' + c + '">' + escapeHtml(state.opts.action) +
+                '</b><span class="x">\u00d7</span>';
+  b.title = "Click to show everything again";
+  b.onclick = function(){ state.opts.action = null; render(); };
+  var p = $("canvasPane");
+  if (p) p.classList.add("filtered");
+}
+
+function render(){
+  syncFilterBanner();
+  if (!state.model){ setEmpty(true); return; }
+  if (state.opts.render === "text"){ notifyRender(); return; }
+  setEmpty(!state.model.resources.length);
+  // recompute enabledType flags
+  state.model.resources.forEach(function(r){
+    if (r.enabledType === undefined) r.enabledType = true;
+  });
+
+  var S = state.model.summary || {};
+  var hasEdits = (S.update || 0) + (S.replace || 0) + (S["delete"] || 0) > 0;
+  state.model.hasEdits = hasEdits;
+
+  setTileHeight(tileHeight(state.opts.mode, hasEdits));
+  if (!canvas) canvas = $("canvas");
+  if (canvas) {
+    canvas.classList.toggle("mode-changes", state.opts.mode === "changes");
+    canvas.classList.toggle("emphasise", state.opts.mode === "changes" && hasEdits);
+    canvas.classList.toggle("pulse", state.opts.pulse && state.opts.mode === "changes" && hasEdits);
+  }
+
+  var tree = buildTree(state.model, state.opts);
+
+  // clear
+  if (canvas) {
+    Array.prototype.slice.call(canvas.querySelectorAll(".grp,.node")).forEach(function(n){ n.remove(); });
+  }
+  state.nodeEls = {};
+
+  if (canvas) {
+    canvas.style.width = tree.w + "px";
+    canvas.style.height = tree.h + "px";
+  }
+  fitCanvas(tree.w, tree.h);
+  applyTransform();
+
+  if (!edgesSvg) edgesSvg = $("edges");
+  if (edgesSvg) {
+    edgesSvg.setAttribute("width", tree.w);
+    edgesSvg.setAttribute("height", tree.h);
+    edgesSvg.setAttribute("viewBox", "0 0 " + tree.w + " " + tree.h);
+  }
+
+  (function walk(g, depth){
+    depth = depth || 0;
+    if (g.box){
+      var d = document.createElement("div");
+      var gChanged = g.res && g.res.action !== "no-op" && g.res.action !== "read";
+      d.className = "grp " + g.cls + (g.res ? " act-" + g.res.action : "") +
+                    (gChanged ? " is-changed" : "");
+      if (gChanged) d.style.setProperty("--pulse", ACTION_COLOR[g.res.action]);
+      d.style.setProperty("--z", depth * 3);
+      d.style.left = g.x + "px"; d.style.top = g.y + "px";
+      d.style.width = g.w + "px"; d.style.height = g.h + "px";
+      /* Cloud, Region and AZ are drawn as outlines in the group's own colour;
+         a container backed by a resource takes that resource's service tile. */
+      var ic = "";
+      if (g.cls === "cloud"){
+        ic = '<svg viewBox="0 0 48 48" aria-hidden="true"><use href="#i-cloud"/></svg>';
+      } else if (g.cls === "region" || g.cls === "az"){
+        ic = '<svg viewBox="0 0 48 48" aria-hidden="true"><use href="#i-region"/></svg>';
+      } else if (g.res && g.res.spec){
+        ic = '<svg class="tile" viewBox="0 0 48 48" aria-hidden="true" style="color:' +
+             CAT[g.res.spec.cat] + '"><use href="#' + g.res.spec.icon + '"/></svg>';
+      }
+      var gAct = "";
+      if (g.res && state.opts.mode === "changes" &&
+          g.res.action !== "no-op" && g.res.action !== "read"){
+        var gc = ACTION_COLOR[g.res.action] || "var(--noop)";
+        var gk = changedKeys(g.res);
+        gAct = '<span class="grp-act" style="color:' + gc +
+               '; background:color-mix(in srgb, ' + gc + ' 15%, var(--surface))"' +
+               ' title="' + escapeHtml(g.res.addr + (gk.length ? " \u2014 " + gk.join(", ") : "")) + '">' +
+               escapeHtml(g.res.action) + '</span>';
+      }
+      d.innerHTML = '<div class="grp-hd">' + ic +
+        escapeHtml(g.label) + (g.meta ? ' <em>' + escapeHtml(g.meta) + '</em>' : '') +
+        gAct + '</div>';
+      if (g.res){
+        d.dataset.addr = g.res.addr;
+        d.style.cursor = "pointer";
+        d.addEventListener("click", function(e){ if (state.suppressClick) return; e.stopPropagation(); select(g.res.addr); });
+        state.nodeEls[g.res.addr] = d;
+      }
+      if (canvas) canvas.appendChild(d);
+      g.children.forEach(function(k){ walk(k, depth + 1); });
+    } else {
+      var r = g.res;
+      var n = document.createElement("div");
+      var isChanged = r.action !== "no-op" && r.action !== "read";
+      n.className = "node act-" + r.action + (isChanged ? " is-changed" : "") +
+                    (r.supported ? "" : " unsup") + (r.enabled ? "" : " impact-src");
+      if (isChanged) n.style.setProperty("--pulse", ACTION_COLOR[r.action]);
+      n.style.left = g.x + "px"; n.style.top = g.y + "px";
+      n.style.width = TW + "px"; n.style.height = TH + "px";
+      n.style.setProperty("--h", blockHeight(r) + "px");
+      n.dataset.addr = r.addr;
+      var sub = subFor(r);
+      if (sub && sub.toLowerCase() === String(r.name).toLowerCase()) sub = "";
+      var line2 = escapeHtml(r.name) + (sub ? ' <i>· ' + escapeHtml(sub) + '</i>' : '');
+      /* Topology is structure: every tile is drawn the same way, with the
+         action carried only by the optional dot. Changes names the action
+         on every tile, because that is what the mode is for. */
+      var plain = (state.opts.mode !== "changes") || (r.action === "no-op");
+      if (!plain) n.className += " has-chip";
+      n.innerHTML =
+        (plain
+          ? '<span class="act" style="background:' + (ACTION_COLOR[r.action] || "var(--noop)") + '" title="' + r.action + '"></span>'
+          : '<span class="actw" style="color:' + ACTION_COLOR[r.action] +
+            '; background:color-mix(in srgb, ' + ACTION_COLOR[r.action] + ' 16%, var(--surface))">' +
+            escapeHtml(r.action) + '</span>') +
+        icoSvg(r.spec, 24) +
+        '<div class="ttl">' + escapeHtml(titleFor(r)) + '</div>' +
+        '<div class="nm" title="' + escapeHtml(r.name + (sub ? "  ·  " + sub : "")) + '">' + line2 + '</div>' +
+        '<i class="fc n"></i><i class="fc w"></i>';
+
+      if (state.opts.mode === "changes" && state.model.hasEdits && r.action !== "no-op" && r.action !== "read"){
+        var ck = changedKeys(r);
+        var forced = (r.replacePaths || []).map(function(pp){ return Array.isArray(pp) ? pp[0] : pp; });
+        var body;
+        if (!ck.length){
+          body = '<span class="q">' + (r.action === "create" ? "new resource" : "no attribute changes") + '</span>';
+        } else {
+          body = ck.slice(0, 3).map(function(k){
+            return forced.indexOf(k) >= 0
+              ? '<b title="forces replacement">' + escapeHtml(k) + '</b>'
+              : escapeHtml(k);
+          }).join(", ") + (ck.length > 3 ? ' <span class="q">+' + (ck.length - 3) + '</span>' : '');
+        }
+        var d = document.createElement("div");
+        d.className = "chgline";
+        d.innerHTML = body;
+        n.appendChild(d);
+      }
+      n.addEventListener("click", function(e){ if (state.suppressClick) return; e.stopPropagation(); select(r.addr); });
+      if (canvas) canvas.appendChild(n);
+      state.nodeEls[r.addr] = n;
+    }
+  })(tree, 0);
+
+  applyDisabledCascade();
+  drawEdges();
+  applySelection();
+  notifyRender();
+}
+
+/* --- disabling a component: mark transitive dependents --- */
+function applyDisabledCascade(){
+  if (!state.model) return;
+  var broken = {};
+  var changed = true;
+  while (changed){
+    changed = false;
+    state.model.resources.forEach(function(r){
+      if (!r.enabled || broken[r.addr]) return;
+      for (var i=0;i<r.refs.length;i++){
+        var t = state.model.byAddr[r.refs[i]];
+        if (t && (!t.enabled || broken[t.addr])){ broken[r.addr] = true; changed = true; return; }
+      }
+    });
+  }
+  state.model.brokenSet = broken;
+  state.model.resources.forEach(function(r){
+    var el = state.nodeEls[r.addr];
+    if (!el) return;
+    el.classList.toggle("impact-src", !r.enabled);
+    el.classList.toggle("broken", !!broken[r.addr] && r.enabled);
+    var f = el.querySelector(".flag");
+    if (broken[r.addr] && r.enabled){
+      if (!f){ f = document.createElement("div"); f.className = "flag"; el.appendChild(f); }
+      f.textContent = "affected";
+    } else if (f){ f.remove(); }
+  });
+}
+
+/* --- edges --- */
+function boxOf(addr){
+  var el = state.nodeEls[addr];
+  if (!el) return null;
+  var x = parseFloat(el.style.left), y = parseFloat(el.style.top);
+  var w = parseFloat(el.style.width), h = parseFloat(el.style.height);
+  return {x:x, y:y, w:w, h:h, cx:x + w/2, cy:y + h/2, grp:el.classList.contains("grp")};
+}
+
+/* a tile connects at its centre; a container connects where the line meets
+   its edge, so the arrow does not stop in the middle of its contents */
+function anchor(b, toward){
+  if (!b.grp) return {x:b.cx, y:b.cy};
+  var dx = toward.x - b.cx, dy = toward.y - b.cy;
+  if (!dx && !dy) return {x:b.cx, y:b.cy};
+  var s = Math.min(dx ? (b.w/2)/Math.abs(dx) : Infinity,
+                   dy ? (b.h/2)/Math.abs(dy) : Infinity);
+  return {x:b.cx + dx*s, y:b.cy + dy*s};
+}
+
+function encloses(a, b){
+  if (!state.model) return false;
+  var ka = state.model.anc && state.model.anc[a], kb = state.model.anc && state.model.anc[b];
+  return (ka && ka.indexOf(b) >= 0) || (kb && kb.indexOf(a) >= 0);
+}
+
+function drawEdges(){
+  if (!edgesSvg) edgesSvg = $("edges");
+  if (!edgesSvg) return;
+  edgesSvg.innerHTML = "";
+  if (!state.model || state.opts.edges === "none") return;
+  var show = [];
+  var selected = state.selected;
+  state.model.resources.forEach(function(r){
+    if (!state.nodeEls[r.addr]) return;
+    r.refs.forEach(function(a){
+      if (!state.nodeEls[a]) return;
+      if (encloses(r.addr, a)) return;                       /* nesting shows it */
+      if (state.nodeEls[r.addr].classList.contains("grp")) return; /* containers are */
+      if (state.nodeEls[a].classList.contains("grp")) return;      /* highlighted instead */
+      if (state.opts.edges === "select"){
+        if (!selected) return;
+        if (r.addr !== selected && a !== selected) return;
+      }
+      show.push([r.addr, a]);
+    });
+  });
+  show.forEach(function(pair){
+    var ba = boxOf(pair[0]), bb = boxOf(pair[1]);
+    if (!ba || !bb) return;
+    var a = anchor(ba, {x:bb.cx, y:bb.cy});
+    var b = anchor(bb, {x:ba.cx, y:ba.cy});
+    var mx = (a.x + b.x)/2;
+    var p = document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("d", "M" + a.x + "," + a.y + " C" + mx + "," + a.y + " " + mx + "," + b.y + " " + b.x + "," + b.y);
+    p.setAttribute("fill","none");
+    p.setAttribute("stroke", (selected && (pair[0]===selected||pair[1]===selected)) ? "var(--aws-net)" : "var(--line)");
+    p.setAttribute("stroke-width", (selected && (pair[0]===selected||pair[1]===selected)) ? "2" : "1.2");
+    p.setAttribute("stroke-dasharray", "5 4");
+    p.setAttribute("opacity", state.opts.edges === "all" && !selected ? ".55" : "1");
+    edgesSvg.appendChild(p);
+  });
+}
+
+/* --- selection --- */
+function select(addr){
+  setSelected(state.selected === addr ? null : addr);
+  applySelection();
+  drawEdges();
+  notifySelect(state.selected);
+}
+
+function applySelection(){
+  var selected = state.selected;
+  var related = {};
+  if (selected && state.model){
+    related[selected] = true;
+    var r = state.model.byAddr[selected];
+    if (r){
+      r.refs.forEach(function(a){ related[a] = true; });
+      (r.dependents||[]).forEach(function(a){ related[a] = true; });
+    }
+  }
+  Object.keys(state.nodeEls).forEach(function(addr){
+    var el = state.nodeEls[addr];
+    el.classList.toggle("sel", addr === selected);
+    el.classList.toggle("rel", !!selected && related[addr] && addr !== selected);
+    el.classList.toggle("dim", !!selected && !related[addr]);
+  });
+}
+
+export {
+  canvas, edgesSvg, detailEl, splitEl,
+  ACTION_COLOR, icoSvg, changedKeys, titleFor, subFor, setEmpty, syncFilterBanner,
+  render, boxOf, anchor, encloses, drawEdges, select, applySelection, applyDisabledCascade
+};

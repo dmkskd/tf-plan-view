@@ -1,0 +1,177 @@
+// core/diff.js — Attribute diffs, action resolution & rule-list matching
+import { escapeHtml } from "./util.js";
+import { attrKind, kindSource } from "./schema.js";
+import { isRuleAttr, ruleKey, ruleRow } from "../providers/registry.js";
+
+/* --- what this plan changes, per resource --- */
+
+/* terraform mirrors the value's shape in after_sensitive: `true` marks a
+   sensitive value, but a list gives [] or [ ... ] and an object {}. Treating
+   any truthy mirror as sensitive masked whole collections that were not
+   sensitive at all. Only an explicit true, or a true somewhere inside, counts. */
+function isSensitive(mirror){
+  if (mirror === true) return true;
+  if (!mirror || typeof mirror !== "object") return false;
+  var vals = Array.isArray(mirror) ? mirror : Object.keys(mirror).map(function(k){ return mirror[k]; });
+  return vals.some(isSensitive);
+}
+
+function sameVal(a, b){
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch(e){ return a === b; }
+}
+function valText(v, sensitive){
+  if (sensitive === true) return "(sensitive value)";
+  if (v === null || v === undefined) return "null";
+  if (typeof v === "object") return JSON.stringify(v, null, 1);
+  return String(v);
+}
+function forcesReplace(r, key){
+  return (r.replacePaths || []).some(function(path){
+    return Array.isArray(path) ? path[0] === key : path === key;
+  });
+}
+
+/* terraform's action_reason enum, as sentences */
+var ACTION_REASON = {
+  replace_because_cannot_update:
+    "Must be replaced: an attribute changed that cannot be updated in place.",
+  replace_because_tainted:
+    "Must be replaced: the resource is marked tainted.",
+  replace_by_request:
+    "Replacement was requested explicitly, with -replace.",
+  delete_because_no_resource_config:
+    "Destroyed: no longer declared in the configuration.",
+  delete_because_no_module:
+    "Destroyed: the module holding it was removed.",
+  delete_because_wrong_repetition:
+    "Destroyed: count or for_each no longer produces this instance.",
+  delete_because_count_index:
+    "Destroyed: its count index is outside the new range.",
+  delete_because_each_key:
+    "Destroyed: its for_each key is no longer present.",
+  read_because_config_unknown:
+    "Read during apply: the configuration is not known yet.",
+  read_because_dependency_pending:
+    "Read during apply: a dependency has not been created yet."
+};
+
+function reasonText(r){
+  var base = ACTION_REASON[r.actionReason];
+  if (!base){
+    /* an enum this build has not seen: say so plainly rather than guess */
+    return r.actionReason
+      ? "Terraform reason: " + String(r.actionReason).replace(/_/g, " ") + "."
+      : null;
+  }
+  var forced = (r.replacePaths || []).map(function(pp){
+    return Array.isArray(pp) ? pp[0] : pp;
+  });
+  if (forced.length && r.actionReason === "replace_because_cannot_update"){
+    return "Must be replaced: <code>" + escapeHtml(forced.join("</code>, <code>")) +
+           "</code> cannot be changed in place.";
+  }
+  return escapeHtml(base);
+}
+
+/* A set is matched by content, a list by position. Without a schema the
+   kind is unknown, so content matching is assumed and labelled as such. */
+/* Match two rule lists and return [{rule, mark}], where mark is
+   "+", "-" or "". A set matches by content, a list by position. */
+function matchRules(before, after, kind, r){
+  var b = Array.isArray(before) ? before : [];
+  var a = Array.isArray(after) ? after : [];
+  var out = [];
+  var getKey = function(e){ return ruleKey(r, e); };
+
+  if (kind === "list"){
+    var n = Math.max(b.length, a.length);
+    for (var i = 0; i < n; i++){
+      var ob = b[i], oa = a[i];
+      if (ob && oa && getKey(ob) === getKey(oa)) out.push({rule:oa, mark:""});
+      else {
+        if (ob) out.push({rule:ob, mark:"-"});
+        if (oa) out.push({rule:oa, mark:"+"});
+      }
+    }
+    return out;
+  }
+
+  var bk = {}, ak = {};
+  b.forEach(function(e){ bk[getKey(e)] = e; });
+  a.forEach(function(e){ ak[getKey(e)] = e; });
+  b.forEach(function(e){ if (!(getKey(e) in ak)) out.push({rule:e, mark:"-"}); });
+  a.forEach(function(e){ if (!(getKey(e) in bk)) out.push({rule:e, mark:"+"}); });
+  a.filter(function(e){ return getKey(e) in bk; })
+   .forEach(function(e){ out.push({rule:e, mark:""}); });
+  return out;
+}
+
+function ruleDiffHtml(k, before, after, resOrType){
+  var res = (resOrType && typeof resOrType === "object") ? resOrType : null;
+  var type = res ? res.type : resOrType;
+  var kind = attrKind(type, k);
+  var rows = matchRules(before, after, kind, res).map(function(m){
+    return ruleRow(res, m.rule, m.mark, k);
+  }).join("");
+
+  if (!rows) rows = '<div class="rdiff-row kept"><span class="m">&nbsp;</span>' +
+                    '<span class="p">no rules</span></div>';
+
+  var src = kindSource(type, k);
+  var tag = kind
+    ? '<span class="kindtag ok" title="' + escapeHtml(type + "." + k) + ' is a ' + kind + ' \u2014 ' + escapeHtml(src || "schema") + '">' + escapeHtml(kind) + '</span>'
+    : '<span class="kindtag" title="No schema entry for ' + escapeHtml(type + "." + k) +
+      '. Matched by content. Drop a provider schema to be exact.">inferred</span>';
+
+  return '<div class="rdiff">' + tag + rows + '</div>';
+}
+
+function changeHtml(r){
+  if (r.action === "create" || r.action === "no-op") return null;
+
+  var before = r.before || {}, after = r.attrs || {};
+  var keys = {};
+  Object.keys(before).forEach(function(k){ keys[k] = 1; });
+  Object.keys(after).forEach(function(k){ keys[k] = 1; });
+  Object.keys(r.unknown || {}).forEach(function(k){ if (r.unknown[k] === true) keys[k] = 1; });
+
+  var rows = Object.keys(keys).sort().filter(function(k){
+    if (r.unknown && r.unknown[k] === true) return !sameVal(before[k], undefined);
+    return !sameVal(before[k], after[k]);
+  });
+
+  if (!rows.length && r.action !== "delete") return null;
+
+  var b = '<div class="diff">';
+  var why = reasonText(r);
+  if (why) b += '<div class="diff-reason">' + why + '</div>';
+  if (r.action === "delete" && !why){
+    b += '<div class="diff-reason">Destroyed. The values below are what exists today.</div>';
+  }
+  rows.forEach(function(k){
+    var sens = isSensitive(r.sensitive && r.sensitive[k]);
+    var isUnknown = r.unknown && r.unknown[k] === true;
+    var forced = forcesReplace(r, k);
+    b += '<div class="diff-row' + (forced ? " forced" : "") + '">' +
+           '<div class="dk">' + escapeHtml(k) +
+             (forced ? '<span class="tagf">forces replacement</span>' : '') + '</div>';
+    if (isRuleAttr(r, k, before[k], after[k]) && !isUnknown){
+      b += ruleDiffHtml(k, before[k], after[k], r);
+    } else if (r.action !== "delete"){
+      b += '<div class="dv old">' + escapeHtml(valText(before[k], sens)) + '</div>' +
+           '<div class="dv new">' + (isUnknown ? '<i>known after apply</i>' : escapeHtml(valText(after[k], sens))) + '</div>';
+    } else {
+      b += '<div class="dv old">' + escapeHtml(valText(before[k], sens)) + '</div>';
+    }
+    b += '</div>';
+  });
+  b += '</div>';
+  return {count: rows.length, body: b};
+}
+
+
+export {
+  isSensitive, sameVal, valText, forcesReplace,
+  ACTION_REASON, reasonText, isRuleAttr, ruleKey, ruleRow,
+  matchRules, ruleDiffHtml, changeHtml
+};
