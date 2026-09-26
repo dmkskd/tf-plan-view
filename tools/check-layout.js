@@ -15,8 +15,10 @@
 
 const fs = require("fs");
 // a harness that throws must not be mistaken for valid output
-process.on("uncaughtException", e => { console.error(e); process.exit(1); });
-const h = fs.readFileSync(process.argv[2] || __dirname + "/../index.html", "utf8");
+const defaultPath = fs.existsSync(__dirname + "/../dist/index.html")
+  ? __dirname + "/../dist/index.html"
+  : __dirname + "/../index.html";
+const h = fs.readFileSync(process.argv[2] || defaultPath, "utf8");
 const js = h.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/)[1];
 const slice = (a, b) => js.slice(js.indexOf(a), js.indexOf(b));
 global.escapeHtml = s => String(s).replace(/[&<>"']/g,

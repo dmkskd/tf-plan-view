@@ -15,7 +15,10 @@
 const fs = require("fs");
 const { JSDOM } = require("jsdom");
 
-const file = process.argv[2] || __dirname + "/../index.html";
+const defaultPath = fs.existsSync(__dirname + "/../dist/index.html")
+  ? __dirname + "/../dist/index.html"
+  : __dirname + "/../index.html";
+const file = process.argv[2] || defaultPath;
 const errs = [];
 const dom = new JSDOM(fs.readFileSync(file, "utf8"), {
   runScripts: "dangerously", pretendToBeVisual: true, url: "file:///app/index.html"

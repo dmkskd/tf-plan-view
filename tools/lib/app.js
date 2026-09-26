@@ -16,7 +16,10 @@
 const fs = require("fs");
 
 function load(htmlPath) {
-  const h = fs.readFileSync(htmlPath || __dirname + "/../../index.html", "utf8");
+  const defaultPath = fs.existsSync(__dirname + "/../../dist/index.html")
+    ? __dirname + "/../../dist/index.html"
+    : __dirname + "/../../index.html";
+  const h = fs.readFileSync(htmlPath || defaultPath, "utf8");
   const js = h.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/)[1];
   const slice = (from, to) => {
     const a = js.indexOf(from), b = js.indexOf(to);

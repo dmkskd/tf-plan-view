@@ -11,12 +11,12 @@ default:
 dev port="3000":
     npx vite src --port {{port}}
 
-# Build the single self-contained HTML asset (index.html & dist/index.html)
+# Build the single self-contained HTML asset (dist/index.html)
 build:
     node scripts/build-single-html.js
 
 # Run the entire test suite and regression baselines
-test: test-unit test-boot test-render test-pure test-parse test-layout
+test: build test-unit test-boot test-render test-pure test-parse test-layout
     @echo "✅ All tests and regression baselines passed!"
 
 # Run unit assertions (optional suite filter, e.g. `just test-unit placement`)
@@ -56,9 +56,9 @@ check:
     @for f in `find src/js scripts tools -name "*.js"`; do node --check "$f" || exit 1; done
     @echo "✅ All JavaScript files passed syntax verification!"
 
-# Open the self-contained app directly in the default browser
-open:
-    @open index.html 2>/dev/null || xdg-open index.html 2>/dev/null
+# Build and open the self-contained app directly in the default browser
+open: build
+    @open dist/index.html 2>/dev/null || xdg-open dist/index.html 2>/dev/null
 
 # Re-extract clean modular files from pristine index.html
 split:

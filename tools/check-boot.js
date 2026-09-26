@@ -14,7 +14,10 @@
 // HOW TO USE IT
 //   node tools/check-boot.js          exits non-zero if the script throws
 const fs = require("fs");
-const path = process.argv[2] || __dirname + "/../index.html";
+const defaultPath = fs.existsSync(__dirname + "/../dist/index.html")
+  ? __dirname + "/../dist/index.html"
+  : __dirname + "/../index.html";
+const path = process.argv[2] || defaultPath;
 const h = fs.readFileSync(path, "utf8");
 const js = h.match(/<script>([\s\S]*?)<\/script>\s*(?:<!--[\s\S]*?-->\s*)*<script type="application\/json"/)
         || h.match(/<script>([\s\S]*?)<\/script>/g);

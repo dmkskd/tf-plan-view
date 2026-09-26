@@ -11,7 +11,6 @@ console.log("📦 Building single self-contained HTML asset for tf plan view..."
 const ROOT_DIR = path.resolve(__dirname, "..");
 const SRC_DIR = path.join(ROOT_DIR, "src");
 const DIST_DIR = path.join(ROOT_DIR, "dist");
-const OUTPUT_FILE = path.join(ROOT_DIR, "index.html");
 const DIST_FILE = path.join(DIST_DIR, "index.html");
 
 if (!fs.existsSync(DIST_DIR)) {
@@ -293,8 +292,7 @@ ${jsBundle.trim()}
 </html>
 `;
 
-// Write to root index.html and dist/index.html
-fs.writeFileSync(OUTPUT_FILE, singleHtml);
+// Write to dist/index.html
 fs.writeFileSync(DIST_FILE, singleHtml);
 
 // 7. Landmark Verification Check
@@ -357,4 +355,4 @@ items.forEach(it => {
 console.log(`\n  Total Uncompressed:  ${formatBytes(finalSize)}`);
 console.log(`  Gzipped / Over wire: ${formatBytes(gzSize)} (${((1 - gzSize / finalSize) * 100).toFixed(1)}% compression)`);
 console.log(`\n  ✓ Self-contained: Zero external JS/runtime dependencies`);
-console.log(`  ✓ Output: ${path.relative(ROOT_DIR, OUTPUT_FILE)} & ${path.relative(ROOT_DIR, DIST_FILE)}\n`);
+console.log(`  ✓ Output: ${path.relative(ROOT_DIR, DIST_FILE)}\n`);
