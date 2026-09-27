@@ -25,7 +25,25 @@
     border:1px solid var(--line); border-left:0;
     transform-origin:center left; transform:rotateY(90deg);
   }
-  .canvas.iso .grp.cloud::after,.canvas.iso .grp.cloud::before{--gh:10px;}
+  .grp > .fc{display:none;}
+  .canvas.iso .grp > .fc{
+    display:block; position:absolute; pointer-events:none;
+    border:1px solid var(--line); backface-visibility:hidden;
+  }
+  /* north face */
+  .canvas.iso .grp > .fc.n{
+    left:0; right:0; bottom:100%; height:var(--gh);
+    background:var(--gface-s); border-bottom:0;
+    transform-origin:bottom center; transform:rotateX(90deg);
+  }
+  /* west face */
+  .canvas.iso .grp > .fc.w{
+    top:0; bottom:0; right:100%; width:var(--gh);
+    background:var(--gface-e); border-right:0;
+    transform-origin:center right; transform:rotateY(-90deg);
+  }
+  .canvas.iso .grp.cloud::after,.canvas.iso .grp.cloud::before,
+  .canvas.iso .grp.cloud > .fc{--gh:10px;}
   .canvas.iso.dragging{transition:none;}
   .canvas-wrap{cursor:grab; user-select:none;}
   .canvas-wrap.grabbing{cursor:grabbing;}

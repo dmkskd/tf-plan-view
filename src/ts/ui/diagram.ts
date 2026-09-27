@@ -151,7 +151,8 @@ function render(): void {
       }
       d.innerHTML = '<div class="grp-hd">' + ic +
         escapeHtml(g.label) + (g.meta ? ' <em>' + escapeHtml(g.meta) + '</em>' : '') +
-        gAct + '</div>';
+        gAct + '</div>' +
+        '<i class="fc n"></i><i class="fc w"></i>';
       if (g.res){
         const res = g.res;
         d.dataset.addr = res.addr;

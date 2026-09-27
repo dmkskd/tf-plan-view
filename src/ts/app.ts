@@ -98,11 +98,22 @@ if (fileInput) fileInput.addEventListener("change", function(e: Event){
   fr.readAsText(file);
 });
 
-["dragenter","dragover"].forEach(function(ev: string){
-  document.addEventListener(ev, function(e: Event){ e.preventDefault(); document.body.classList.add("dragging"); });
+/* dragenter/dragleave fire on every nested element a drag crosses, not just
+   the document root, so a plain enter/leave toggle gets stuck "on" whenever
+   the drag exits over a child element instead of exactly at <html>. Track
+   nesting depth instead, and reset on drop/dragend as a fail-safe. */
+var dragDepth = 0;
+document.addEventListener("dragenter", function(e: Event){
+  e.preventDefault(); dragDepth++; document.body.classList.add("dragging");
 });
-["dragleave","drop"].forEach(function(ev: string){
-  document.addEventListener(ev, function(e: Event){ e.preventDefault(); if (ev === "drop" || e.target === document.documentElement) document.body.classList.remove("dragging"); });
+document.addEventListener("dragover", function(e: Event){ e.preventDefault(); });
+document.addEventListener("dragleave", function(e: Event){
+  e.preventDefault();
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) document.body.classList.remove("dragging");
+});
+["drop","dragend"].forEach(function(ev: string){
+  document.addEventListener(ev, function(e: Event){ e.preventDefault(); dragDepth = 0; document.body.classList.remove("dragging"); });
 });
 document.addEventListener("drop", function(e: DragEvent){
   var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
