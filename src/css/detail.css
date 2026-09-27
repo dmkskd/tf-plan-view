@@ -10,6 +10,8 @@
     display:grid; grid-template-columns:34px minmax(0,1fr) auto;
     gap:0 12px; align-items:center;
   }
+  /* no icon column when the header has none (e.g. the loaded-file header) */
+  .detail .dhd-top.file-top{grid-template-columns:minmax(0,1fr) auto;}
   .detail .dhd-top > .ico{align-self:center;}
   .detail .dhd-name{min-width:0;}
   .detail .dhd-top > .act-badge{flex:none;}

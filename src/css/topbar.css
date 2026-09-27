@@ -47,7 +47,7 @@
     margin:0 18px 14px; padding:11px; background:var(--surface-2);
     border:1px solid var(--line); border-radius:8px;
     font-family:"IBM Plex Mono",monospace; font-size:10.5px; line-height:1.55;
-    color:var(--body); white-space:pre; overflow:auto; max-height:420px;
+    color:var(--body); white-space:pre; overflow:auto; max-height:70vh;
   }
   .btn{
     font-family:"Archivo",sans-serif; font-size:13px; font-weight:600;

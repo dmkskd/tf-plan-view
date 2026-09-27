@@ -178,7 +178,7 @@ function renderPlanInfo(): void {
   ];
 
   var html = '<div class="dhd">' +
-    '<div class="dhd-top"><div class="dhd-name">' +
+    '<div class="dhd-top file-top"><div class="dhd-name">' +
       '<span class="type">loaded file</span>' +
       '<h3>' + escapeHtml(model.source || "") + '</h3></div>' +
       '</div>' +
@@ -230,7 +230,7 @@ function renderPlanInfo(): void {
   html += sec("sections", "Plan sections",
               Object.keys(model.raw || {}).length, sectionRows(model.raw));
 
-  var raw = model.rawText || "";
+  var raw = model.raw ? JSON.stringify(model.raw, null, 2) : (model.rawText || "");
   var shown = raw.length > 200000 ? raw.slice(0, 200000) + "\n\u2026 truncated" : raw;
   html += sec("raw", "Raw JSON", (rawBytes/1024).toFixed(1) + " KB",
               '<pre class="rawjson">' + escapeHtml(shown) + '</pre>');
