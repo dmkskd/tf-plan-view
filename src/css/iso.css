@@ -223,3 +223,45 @@
   .canvas.iso .node.unsup::before{background:color-mix(in srgb, var(--warn-soft) 66%, var(--face-e));}
   .canvas.iso #edges{transform:translateZ(26px); overflow:visible;}
   .canvas.iso .node.impact-src{--h:44px;}
+
+  /* Fading a preserve-3d element via `opacity` forces the spec's flattening
+     rule (opacity != 1 -> transform-style:flat for that element), which
+     collapses these blocks' extruded side faces onto the base plane instead
+     of just dimming them. Cancel the generic opacity-based dim/emphasise
+     rules here and fade the surface + side-face planes directly instead —
+     those are plain 2D layers with no preserve-3d of their own, so fading
+     them is safe and keeps the block's height intact. */
+  .canvas.iso .node.dim, .canvas.iso .grp.dim,
+  .canvas.iso.mode-changes.emphasise .grp,
+  .canvas.iso.mode-changes.emphasise .node.act-no-op,
+  .canvas.iso.mode-changes.emphasise .node.act-read{opacity:1;}
+
+  .canvas.iso .node.dim::after, .canvas.iso .node.dim::before, .canvas.iso .node.dim > .fc,
+  .canvas.iso .grp.dim::after, .canvas.iso .grp.dim::before, .canvas.iso .grp.dim > .fc{opacity:.3;}
+  .canvas.iso .node.dim > :not(.fc), .canvas.iso .grp.dim > .grp-hd{opacity:.3;}
+  .canvas.iso .node.dim{background:color-mix(in srgb, var(--surface) 30%, var(--bg));
+    border-color:color-mix(in srgb, var(--line) 30%, var(--bg));}
+  .canvas.iso .grp.dim{border-color:color-mix(in srgb, var(--line) 30%, transparent);}
+
+  .canvas.iso.mode-changes.emphasise .grp::after, .canvas.iso.mode-changes.emphasise .grp::before,
+  .canvas.iso.mode-changes.emphasise .grp > .fc{opacity:.72;}
+  .canvas.iso.mode-changes.emphasise .grp > .grp-hd{opacity:.72;}
+  .canvas.iso.mode-changes.emphasise .node.act-no-op::after, .canvas.iso.mode-changes.emphasise .node.act-no-op::before,
+  .canvas.iso.mode-changes.emphasise .node.act-no-op > .fc,
+  .canvas.iso.mode-changes.emphasise .node.act-read::after, .canvas.iso.mode-changes.emphasise .node.act-read::before,
+  .canvas.iso.mode-changes.emphasise .node.act-read > .fc{opacity:.4;}
+  .canvas.iso.mode-changes.emphasise .node.act-no-op > :not(.fc),
+  .canvas.iso.mode-changes.emphasise .node.act-read > :not(.fc){opacity:.4;}
+
+  .canvas.iso.mode-changes.emphasise .grp.act-update::after, .canvas.iso.mode-changes.emphasise .grp.act-update::before,
+  .canvas.iso.mode-changes.emphasise .grp.act-update > .fc, .canvas.iso.mode-changes.emphasise .grp.act-update > .grp-hd,
+  .canvas.iso.mode-changes.emphasise .grp.act-replace::after, .canvas.iso.mode-changes.emphasise .grp.act-replace::before,
+  .canvas.iso.mode-changes.emphasise .grp.act-replace > .fc, .canvas.iso.mode-changes.emphasise .grp.act-replace > .grp-hd,
+  .canvas.iso.mode-changes.emphasise .grp.act-delete::after, .canvas.iso.mode-changes.emphasise .grp.act-delete::before,
+  .canvas.iso.mode-changes.emphasise .grp.act-delete > .fc, .canvas.iso.mode-changes.emphasise .grp.act-delete > .grp-hd,
+  .canvas.iso.mode-changes.emphasise .grp.act-create::after, .canvas.iso.mode-changes.emphasise .grp.act-create::before,
+  .canvas.iso.mode-changes.emphasise .grp.act-create > .fc, .canvas.iso.mode-changes.emphasise .grp.act-create > .grp-hd,
+  .canvas.iso.mode-changes.emphasise .grp.rel::after, .canvas.iso.mode-changes.emphasise .grp.rel::before,
+  .canvas.iso.mode-changes.emphasise .grp.rel > .fc, .canvas.iso.mode-changes.emphasise .grp.rel > .grp-hd,
+  .canvas.iso.mode-changes.emphasise .grp.sel::after, .canvas.iso.mode-changes.emphasise .grp.sel::before,
+  .canvas.iso.mode-changes.emphasise .grp.sel > .fc, .canvas.iso.mode-changes.emphasise .grp.sel > .grp-hd{opacity:1;}
