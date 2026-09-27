@@ -296,6 +296,13 @@ function textSections(): TextSection[] {
       body:dd.join("\n").replace(/\n+$/, ""),
       note:"changed outside terraform since the last apply"});
 
+    out.push({key:"plan", label:"Planned changes",
+      count:model.resources.filter(function(r: PlanResource){
+        return r.action !== "no-op" && r.action !== "read" &&
+               (!opts.action || r.action === opts.action);
+      }).length,
+      body:changesBody(), note:"what terraform will do"});
+
     out.push({key:"resources", label:"Resources", count:null,
       body:documentBody(), note:"as they will be after apply"});
 
