@@ -242,34 +242,91 @@ if (renderIsoBtn) renderIsoBtn.addEventListener("click", function(){ setRender("
   setIso(want === "1");
 })();
 
-/* The sample plan is a large JSON blob parked at the end of the file, so it
-   does not sit in the middle of the source. That puts it after this script,
-   so it is read on demand and the boot waits for the document to finish
+/* Sample plans are large JSON blobs parked at the end of the file, so they
+   do not sit in the middle of the source. That puts them after this script,
+   so each is read on demand and the boot waits for the document to finish
    parsing. */
-function sampleText(): string {
-  var el = document.getElementById("embedded-plan");
+var SAMPLE_LABELS: Record<string, string> = {
+  "embedded-plan": "bundled sample",
+  "embedded-plan-fullstack": "aws full-stack sample"
+};
+var DEFAULT_SAMPLE_ID = "embedded-plan";
+/* Display text for the dropdown menu — separate from SAMPLE_LABELS, which
+   is the "source" name shown elsewhere once a sample is actually loaded. */
+var SAMPLE_MENU_ITEMS: [string, string][] = [
+  ["embedded-plan", "Single EC2"],
+  ["embedded-plan-fullstack", "Web app (ALB+RDS)"]
+];
+
+function sampleText(id: string): string {
+  var el = document.getElementById(id);
   var t = el ? (el.textContent || "").trim() : "";
   return t.length > 2 ? t : "";
 }
 
-var sampleBtn = $("sampleBtn");
-if (sampleBtn) sampleBtn.addEventListener("click", function(){
-  var t = sampleText();
+function loadSample(id: string): void {
+  var t = sampleText(id);
   if (!t) return;
-  try { load(JSON.parse(t), "bundled sample", t); }
-  catch(e){ loadText(t, "bundled sample"); }
+  var label = SAMPLE_LABELS[id] || "bundled sample";
+  try { load(JSON.parse(t), label, t); }
+  catch(e){ loadText(t, label); }
+}
+
+/* Sample picker: a button (its label always just reads "Sample", it is not
+   a status indicator) that opens a small menu of the bundled plans, reusing
+   the same floating-menu look as the canvas context menu. */
+var sampleBtn = $("sampleBtn") as HTMLButtonElement | null;
+var sampleMenu = $("sampleMenu");
+var emptySampleBtn = $("emptySampleBtn");
+
+function closeSampleMenu(): void {
+  if (sampleMenu) sampleMenu.hidden = true;
+  if (sampleBtn) sampleBtn.setAttribute("aria-expanded", "false");
+}
+
+function openSampleMenu(): void {
+  if (!sampleBtn || !sampleMenu) return;
+  sampleMenu.innerHTML = "";
+  SAMPLE_MENU_ITEMS.forEach(function(item){
+    var id = item[0], label = item[1];
+    var b = document.createElement("button");
+    b.textContent = label;
+    b.addEventListener("click", function(e: MouseEvent){
+      e.stopPropagation();
+      closeSampleMenu();
+      loadSample(id);
+    });
+    sampleMenu!.appendChild(b);
+  });
+  var r = sampleBtn.getBoundingClientRect();
+  sampleMenu.hidden = false;
+  sampleBtn.setAttribute("aria-expanded", "true");
+  var w = sampleMenu.offsetWidth;
+  sampleMenu.style.left = Math.min(r.left, window.innerWidth - w - 8) + "px";
+  sampleMenu.style.top = (r.bottom + 6) + "px";
+}
+
+if (sampleBtn) sampleBtn.addEventListener("click", function(e: MouseEvent){
+  e.stopPropagation();
+  if (sampleMenu && !sampleMenu.hidden) closeSampleMenu();
+  else openSampleMenu();
 });
+document.addEventListener("click", function(){ if (sampleMenu && !sampleMenu.hidden) closeSampleMenu(); });
+document.addEventListener("keydown", function(e: KeyboardEvent){ if (e.key === "Escape") closeSampleMenu(); });
+
+if (emptySampleBtn) emptySampleBtn.addEventListener("click", function(){ loadSample(DEFAULT_SAMPLE_ID); });
 
 function boot(): void {
   restoreSchema();
-  var has = !!sampleText();
+  var has = !!sampleText(DEFAULT_SAMPLE_ID);
   setEmpty(true);
-  var sBtn = $("sampleBtn") as HTMLButtonElement | null;
-  if (sBtn) sBtn.disabled = !has;
+  if (sampleBtn) sampleBtn.disabled = !has;
+  var emptySBtn = $("emptySampleBtn") as HTMLButtonElement | null;
+  if (emptySBtn) emptySBtn.disabled = !has;
   var diagEl = $("diag");
   if (diagEl) {
     diagEl.innerHTML = has
-      ? '<div class="dg info"><span class="ic">i</span><span>No plan loaded. Drop a <b>terraform show -json</b> file anywhere on this page, or click <b>Sample plan</b>.</span></div>'
+      ? '<div class="dg info"><span class="ic">i</span><span>No plan loaded. Drop a <b>terraform show -json</b> file anywhere on this page, or pick a <b>Sample plan</b>.</span></div>'
       : '<div class="dg info"><span class="ic">i</span><span>No plan loaded and no sample bundled. Drop a <b>terraform show -json</b> file anywhere on this page.</span></div>';
   }
 }

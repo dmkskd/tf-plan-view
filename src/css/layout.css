@@ -1,6 +1,6 @@
 /* ---------- main split ---------- */
   .split{display:grid; grid-template-columns:288px minmax(0,1fr) 0px;
-    flex:1 1 auto; min-height:0; overflow:hidden;}
+    flex:1 1 auto; min-height:0; overflow:hidden; position:relative;}
   .split.has-detail{grid-template-columns:288px minmax(0,1fr) 384px;}
   @media (max-width:1080px){
     .split, .split.has-detail{grid-template-columns:1fr;}
@@ -17,6 +17,14 @@
     overflow-y:auto; max-height:100%;
   }
   .split:not(.has-detail) .detail{display:none;}
+  .detail-close{
+    display:none; position:absolute; top:10px; right:10px; z-index:5;
+    width:26px; height:26px; border-radius:7px; border:1px solid var(--line);
+    background:var(--surface); color:var(--muted); font-size:18px; line-height:1;
+    cursor:pointer;
+  }
+  .detail-close:hover{color:var(--ink); background:var(--surface-2);}
+  .split.has-detail .detail-close{display:block;}
 
   .block{border-bottom:1px solid var(--line-soft); padding:14px 16px; display:flex; flex-direction:column; gap:10px;}
   .block > h3{

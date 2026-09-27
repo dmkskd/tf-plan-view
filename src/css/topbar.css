@@ -58,6 +58,7 @@
   /* every control in the bar shares one height and one corner radius */
   .topbar .btn, .topbar .src, .topbar .seg{height:34px;}
   .topbar .btn, .topbar .src{display:inline-flex; align-items:center;}
+  .btn .caret{width:10px; height:6px; margin-left:8px; color:var(--muted);}
   /* these two swap their label, so they are sized for the longest one and
      stay put instead of nudging the rest of the bar */
   .seg.icons > *{

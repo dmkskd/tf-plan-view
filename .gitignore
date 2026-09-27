@@ -10,10 +10,13 @@ dist/
 # Local Terraform plans & states (prevent leaking sensitive infra plans)
 plan.json
 plan.out
+tfplan*
 *.tfplan
 *.plan
 .terraform/
 terraform.tfstate*
+# .terraform.lock.hcl is intentionally NOT ignored — Terraform's own
+# convention is to commit it for reproducible provider version selection.
 
 # Logs
 npm-debug.log*

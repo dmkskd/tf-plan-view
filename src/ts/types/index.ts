@@ -219,6 +219,7 @@ export interface LayoutGroup {
   children: LayoutNode[];
   maxW?: number;
   stack?: boolean;
+  breakBefore?: boolean;
   w: number;
   h: number;
   x: number;
@@ -236,10 +237,15 @@ export interface LayoutContext {
   global?: LayoutGroup;
   unplaced?: LayoutGroup;
   vpcGroups: Record<string, LayoutGroup>;
+  vpcWideGroups?: Record<string, LayoutGroup>;
+  subnetVpcGroups?: Record<string, LayoutGroup>;
   subnetGroups: Record<string, LayoutGroup>;
   azGroups: Record<string, LayoutGroup>;
-  sgGroups: Record<string, LayoutGroup>;
-  ownerOf: Record<string, string>;
+  /* One SG address can now have several boxes — one per distinct container
+     its members actually ended up in, rather than one arbitrarily-chosen
+     "host" for the whole group. */
+  sgGroups: Record<string, LayoutGroup[]>;
+  ownerOf: Record<string, LayoutGroup>;
   referrers?: Record<string, PlanResource[]>;
   byAddr?: Record<string, PlanResource>;
   networkGroups?: Record<string, LayoutGroup>;

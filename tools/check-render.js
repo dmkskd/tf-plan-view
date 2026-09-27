@@ -40,7 +40,10 @@ const checks = [];
 const expect = (what, cond, saw) => checks.push({ what, ok: !!cond, saw });
 
 setTimeout(() => {
-  click("sampleBtn");
+  const emptySampleBtn = doc.getElementById("emptySampleBtn");
+  expect("empty-state sample button available", emptySampleBtn && !emptySampleBtn.disabled,
+         emptySampleBtn ? emptySampleBtn.disabled : "missing");
+  click("emptySampleBtn");
   expect("tiles drawn", count(".node") > 0, count(".node"));
   expect("containers drawn", count(".grp") > 0, count(".grp"));
   expect("type list filled", count(".flt") > 0, count(".flt"));

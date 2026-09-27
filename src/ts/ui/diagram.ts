@@ -283,6 +283,36 @@ function anchor(b: BoxInfo, toward: {x: number; y: number}): {x: number; y: numb
   return {x:b.cx + dx*s, y:b.cy + dy*s};
 }
 
+/* A splat reference (aws_subnet.public[*].id) is recorded as the bare base
+   address ("aws_subnet.public") with no [N] — but nothing is ever rendered
+   under that address, only real instances ("aws_subnet.public[0]", "[1]").
+   Resolve it to every instance actually sharing that base address, so an
+   edge still gets drawn to each of them instead of silently to none.
+
+   Takes the resource's whole refs list, not one address at a time: Terraform
+   also lists an ordinary single reference's base form ("aws_subnet.public")
+   right alongside its specific one ("aws_subnet.public[0]") in the same
+   array — not a real splat, just a coarser mention of the same target (see
+   resolveMatches in providers/aws/placement.ts, which guards against the
+   identical shape). Resolving one address at a time can't see that the
+   specific form is already present, so it would draw a spurious extra edge
+   to every OTHER instance sharing that base address. */
+function resolveEdgeTargets(refs: string[]): string[] {
+  var out: string[] = [];
+  function add(a: string){ if (out.indexOf(a) < 0) out.push(a); }
+  var specificBases: Record<string, boolean> = {};
+  refs.forEach(function(ref: string){
+    if (state.nodeEls[ref] && /\[[^\]]*\]$/.test(ref)) specificBases[ref.replace(/\[[^\]]*\]$/, "")] = true;
+  });
+  refs.forEach(function(ref: string){
+    if (state.nodeEls[ref]){ add(ref); return; }
+    if (specificBases[ref]) return;
+    var prefix = ref + "[";
+    for (var k in state.nodeEls){ if (k.indexOf(prefix) === 0) add(k); }
+  });
+  return out;
+}
+
 function encloses(a: string, b: string): boolean {
   if (!state.model) return false;
   var ka = state.model.anc && state.model.anc[a], kb = state.model.anc && state.model.anc[b];
@@ -295,11 +325,11 @@ function drawEdges(): void {
   edgesSvg.innerHTML = "";
   if (!state.model || state.opts.edges === "none") return;
   var show: [string, string][] = [];
+  var seen: Record<string, boolean> = {};
   var selected = state.selected;
   state.model.resources.forEach(function(r: PlanResource){
     if (!state.nodeEls[r.addr]) return;
-    r.refs.forEach(function(a: string){
-      if (!state.nodeEls[a]) return;
+    resolveEdgeTargets(r.refs).forEach(function(a: string){
       if (encloses(r.addr, a)) return;                       /* nesting shows it */
       if (state.nodeEls[r.addr].classList.contains("grp")) return; /* containers are */
       if (state.nodeEls[a].classList.contains("grp")) return;      /* highlighted instead */
@@ -307,6 +337,9 @@ function drawEdges(): void {
         if (!selected) return;
         if (r.addr !== selected && a !== selected) return;
       }
+      var key = r.addr + "|" + a;
+      if (seen[key]) return;
+      seen[key] = true;
       show.push([r.addr, a]);
     });
   });

@@ -1,7 +1,7 @@
 /* ---------- detail ---------- */
   .detail .dhd{
     position:sticky; top:0; z-index:2; background:var(--surface);
-    padding:13px 18px 11px; border-bottom:1px solid var(--line);
+    padding:13px 46px 11px 18px; border-bottom:1px solid var(--line);  /* right padding clears .detail-close */
     display:flex; flex-direction:column; gap:10px;
   }
   .detail .dhd-foot{display:flex; align-items:center; justify-content:space-between; gap:12px;}

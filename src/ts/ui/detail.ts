@@ -2,6 +2,7 @@
 import { escapeHtml, $ } from "../core/util.js";
 import { CLI, rulesHtml, blockHeight } from "../providers/registry.js";
 import { hclFor, hclHighlight } from "../core/hcl.js";
+import { baseAddr } from "../core/parser.js";
 import { changeHtml, reasonText, valText, sameVal } from "../core/diff.js";
 import { changedKeys, select, applySelection, drawEdges, ACTION_COLOR, icoSvg } from "./diagram.js";
 import { kindSource } from "../core/schema.js";
@@ -278,7 +279,7 @@ var DETAIL_SECTIONS: DetailSectionDef[] = [
 
   {key:"hcl", build: function(r: PlanResource, ctx: any){
     var model = state.model;
-    var hcl = hclFor(r, model && model.cfgByAddr && model.cfgByAddr[r.addr]);
+    var hcl = hclFor(r, model && model.cfgByAddr && model.cfgByAddr[baseAddr(r.addr)]);
     if (!hcl) return null;
     ctx.hcl = hcl;
     return {title:"Terraform block", count:null, body:
@@ -486,6 +487,15 @@ function copyText(text: string, btn: HTMLElement): void {
 }
 
 onSelect(renderDetail);
+
+/* Closes whichever view is open in the right pane — a selected resource's
+   detail, or the plan-info view from clicking the source name — since both
+   just clear the selection and re-render to the same empty state. */
+var detailCloseBtn = $("detailClose");
+if (detailCloseBtn) detailCloseBtn.addEventListener("click", function(){
+  setSelected(null);
+  renderDetail();
+});
 
 export {
   SEC_DEFAULT, secOpen, isOpen, CHEV, sec,

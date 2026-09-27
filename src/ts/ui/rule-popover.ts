@@ -53,9 +53,10 @@ function popRuleLines(r: PlanResource, dir: string, isNacl?: boolean): string {
 
 /* One row per key in spec.preview that resolves to something worth
    showing: a non-empty known value, or "known after apply" when the
-   plan cannot resolve it yet. Sensitive attributes are dropped, and the
-   attribute already surfaced as the tile's subtitle (spec.sub) is not
-   repeated. */
+   plan cannot resolve it yet. Sensitive attributes are dropped. A key
+   already shown as the tile's subtitle (spec.sub, e.g. "postgres") is
+   still repeated here — the hover card should be a self-contained
+   summary, not rely on the tile's small print already being visible. */
 function attrPreviewVal(v: any): string | null {
   if (Array.isArray(v)){
     if (!v.length) return null;
@@ -71,7 +72,6 @@ function attrPreviewRows(r: PlanResource): string {
   var keys = (r.spec && r.spec.preview) || [];
   var rows = "";
   keys.forEach(function(k: string){
-    if (k === (r.spec && r.spec.sub)) return;
     if (r.sensitive && (r.sensitive as any)[k]) return;
     var known = r.unknown && (r.unknown as any)[k] === true;
     var text = known ? "known after apply" : attrPreviewVal(r.attrs ? r.attrs[k] : undefined);

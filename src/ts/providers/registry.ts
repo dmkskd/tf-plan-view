@@ -181,7 +181,7 @@ export function isContainerBoundary(ctx: LayoutContext, r: PlanResource): boolea
   if (p && p.placement && typeof p.placement.isBoundary === "function") {
     return p.placement.isBoundary(ctx, r);
   }
-  return !!(ctx.sgGroups && ctx.sgGroups[r.addr]);
+  return !!(ctx.sgGroups && (ctx.sgGroups[r.addr] || []).length);
 }
 
 export function blockHeight(r: PlanResource): number {

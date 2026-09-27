@@ -28,6 +28,8 @@
   .grp.region > .grp-hd{color:var(--aws-region);}
   .grp.vpc{border:1.5px solid var(--aws-net);}
   .grp.vpc > .grp-hd{color:var(--aws-net);}
+  .grp.vpc-wide{border:1px dashed var(--line); border-radius:9px;}
+  .grp.vpc-wide > .grp-hd{color:var(--muted);}
   .grp.az{border:1px dashed var(--aws-region); border-radius:9px;}
   .grp.az > .grp-hd{color:var(--aws-region);}
   .grp.subnet{border:1px solid var(--aws-public); background:color-mix(in srgb, var(--aws-public) 5%, transparent);}
@@ -147,6 +149,9 @@
   .intro h2{font-size:20px; letter-spacing:-.01em;}
   .intro p{font-size:14px; line-height:1.6; max-width:62ch;}
   .intro .or{font-size:13.5px; color:var(--faint); padding-top:2px;}
+  .intro .sample-action{display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:13.5px; color:var(--faint);}
+  .intro .sample-action .btn{min-height:38px;}
+  .intro .sample-action .btn:disabled{opacity:.45; cursor:not-allowed;}
   .intro .scope-note{
     font-size:13px; color:var(--body); background:var(--surface-2);
     border-left:3px solid var(--aws-compute); border-radius:0 7px 7px 0;

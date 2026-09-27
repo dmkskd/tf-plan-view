@@ -23,28 +23,37 @@ function tileHeight(mode: string, hasEdits?: boolean): number {
 function measure(g: LayoutNode): LayoutNode {
   if (!g.box){ g.w = TW; g.h = TH; return g; }
   g.children.forEach(measure);
-  var kids = g.children.slice().sort(function(a: LayoutNode, b: LayoutNode){
+  var sortedChildren = g.children.slice().sort(function(a: LayoutNode, b: LayoutNode){
     if (a.box !== b.box) return a.box ? -1 : 1;
     return 0;
   });
   /* a group of plain tiles packs to a near-square grid so rows do not end
      half empty; mixed or stacked groups wrap on width. */
-  var allLeaves = kids.length > 0 && kids.every(function(k: LayoutNode){ return !k.box; });
+  var allLeaves = sortedChildren.length > 0 && sortedChildren.every(function(k: LayoutNode){ return !k.box; });
   var perRow = Infinity;
   if (g.stack) perRow = 1;
   else if (allLeaves){
     var fit = Math.max(1, Math.floor(((g.maxW || 0) + GAP) / (TW + GAP)));
-    perRow = Math.min(fit, Math.ceil(Math.sqrt(kids.length)));
+    perRow = Math.min(fit, Math.ceil(Math.sqrt(sortedChildren.length)));
   }
 
-  var rows: LayoutRow[] = [], cur: LayoutNode[] = [], curW = 0;
+  var rows: LayoutRow[] = [], cur: LayoutNode[] = [], curW = 0, curIsBox = false;
   function flush(): void { if (cur.length){ rows.push({items:cur, w:curW}); cur = []; curW = 0; } }
-  kids.forEach(function(k: LayoutNode){
-    if (k.box){ flush(); rows.push({items:[k], w:k.w}); return; }  /* boxes get their own row */
+  sortedChildren.forEach(function(k: LayoutNode){
+    if (k.box && k.breakBefore) flush();
+    /* Boxes pack several-per-row too, same as tiles, so sibling containers
+       sit side by side when they fit instead of always stacking one per
+       row regardless of width. Boxes and tiles never share a row — only
+       their own kind. g.stack forces a single column regardless of width:
+       a deliberate, fixed arrangement a provider opts a container into
+       (see mkGroup's stack argument), not a space-driven one. */
+    if (k.box !== curIsBox) flush();
     var kw = k.w || TW;
     var add = (cur.length ? GAP : 0) + kw;
-    if (cur.length >= perRow || (cur.length && curW + add > (g.maxW || 0))) flush();
+    var tooMany = cur.length >= perRow || (g.stack && cur.length >= 1);
+    if (tooMany || (cur.length && curW + add > (g.maxW || 0))) flush();
     cur.push(k); curW += (cur.length > 1 ? GAP : 0) + kw;
+    curIsBox = !!k.box;
   });
   flush();
   g._rows = rows;
@@ -60,7 +69,7 @@ function measure(g: LayoutNode): LayoutNode {
   /* whole pixels: fractional widths give sub-pixel borders and blurry edges */
   g.w = Math.ceil(Math.max(innerW, labelW, 120)) + PAD*2;
   g.h = innerH + HEAD + PAD;
-  if (!kids.length) g.h = HEAD + 22;
+  if (!sortedChildren.length) g.h = HEAD + 22;
   return g;
 }
 
@@ -95,7 +104,7 @@ function buildTree(model: PlanModel, opts: RenderOptions): LayoutGroup {
   var ctx: LayoutContext = {
     vis: visibleResources(model, opts),
     opts: opts,
-    vpcGroups: {}, azGroups: {}, subnetGroups: {}, sgGroups: {}, ownerOf: {},
+    vpcGroups: {}, vpcWideGroups: {}, subnetVpcGroups: {}, azGroups: {}, subnetGroups: {}, sgGroups: {}, ownerOf: {},
     referrers: {}, byAddr: {},
     cloud: cloud,
     region: region,
@@ -155,9 +164,9 @@ function containerOf(ctx: LayoutContext, r: PlanResource): LayoutGroup | null {
 }
 
 /* One hop along a reference edge, either direction: a resource naming no
-   container of its own takes the container of a neighbour. aws_eip is
-   reached from aws_nat_gateway, which references it;
-   aws_iam_role_policy_attachment reaches aws_iam_role, which it references. */
+   container of its own takes the container of a neighbour — e.g. an EIP is
+   reached from the NAT gateway that references it, or a policy attachment
+   reaches the role it references. */
 function containerOfNeighbour(ctx: LayoutContext, r: PlanResource): LayoutGroup | null {
   var hop = (r.refs || []).concat(
     ((ctx.referrers && ctx.referrers[r.addr]) || []).map(function(n: PlanResource){ return n.addr; }));
@@ -172,8 +181,12 @@ function containerOfNeighbour(ctx: LayoutContext, r: PlanResource): LayoutGroup 
 
 function placeRemaining(ctx: LayoutContext): void {
   ctx.vis.forEach(function(r: PlanResource){
-    if (r.kind === "group" || r.type === "aws_vpc" || r.type === "aws_subnet") return;
-    if (isContainerBoundary(ctx, r) || (r.type === "aws_security_group" && ctx.sgGroups[r.addr])) return;
+    /* r.kind === "group" already covers every container type (aws_vpc,
+       aws_subnet, and any future provider's equivalents) — nothing else
+       to add here. isContainerBoundary already covers a security group
+       with members the same way, via the provider's own isBoundary. */
+    if (r.kind === "group") return;
+    if (isContainerBoundary(ctx, r)) return;
     /* it did not become a boundary, so it is just a tile and the action
        filter applies to it like any other */
     if (ctx.opts && ctx.opts.action && r.action !== ctx.opts.action) return;
@@ -213,4 +226,3 @@ export {
   visibleResources, containerOf, containerOfNeighbour,
   placeRemaining, pruneEmpty, ancestorChains
 };
-

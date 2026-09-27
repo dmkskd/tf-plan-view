@@ -18,6 +18,7 @@ const app = load();
 const parsePlan = app.fn("parsePlan");
 const buildTree = app.fn("buildTree");
 const isSensitive = app.fn("isSensitive");
+const baseAddr = app.fn("baseAddr");
 const matchRules = app.fn("matchRules");
 
 /* ---- runner ---------------------------------------------------------- */
@@ -149,6 +150,45 @@ describe("parse: references", () => {
     const m = parsePlan(plan([VPC, { addr: "aws_nat_gateway.n", dependsOn: ["aws_vpc.main"] }]), "t");
     eq(m.byAddr["aws_nat_gateway.n"].refs, ["aws_vpc.main"]);
   });
+
+  test("a count/for_each instance resolves refs from its base config address", () => {
+    // configuration.root_module.resources keys a counted resource by its base
+    // address ("aws_subnet.public"); resource_changes carries the per-instance
+    // address ("aws_subnet.public[0]"). The two must still line up.
+    const p = plan([VPC]);
+    p.resource_changes.push({
+      address: "aws_subnet.public[0]", mode: "managed", type: "aws_subnet", name: "public",
+      change: { actions: ["create"], before: null,
+                after: { availability_zone: "eu-west-1a", cidr_block: "10.0.1.0/24" },
+                after_unknown: {}, after_sensitive: {} }
+    });
+    p.configuration.root_module.resources.push({
+      address: "aws_subnet.public", mode: "managed", type: "aws_subnet", name: "public",
+      expressions: { vpc_id: { references: ["aws_vpc.main.id"] } }
+    });
+    const m = parsePlan(p, "t");
+    eq(m.byAddr["aws_subnet.public[0]"].refs, ["aws_vpc.main"]);
+  });
+
+  test("a count/for_each instance's cfgByAddr lookup also uses the base address", () => {
+    // ui/detail.js reconstructs the Terraform block from
+    // model.cfgByAddr[baseAddr(r.addr)] — same base/instance mismatch as refs.
+    const p = plan([VPC]);
+    p.resource_changes.push({
+      address: "aws_subnet.public[0]", mode: "managed", type: "aws_subnet", name: "public",
+      change: { actions: ["create"], before: null,
+                after: { availability_zone: "eu-west-1a", cidr_block: "10.0.1.0/24" },
+                after_unknown: {}, after_sensitive: {} }
+    });
+    p.configuration.root_module.resources.push({
+      address: "aws_subnet.public", mode: "managed", type: "aws_subnet", name: "public",
+      expressions: { vpc_id: { references: ["aws_vpc.main.id"] } }
+    });
+    const m = parsePlan(p, "t");
+    const r = m.byAddr["aws_subnet.public[0]"];
+    ok(m.cfgByAddr[baseAddr(r.addr)], "cfgByAddr has an entry for the base address");
+    eq(m.cfgByAddr[baseAddr(r.addr)].address, "aws_subnet.public");
+  });
 });
 
 describe("parse: sensitive shape mirror", () => {
@@ -167,10 +207,87 @@ describe("layout: placement", () => {
     eq(where["aws_instance.web"], "Subnet public 10.0.1.0/24");
   });
 
-  test("a resource referencing only the vpc sits in the vpc", () => {
+  test("a resource referencing only the vpc sits in the VPC-wide section", () => {
     const where = built([VPC, SUBNET,
       { addr: "aws_internet_gateway.igw", refs: { vpc_id: ["aws_vpc.main.id"] } }]);
-    eq(where["aws_internet_gateway.igw"], "VPC main 10.0.0.0/16");
+    eq(where["aws_internet_gateway.igw"], "VPC-wide spans or sits outside AZs");
+  });
+
+  test("a count/for_each subnet instance nests inside its vpc, not Unplaced", () => {
+    const p = plan([VPC]);
+    p.resource_changes.push({
+      address: "aws_subnet.public[0]", mode: "managed", type: "aws_subnet", name: "public",
+      change: { actions: ["create"], before: null,
+                after: { availability_zone: "eu-west-1a", cidr_block: "10.0.1.0/24" },
+                after_unknown: {}, after_sensitive: {} }
+    });
+    p.configuration.root_module.resources.push({
+      address: "aws_subnet.public", mode: "managed", type: "aws_subnet", name: "public",
+      expressions: { vpc_id: { references: ["aws_vpc.main.id"] } }
+    });
+    const where = placements(parsePlan(p, "t"));
+    eq(where["aws_subnet.public[0]"], "Availability Zone eu-west-1a");
+  });
+
+  test("a splat reference to a counted subnet still resolves to an instance", () => {
+    // aws_db_subnet_group.subnet_ids = aws_subnet.public[*].id collapses to
+    // the base address ("aws_subnet.public") in expressions.references, with
+    // no [N] — but subnetGroups is keyed per-instance ("aws_subnet.public[0]").
+    const p = plan([VPC]);
+    p.resource_changes.push({
+      address: "aws_subnet.public[0]", mode: "managed", type: "aws_subnet", name: "public",
+      change: { actions: ["create"], before: null,
+                after: { availability_zone: "eu-west-1a", cidr_block: "10.0.1.0/24" },
+                after_unknown: {}, after_sensitive: {} }
+    });
+    p.configuration.root_module.resources.push({
+      address: "aws_subnet.public", mode: "managed", type: "aws_subnet", name: "public",
+      expressions: { vpc_id: { references: ["aws_vpc.main.id"] } }
+    });
+    p.resource_changes.push({
+      address: "aws_db_subnet_group.main", mode: "managed", type: "aws_db_subnet_group", name: "main",
+      change: { actions: ["create"], before: null, after: {}, after_unknown: {}, after_sensitive: {} }
+    });
+    p.configuration.root_module.resources.push({
+      address: "aws_db_subnet_group.main", mode: "managed", type: "aws_db_subnet_group", name: "main",
+      expressions: { subnet_ids: { references: ["aws_subnet.public"] } }
+    });
+    const where = placements(parsePlan(p, "t"));
+    eq(where["aws_db_subnet_group.main"], "Subnet public 10.0.1.0/24");
+  });
+
+  test("a specific instance reference isn't confused for a splat by its own redundant base form", () => {
+    // Terraform's own references list for one ordinary reference like
+    // aws_subnet.public[0].id includes BOTH the specific instance address
+    // ("aws_subnet.public[0]") AND the bare base address ("aws_subnet.public")
+    // in the same array — not because it spans every instance, just because
+    // Terraform names the referenced object at several levels of
+    // specificity. A second subnet instance existing elsewhere must not
+    // make that base form look like a real splat across both.
+    const p = plan([VPC]);
+    ["aws_subnet.public[0]", "aws_subnet.public[1]"].forEach((addr, i) => {
+      p.resource_changes.push({
+        address: addr, mode: "managed", type: "aws_subnet", name: "public",
+        change: { actions: ["create"], before: null,
+                  after: { availability_zone: "eu-west-1" + (i ? "b" : "a"), cidr_block: "10.0." + i + ".0/24" },
+                  after_unknown: {}, after_sensitive: {} }
+      });
+    });
+    p.configuration.root_module.resources.push({
+      address: "aws_subnet.public", mode: "managed", type: "aws_subnet", name: "public",
+      expressions: { vpc_id: { references: ["aws_vpc.main.id"] } }
+    });
+    p.resource_changes.push({
+      address: "aws_instance.web", mode: "managed", type: "aws_instance", name: "web",
+      change: { actions: ["create"], before: null, after: {}, after_unknown: {}, after_sensitive: {} }
+    });
+    p.configuration.root_module.resources.push({
+      address: "aws_instance.web", mode: "managed", type: "aws_instance", name: "web",
+      expressions: { subnet_id: {
+        references: ["aws_subnet.public[0].id", "aws_subnet.public[0]", "aws_subnet.public"] } }
+    });
+    const where = placements(parsePlan(p, "t"));
+    eq(where["aws_instance.web"], "Subnet public 10.0.0.0/24");
   });
 
   test("an iam resource sits at account level whatever it references", () => {
@@ -199,6 +316,76 @@ describe("layout: placement", () => {
       { addr: "aws_instance.web", refs: {
         subnet_id: ["aws_subnet.public.id"], vpc_security_group_ids: ["aws_security_group.web.id"] } }]);
     eq(where["aws_instance.web"], "Security group web");
+  });
+
+  test("one security group shared across two subnets draws two boundaries, not one", () => {
+    const SUBNET2 = { addr: "aws_subnet.private", refs: { vpc_id: ["aws_vpc.main.id"] },
+                       after: { availability_zone: "eu-west-1b", cidr_block: "10.0.2.0/24" } };
+    const model = parsePlan(plan([VPC, SUBNET, SUBNET2,
+      { addr: "aws_security_group.web", refs: { vpc_id: ["aws_vpc.main.id"] } },
+      { addr: "aws_instance.a", refs: {
+        subnet_id: ["aws_subnet.public.id"], vpc_security_group_ids: ["aws_security_group.web.id"] } },
+      { addr: "aws_instance.b", refs: {
+        subnet_id: ["aws_subnet.private.id"], vpc_security_group_ids: ["aws_security_group.web.id"] } }]), "t");
+    const tree = buildTree(model, OPTS);
+    const sgBoxes = [];
+    (function walk(g){ if (g.box){ if (g.cls === "sg") sgBoxes.push(g); g.children.forEach(walk); } })(tree);
+    eq(sgBoxes.length, 2, "two separate Security group web boxes");
+    const members = sgBoxes.map(g => g.children.map(c => c.res.addr).sort());
+    eq(members.sort(), [["aws_instance.a"], ["aws_instance.b"]], "each boundary holds only its own subnet's member");
+  });
+
+  test("a resource referencing two security groups keeps the first one referenced, not the last one declared", () => {
+    // sg1 is declared before sg2 in the plan (so sg2 is last-declared), but
+    // the instance's own vpc_security_group_ids lists sg1 first (so sg1 is
+    // first-referenced). Ownership must follow reference order — a bug that
+    // instead picks whichever SG is processed last while building the boxes
+    // would give sg2 here, not sg1.
+    const where = built([VPC, SUBNET,
+      { addr: "aws_security_group.sg1", refs: { vpc_id: ["aws_vpc.main.id"] } },
+      { addr: "aws_security_group.sg2", refs: { vpc_id: ["aws_vpc.main.id"] } },
+      { addr: "aws_instance.web", refs: {
+        subnet_id: ["aws_subnet.public.id"],
+        vpc_security_group_ids: ["aws_security_group.sg1.id", "aws_security_group.sg2.id"] } }]);
+    eq(where["aws_instance.web"], "Security group sg1");
+  });
+
+  test("two AZs that fit side by side pack into one row, not one per row", () => {
+    const SUBNET2 = { addr: "aws_subnet.private", refs: { vpc_id: ["aws_vpc.main.id"] },
+                       after: { availability_zone: "eu-west-1b", cidr_block: "10.0.2.0/24" } };
+    const tree = buildTree(parsePlan(plan([VPC, SUBNET, SUBNET2]), "t"), OPTS);
+    const azBoxes = [];
+    (function walk(g){ if (g.box){ if (g.cls === "az") azBoxes.push(g); g.children.forEach(walk); } })(tree);
+    eq(azBoxes.length, 2, "two AZ boxes");
+    eq(azBoxes[0].y, azBoxes[1].y, "same row");
+    ok(azBoxes[0].x !== azBoxes[1].x, "different columns");
+  });
+
+  test("a multi-AZ resource sits below the AZs in its VPC", () => {
+    const SUBNET2 = { addr: "aws_subnet.private", refs: { vpc_id: ["aws_vpc.main.id"] },
+                       after: { availability_zone: "eu-west-1b", cidr_block: "10.0.2.0/24" } };
+    const model = parsePlan(plan([VPC, SUBNET, SUBNET2,
+      { addr: "aws_autoscaling_group.app", refs: {
+        vpc_zone_identifier: ["aws_subnet.public.id", "aws_subnet.private.id"] } }]), "t");
+    const tree = buildTree(model, OPTS);
+    const vpc = tree.children[0].children.find(g => g.cls === "vpc");
+    const azs = vpc.children.filter(g => g.cls === "az");
+    const wide = vpc.children.find(g => g.cls === "vpc-wide");
+    eq(azs.length, 2);
+    ok(wide && wide.y > Math.max(...azs.map(g => g.y)), "VPC-wide row follows AZ row");
+    eq(wide.children[0].res.addr, "aws_autoscaling_group.app");
+  });
+
+  test("a launch template is not enclosed by a security group", () => {
+    const where = built([VPC, SUBNET,
+      { addr: "aws_security_group.app", refs: { vpc_id: ["aws_vpc.main.id"] } },
+      { addr: "aws_launch_template.app", refs: {
+        vpc_security_group_ids: ["aws_security_group.app.id"] } },
+      { addr: "aws_instance.app", refs: {
+        subnet_id: ["aws_subnet.public.id"],
+        vpc_security_group_ids: ["aws_security_group.app.id"] } }]);
+    eq(where["aws_launch_template.app"], "Region eu-west-1");
+    eq(where["aws_instance.app"], "Security group app");
   });
 });
 

@@ -41,9 +41,11 @@ for (const f of cssOrder) {
 // 2. Read and minify embedded JSON data
 const kindsData = fs.readFileSync(path.join(SRC_DIR, "data", "collection-kinds.json"), "utf8").trim();
 const planData = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan.json"), "utf8").trim();
+const planDataFullstack = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan-fullstack.json"), "utf8").trim();
 
 const minKinds = JSON.stringify(JSON.parse(kindsData));
 const minPlan = JSON.stringify(JSON.parse(planData));
+const minPlanFullstack = JSON.stringify(JSON.parse(planDataFullstack));
 
 // 3. Module Dependency Graph Resolution starting at main.ts
 function crawlDependencyGraph(entryFile) {
@@ -307,8 +309,9 @@ ${jsBundle.trim()}
      collection attribute is a set (s), list (l) or map (m), which is all a diff
      needs. 109KB here against 13MB for the full schema. -->
 <script type="application/json" id="collection-kinds">${minKinds}</script>
-<!-- bundled sample plan for offline testing and demos -->
+<!-- bundled sample plans for offline testing and demos -->
 <script type="application/json" id="embedded-plan">${minPlan}</script>
+<script type="application/json" id="embedded-plan-fullstack">${minPlanFullstack}</script>
 </body>
 </html>
 `;

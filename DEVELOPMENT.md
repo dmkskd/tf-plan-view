@@ -99,3 +99,9 @@ The provider system lives in `src/js/providers/`:
   - `cli(r, ctx)`: CLI commands returned for a resource
   - `placement`: `{ placeContainers(ctx), containerOf(ctx, r), isBoundary(ctx, r) }`
   - `rules`: `{ rulesHtml(r), isRuleAttr(k, a, b), ruleKey(e), ruleRow(e, mark, dir), popRow(e, dir, isNacl, mark), ruleLines(r, dir, isNacl, opts) }`
+
+## Known Limitations (vs. AWS's own diagram conventions)
+
+- Multi-AZ resources (DB Subnet Group, ALB, ASG) render once, in a single subnet/AZ — not spanning AZs as AWS diagrams show.
+- ASG renders as a tile, not as a dashed boundary around its instances (like SGs).
+- ALB renders inside one subnet rather than straddling the subnets it spans.

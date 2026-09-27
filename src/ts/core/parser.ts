@@ -17,6 +17,14 @@ function actionOf(actions?: string[]): ActionType {
   return "no-op";
 }
 
+/* configuration.root_module.resources keys a count/for_each resource by its
+   base address ("aws_subnet.public"), never a per-instance address
+   ("aws_subnet.public[0]" or ["key"]) — strip the instance key before
+   matching a resource_changes/state address against the configuration. */
+function baseAddr(addr: string): string {
+  return addr.replace(/\[[^\]]*\]$/, "");
+}
+
 function parsePlan(plan: TerraformPlanJson | any, sourceName: string): PlanModel {
   var out: PlanModel = {
     source: sourceName,
@@ -169,7 +177,11 @@ function readResources(plan: TerraformPlanJson, out: PlanModel, refIndex: Record
       replacePaths: (rc.change && rc.change.replace_paths) || [],
       actionReason: rc.action_reason || null,
       spec: spec, supported: !foreign && !!spec, kind: spec ? spec.kind : "node",
-      refs: refIndex[rc.address] || [],
+      /* configuration.root_module.resources keys a count/for_each resource
+         by its base address ("aws_subnet.public"), never the per-instance
+         address ("aws_subnet.public[0]") that resource_changes uses — strip
+         the instance key before looking up its references. */
+      refs: refIndex[baseAddr(rc.address)] || [],
       foreign: foreign,
       enabled: true, enabledType: true
     };
@@ -234,7 +246,7 @@ function summarise(plan: TerraformPlanJson, out: PlanModel): void {
 }
 
 export {
-  actionOf, parsePlan, checkShape, readProviders, readModules,
+  actionOf, baseAddr, parsePlan, checkShape, readProviders, readModules,
   readReferences, readResources, reportUnsupported,
   linkDependents, summarise
 };
