@@ -2,12 +2,13 @@
 
 Renders a `Terraform` plan as an `AWS` architecture diagram. 
 
-Runs in the browser with no AWS API access, using the `tf plan` json file as the only input.
+![image](docs/images/3d-screenshot.png)
 
-By design it's a single html page available at [https://dmkskd.github.io/tf-plan-view/](https://dmkskd.github.io/tf-plan-view/)
+Runs in the browser with no AWS API access, using `tf plan` json as the only input.
 
+Designed as a single html page - available at [https://dmkskd.github.io/tf-plan-view/](https://dmkskd.github.io/tf-plan-view/)
 
-## Use
+## How to use
 
 1. Generate the `terraform` json plan
 
@@ -22,15 +23,14 @@ terraform show -json plan.out > plan.json
 just open
 ```
 
-
-3. Load `plan.json` with the **Load plan json** button or by dropping it on the
-page. 
+3. Load the generated `plan.json` with the **Load plan json** button or by dropping it on the
+page.
 
 Files are read in the browser and never uploaded. 
 **Sample plan** loads
 plans embedded in `index.html`.
 
-## Limits
+## Things to know
 
 - AWS only. Other providers are reported, not supported.
 - Unrecognised resource types are drawn as dashed amber tiles and reported.
