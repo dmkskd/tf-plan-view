@@ -7,7 +7,7 @@ const path = require("path");
 const zlib = require("zlib");
 const ts = require("typescript");
 
-console.log("📦 Building single self-contained HTML asset for tf plan view...");
+console.log("📦 Building single self-contained HTML asset for tfview...");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const SRC_DIR = path.join(ROOT_DIR, "src");
@@ -289,8 +289,8 @@ const singleHtml = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Render any AWS terraform plan as a native AWS architecture diagram.">
-<title>tf plan view</title>
+<meta name="description" content="Render any Terraform plan as an interactive cloud architecture diagram (currently supporting AWS).">
+<title>tf view</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">

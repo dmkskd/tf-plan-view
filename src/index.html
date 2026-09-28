@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Render any AWS terraform plan as a native AWS architecture diagram.">
-<title>tf plan view</title>
+<meta name="description" content="Render any Terraform plan as an interactive cloud architecture diagram (currently supporting AWS).">
+<title>tf view</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -58,8 +58,8 @@
 
   <div class="topbar">
     <div class="brand">
-      <h1>tf plan view</h1>
-      <span class="scope" title="AWS only. Other providers are not supported.">aws</span>
+      <h1>tf view</h1>
+      <span class="scope" title="Currently supporting AWS (more providers coming soon)">aws</span>
       <span id="tfver">—</span>
     </div>
     <button class="src" id="srcName" title="Show the loaded file">no plan loaded</button>
