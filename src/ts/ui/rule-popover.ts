@@ -1,6 +1,4 @@
-// ui/rule-popover.ts — Hover preview popover for security groups, network
-// ACLs and every other resource tile
-import { $, escapeHtml } from "../core/util.js";
+import { $, html, raw, type SafeHtml } from "../core/util.js";
 import { popRow } from "../providers/registry.js";
 import { sameVal, matchRules } from "../core/diff.js";
 import { attrKind } from "../core/schema.js";
@@ -68,25 +66,27 @@ function attrPreviewVal(v: any): string | null {
   return str.length > 64 ? str.slice(0, 64) + "…" : str;
 }
 
-function attrPreviewRows(r: PlanResource): string {
+function attrPreviewRows(r: PlanResource): SafeHtml {
   var keys = (r.spec && r.spec.preview) || [];
-  var rows = "";
-  keys.forEach(function(k: string){
-    if (r.sensitive && (r.sensitive as any)[k]) return;
+  var rows = keys.map(function(k: string){
+    if (r.sensitive && (r.sensitive as any)[k]) return null;
     var known = r.unknown && (r.unknown as any)[k] === true;
     var text = known ? "known after apply" : attrPreviewVal(r.attrs ? r.attrs[k] : undefined);
-    if (text === null || text === undefined || text === "") return;
-    rows += '<div class="rp-attr"><span class="rp-k">' + escapeHtml(k.replace(/_/g, " ")) +
-            '</span><span class="rp-v' + (known ? " unknown" : "") + '">' +
-            escapeHtml(text) + '</span></div>';
+    if (text === null || text === undefined || text === "") return null;
+    return html`
+      <div class="rp-attr">
+        <span class="rp-k">${k.replace(/_/g, " ")}</span>
+        <span class="rp-v${known ? " unknown" : ""}">${text}</span>
+      </div>
+    `;
   });
-  return rows;
+  return html`${rows}`;
 }
 
 function hasPreview(r: PlanResource | null | undefined): boolean {
   if (!r) return false;
   if (r.type === "aws_security_group" || r.type === "aws_network_acl") return true;
-  return !!attrPreviewRows(r);
+  return !!attrPreviewRows(r).value;
 }
 
 function showRulePop(addr: string, x: number, y: number): void {
@@ -97,25 +97,33 @@ function showRulePop(addr: string, x: number, y: number): void {
   var isSg = r.type === "aws_security_group";
   var isNacl = r.type === "aws_network_acl";
 
-  var body: string;
+  var body: SafeHtml;
   if (isSg || isNacl){
-    body =
-      '<div class="rp-dir">inbound</div>' + popRuleLines(r, "ingress", isNacl) +
-      '<div class="rp-dir">outbound</div>' + popRuleLines(r, "egress", isNacl) +
-      '<div class="rp-foot">' +
-        (isSg ? "Stateful: replies to allowed traffic return without a matching rule."
-              : "Stateless: each direction is evaluated on its own, first match wins.") +
-      '</div>';
+    body = html`
+      <div class="rp-dir">inbound</div>
+      ${raw(popRuleLines(r, "ingress", isNacl))}
+      <div class="rp-dir">outbound</div>
+      ${raw(popRuleLines(r, "egress", isNacl))}
+      <div class="rp-foot">
+        ${isSg
+          ? "Stateful: replies to allowed traffic return without a matching rule."
+          : "Stateless: each direction is evaluated on its own, first match wins."}
+      </div>
+    `;
   } else {
     var rows = attrPreviewRows(r);
-    if (!rows) return;
-    body = '<div class="rp-attrs">' + rows + '</div>';
+    if (!rows.value) return;
+    body = html`<div class="rp-attrs">${rows}</div>`;
   }
 
-  popEl.innerHTML =
-    '<div class="rp-title">' + icoSvg(r.spec, 14) +
-      (isSg ? "security group" : isNacl ? "network acl" : escapeHtml((r.spec && r.spec.label) || r.type)) +
-      ' <b>' + escapeHtml(r.name) + '</b></div>' + body;
+  popEl.innerHTML = html`
+    <div class="rp-title">
+      ${icoSvg(r.spec, 14)}
+      ${isSg ? "security group" : isNacl ? "network acl" : ((r.spec && r.spec.label) || r.type)}
+      <b>${r.name}</b>
+    </div>
+    ${body}
+  `.toString();
 
   popEl.hidden = false;
   var w = popEl.offsetWidth, hh = popEl.offsetHeight;

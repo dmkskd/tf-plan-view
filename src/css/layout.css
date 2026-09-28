@@ -50,8 +50,21 @@
     grid-column:1; font-family:"Archivo",sans-serif; font-size:9px; font-weight:700;
     letter-spacing:.07em; text-transform:uppercase; padding:2px 6px; border-radius:999px;
     align-self:start; white-space:nowrap; cursor:pointer;
+    color: var(--action-color, var(--noop));
+    background: color-mix(in srgb, currentColor 15%, transparent);
   }
   .chg .a:hover{box-shadow:0 0 0 1.5px currentColor;}
+  .chg .a[data-action="create"], .statbar span[data-action="create"] { --action-color: var(--create); }
+  .chg .a[data-action="update"], .statbar span[data-action="update"] { --action-color: var(--update); }
+  .chg .a[data-action="replace"], .statbar span[data-action="replace"] { --action-color: var(--replace); }
+  .chg .a[data-action="delete"], .statbar span[data-action="delete"] { --action-color: var(--destroy); }
+  .chg .a[data-action="read"], .statbar span[data-action="read"] { --action-color: var(--read); }
+  .chg .a[data-action="no-op"], .statbar span[data-action="no-op"] { --action-color: var(--noop); }
+
+  .statbar span[data-action] {
+    background: var(--action-color, var(--noop));
+    --seg: var(--action-color, var(--noop));
+  }
   .chg .ad{grid-column:2; font-family:"IBM Plex Mono",monospace; font-size:11.5px;
     color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .chg .wh{grid-column:2; font-family:"IBM Plex Mono",monospace; font-size:10.5px;
@@ -79,6 +92,8 @@
   .cov-legend span{display:inline-flex; align-items:center; gap:6px; color:var(--muted);}
   .cov-legend b{color:var(--ink); font-weight:600; font-family:"IBM Plex Mono",monospace;}
   .sw{width:8px; height:8px; border-radius:2px; flex:none;}
+  .sw.sw-warn{background:var(--warn);}
+  .sw.sw-net{background:var(--aws-net);}
 
   /* diagnostics */
   .diag{display:flex; flex-direction:column; gap:7px;}

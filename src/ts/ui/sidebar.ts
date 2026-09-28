@@ -1,5 +1,4 @@
-// ui/sidebar.js — Left sidebar metrics, action filters, types checklist & diagnostics
-import { escapeHtml, $ } from "../core/util.js";
+import { $, html, raw, type SafeHtml } from "../core/util.js";
 import { REG, CAT, CAT_LABEL } from "../providers/registry.js";
 import { schemaFit } from "../core/schema.js";
 import { state, onRender, setMode } from "../core/state.js";
@@ -59,18 +58,23 @@ function panelChanges(): void {
       return Array.isArray(pp) ? pp[0] : pp;
     });
     var keys = changedKeys(r);
-    var what = keys.slice(0, 3).map(function(k: string){
-      return forced.indexOf(k) >= 0 ? '<i>' + escapeHtml(k) + '</i>' : escapeHtml(k);
-    }).join(", ") + (keys.length > 3 ? " +" + (keys.length - 3) : "");
+    var whatHtml: SafeHtml | null = null;
+    if (keys.length) {
+      var rendered = keys.slice(0, 3).map(function(k: string, i: number){
+        var isForced = forced.indexOf(k) >= 0;
+        return html`${i > 0 ? ", " : ""}${isForced ? html`<i>${k}</i>` : k}`;
+      });
+      var more = keys.length > 3 ? html` +${keys.length - 3}` : "";
+      whatHtml = html`${rendered}${more}`;
+    }
 
     var a = document.createElement("a");
     a.className = "chg";
-    a.innerHTML =
-      '<span class="a" style="color:' + (ACTION_COLOR as any)[r.action] +
-        '; background:color-mix(in srgb, ' + (ACTION_COLOR as any)[r.action] + ' 15%, transparent)">' +
-        escapeHtml(r.action) + '</span>' +
-      '<span class="ad">' + escapeHtml(r.addr) + '</span>' +
-      (what ? '<span class="wh">' + what + '</span>' : '');
+    a.innerHTML = html`
+      <span class="a" data-action="${r.action}">${r.action}</span>
+      <span class="ad">${r.addr}</span>
+      ${whatHtml && html`<span class="wh">${whatHtml}</span>`}
+    `.toString();
     var aSpan = a.querySelector<HTMLElement>(".a");
     if (aSpan) aSpan.addEventListener("click", function(e: MouseEvent){
       e.stopPropagation();
@@ -99,18 +103,22 @@ function panelPlanSummary(): void {
   var planSumEl = $("planSum");
   if (!planSumEl) return;
   planSumEl.innerHTML = shown.length
-    ? '<div class="statbar filterable' + (opts.action ? " filtered" : "") + '">' +
-      shown.map(function(o){
-        var n = S[o[0]] || 0, pct = total ? (n / total * 100) : 0;
-        return '<span role="button" tabindex="0" data-action="' + o[0] + '"' +
-               ' title="' + n + ' ' + o[1] +
-               (opts.action === o[0] ? " \u2014 click to clear" : " \u2014 click to show only these") + '"' +
-               ' style="flex:' + n + ';background:' + (ACTION_COLOR as any)[o[0]] +
-               ';--seg:' + (ACTION_COLOR as any)[o[0]] + '"' +
-               ' class="' + (pct < 9 ? "tiny " : "") +
-               (opts.action === o[0] ? "on" : "") + '">' + n + '</span>';
-      }).join("") + '</div>'
-    : '<span class="no-changes">no changes</span>';
+    ? html`
+        <div class="statbar filterable${opts.action ? " filtered" : ""}">
+          ${shown.map(function(o){
+            var n = S[o[0]] || 0, pct = total ? (n / total * 100) : 0;
+            return html`
+              <span role="button" tabindex="0" data-action="${o[0]}"
+                title="${n} ${o[1]}${opts.action === o[0] ? " \u2014 click to clear" : " \u2014 click to show only these"}"
+                style="flex:${n}"
+                class="${pct < 9 ? "tiny " : ""}${opts.action === o[0] ? "on" : ""}">
+                ${n}
+              </span>
+            `;
+          })}
+        </div>
+      `.toString()
+    : html`<span class="no-changes">no changes</span>`.toString();
 
   Array.prototype.slice.call(planSumEl.querySelectorAll("[data-action]")).forEach(function(seg: HTMLElement){
     function toggle(): void {
@@ -167,13 +175,11 @@ function panelCoverage(){
     });
   }
 
-  var parts = [];
-  if (un) parts.push('<span><i class="sw" style="background:var(--warn)"></i>' +
-    'type not implemented <b>' + un + '</b></span>');
-  if (hiddenAssoc) parts.push('<span><i class="sw" style="background:var(--aws-net)"></i>' +
-    'associations hidden <b>' + hiddenAssoc + '</b></span>');
+  var parts: any[] = [];
+  if (un) parts.push(html`<span><i class="sw sw-warn"></i>type not implemented <b>${un}</b></span>`);
+  if (hiddenAssoc) parts.push(html`<span><i class="sw sw-net"></i>associations hidden <b>${hiddenAssoc}</b></span>`);
   var leg = $("covLegend");
-  if (leg) leg.innerHTML = parts.join("");
+  if (leg) leg.innerHTML = html`${parts}`.toString();
 }
 
 function setTypes(types: string[], on: boolean): void {
@@ -214,9 +220,12 @@ function panelTypes(): void {
 
     var head = document.createElement("button");
     head.className = "cat" + (allOn ? "" : " off");
-    head.innerHTML = '<span class="dot" style="background:' +
-        (c[0] === "other" ? "var(--warn)" : (CAT as any)[c[0]]) + '"></span>' +
-      escapeHtml(c[1]) + '<span class="ct">' + n + '</span>';
+    var dotBg = c[0] === "other" ? "var(--warn)" : ((CAT as any)[c[0]] || "var(--warn)");
+    head.innerHTML = html`
+      <span class="dot" style="background:${dotBg}"></span>
+      ${c[1]}
+      <span class="ct">${n}</span>
+    `.toString();
     head.title = (allOn ? "Hide" : "Show") + " every " + c[1].toLowerCase() + " resource";
     head.addEventListener("click", function(){ setTypes(list, !allOn); });
     f.appendChild(head);
@@ -227,10 +236,12 @@ function panelTypes(): void {
       var row = document.createElement("label");
       row.className = "flt" + (spec ? "" : " unsup");
       row.title = t;
-      row.innerHTML = '<input type="checkbox"' + (on ? " checked" : "") + '>' +
-        icoSvg(spec, 18) +
-        '<span class="nm">' + escapeHtml(t.replace(/^aws_/, "")) + '</span>' +
-        '<span class="ct">' + model.typeCounts[t] + '</span>';
+      row.innerHTML = html`
+        <input type="checkbox"${raw(on ? " checked" : "")}>
+        ${icoSvg(spec, 18)}
+        <span class="nm">${t.replace(/^aws_/, "")}</span>
+        <span class="ct">${model.typeCounts[t]}</span>
+      `.toString();
       var inp = row.querySelector("input");
       if (inp) {
         inp.addEventListener("change", function(e: Event){
@@ -255,32 +266,28 @@ function panelDiagnostics(): void {
       "Using the provider schema you loaded.");
   } else if (fit.mismatch){
     if (model.diag) model.diag("warn", "schema-version",
-      '<span title="set/list/map can differ between major provider versions. ' +
-      'Drop terraform providers schema -json output to be exact.">' +
-      'plan targets <b>' + escapeHtml(fit.constraint) + '</b>, bundled schema is <b>' +
-      escapeHtml(fit.bundled) + '</b></span>');
+      html`<span title="set/list/map can differ between major provider versions. Drop terraform providers schema -json output to be exact.">plan targets <b>${fit.constraint}</b>, bundled schema is <b>${fit.bundled}</b></span>`.toString());
   }
   if (fit.unknown.length){
     if (model.diag) model.diag("info", "schema-unknown",
-      "<b>" + fit.unknown.length + "</b> unknown type" +
-      (fit.unknown.length > 1 ? "s" : ""), fit.unknown);
+      html`<b>${fit.unknown.length}</b> unknown type${fit.unknown.length > 1 ? "s" : ""}`.toString(), fit.unknown);
   }
 
   const d = $("diag");
   if (!d) return;
   d.innerHTML = "";
   if (!model.diagnostics.length){
-    d.innerHTML = '<div class="dg-empty">No issues.</div>';
+    d.innerHTML = html`<div class="dg-empty">No issues.</div>`.toString();
     return;
   }
   var ICON: Record<string, string> = {err:"\u2715", warn:"!", ok:"\u2713", info:"i"};
   model.diagnostics.forEach(function(g: any){
-    var icon = '<span class="ic">' + (ICON[g.level] || "i") + '</span>';
+    var icon = html`<span class="ic">${ICON[g.level] || "i"}</span>`;
 
     if (!g.detail || !g.detail.length){
       var el = document.createElement("div");
       el.className = "dg " + g.level;
-      el.innerHTML = icon + '<span>' + g.msg + '</span>';
+      el.innerHTML = html`${icon}<span>${raw(g.msg)}</span>`.toString();
       d.appendChild(el);
       return;
     }
@@ -288,17 +295,20 @@ function panelDiagnostics(): void {
     var detList: string[] = Array.isArray(g.detail) ? g.detail : [String(g.detail)];
     var det = document.createElement("details");
     det.className = "dg " + g.level + " has-detail";
-    det.innerHTML =
-      '<summary>' + icon + '<span>' + g.msg + '</span>' +
-        '<svg class="chev" viewBox="0 0 10 10" aria-hidden="true">' +
-          '<path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" ' +
-          'stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-      '</summary>' +
-      '<ul class="dg-list">' + detList.map(function(x: string){
-        var known = model.byAddr[x];
-        return '<li' + (known ? ' data-goto="' + escapeHtml(x) + '"' : '') + '>' +
-               escapeHtml(x) + '</li>';
-      }).join("") + '</ul>';
+    det.innerHTML = html`
+      <summary>
+        ${icon}<span>${raw(g.msg)}</span>
+        <svg class="chev" viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </summary>
+      <ul class="dg-list">
+        ${detList.map(function(x: string){
+          var known = model.byAddr[x];
+          return html`<li ${known ? html`data-goto="${x}"` : ""}>${x}</li>`;
+        })}
+      </ul>
+    `.toString();
 
     Array.prototype.slice.call(det.querySelectorAll("[data-goto]")).forEach(function(li: HTMLElement){
       li.addEventListener("click", function(){ if (li.dataset.goto) select(li.dataset.goto); });

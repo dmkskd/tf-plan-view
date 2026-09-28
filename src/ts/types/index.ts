@@ -120,7 +120,38 @@ export interface TerraformPlanJson {
   output_changes?: Record<string, any>;
   prior_state?: any;
   relevant_attributes?: any[];
+  annotations?: {
+    llm_review?: LlmReview;
+    [key: string]: any;
+  };
   [key: string]: any;
+}
+
+export interface LlmResourceInsight {
+  risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | string;
+  irreversible: boolean;
+  badge: string;
+  note: string;
+}
+
+export interface LlmReviewMetrics {
+  duration_ms: number;
+  prompt_tokens?: number | null;
+  completion_tokens?: number | null;
+  total_tokens?: number | null;
+}
+
+export interface LlmReview {
+  provider?: string;
+  model: string;
+  scope: "changes" | "full" | string;
+  depth: "standard" | "expert" | string;
+  metrics: LlmReviewMetrics;
+  summary: string;
+  risk_level: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | string;
+  blast_radius: string;
+  key_warnings: string[];
+  resources: Record<string, LlmResourceInsight>;
 }
 
 export interface PlanResource {
@@ -153,6 +184,7 @@ export interface PlanResource {
   sensitive?: Record<string, any> | boolean;
   replacePaths?: (string | (string | number)[])[];
   dependents?: string[];
+  llmInsight?: LlmResourceInsight | null;
 }
 
 export interface DiagnosticItem {
@@ -191,6 +223,7 @@ export interface PlanModel {
   outputs?: Record<string, any> | null;
   providerConstraint?: string | null;
   brokenSet?: Record<string, boolean>;
+  llmReview?: LlmReview | null;
   diag?: (level: "err" | "warn" | "ok" | "info", code: string, msg: string, detail?: string | string[] | null | any) => void;
 }
 

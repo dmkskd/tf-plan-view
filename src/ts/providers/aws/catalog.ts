@@ -37,6 +37,29 @@ var AWS_REG: Record<string, CatalogEntry> = {
                                       preview:["port","protocol","target_type"]},
   aws_db_instance:                  {kind:"node", label:"RDS Instance",        icon:"i-db",     cat:"db",   sub:"engine",
                                       preview:["engine","engine_version","instance_class","allocated_storage","multi_az"]},
+  aws_eks_cluster:                      {kind:"node", label:"EKS Cluster",            icon:"i-eks",    cat:"compute", sub:"version", scope:"vpc",
+                                          preview:["version","role_arn","endpoint"]},
+  aws_eks_node_group:                   {kind:"node", label:"EKS Node Group",         icon:"i-eks",    cat:"compute", sub:"instance_types",
+                                          preview:["cluster_name","instance_types","scaling_config","capacity_type"]},
+  aws_placement_group:                  {kind:"node", label:"Placement Group",        icon:"i-ec2",    cat:"compute", scope:"region",
+                                          preview:["strategy"]},
+
+  aws_ec2_transit_gateway:              {kind:"node", label:"Transit Gateway",        icon:"i-tgw",    cat:"net", scope:"region",
+                                          preview:["description","amazon_side_asn","default_route_table_association"]},
+  aws_ec2_transit_gateway_vpc_attachment:{kind:"assoc", label:"TGW Attachment",       icon:"i-tgw",    cat:"net",
+                                          preview:["transit_gateway_id","vpc_id","subnet_ids"]},
+  aws_vpc_peering_connection:           {kind:"node", label:"VPC Peering",            icon:"i-peer",   cat:"net", scope:"region",
+                                          preview:["vpc_id","peer_vpc_id","auto_accept"]},
+  aws_ec2_managed_prefix_list:          {kind:"node", label:"Prefix List",            icon:"i-prefix", cat:"net", scope:"region",
+                                          preview:["name","address_family","max_entries"]},
+  aws_route53_zone:                     {kind:"node", label:"Route 53 Zone",          icon:"i-r53",    cat:"net",
+                                          preview:["name","comment"]},
+  aws_route53_record:                   {kind:"node", label:"Route 53 Record",        icon:"i-r53",    cat:"net", sub:"type",
+                                          preview:["zone_id","name","type","ttl","records"]},
+
+  aws_kms_key:                          {kind:"node", label:"KMS Key",                icon:"i-kms",    cat:"sec", scope:"region",
+                                          preview:["description","key_usage","deletion_window_in_days","enable_key_rotation"]},
+
   aws_db_subnet_group:              {kind:"node", label:"DB Subnet Group",     icon:"i-db",     cat:"db",
                                       preview:["subnet_ids"]},
   aws_rds_cluster:                  {kind:"node", label:"RDS Cluster",         icon:"i-db",     cat:"db",   sub:"engine",
@@ -44,6 +67,12 @@ var AWS_REG: Record<string, CatalogEntry> = {
   aws_s3_bucket:                    {kind:"node", label:"S3 Bucket",           icon:"i-s3",     cat:"storage", scope:"region",
                                       preview:["bucket","force_destroy"]},
   aws_s3_bucket_versioning:         {kind:"assoc", label:"S3 Versioning",      icon:"i-s3",     cat:"storage",
+                                      preview:["bucket"]},
+  aws_s3_bucket_server_side_encryption_configuration:{kind:"assoc", label:"S3 Encryption", icon:"i-s3", cat:"storage",
+                                      preview:["bucket"]},
+  aws_s3_object:                    {kind:"node", label:"S3 Object",           icon:"i-s3",     cat:"storage", sub:"key",
+                                      preview:["bucket","key","content_type"]},
+  aws_s3_bucket_policy:             {kind:"assoc", label:"S3 Bucket Policy",   icon:"i-s3",     cat:"storage",
                                       preview:["bucket"]},
   aws_lambda_function:              {kind:"node", label:"Lambda Function",     icon:"i-lambda", cat:"compute", sub:"runtime",
                                       preview:["runtime","handler","memory_size","timeout"]},
@@ -54,6 +83,10 @@ var AWS_REG: Record<string, CatalogEntry> = {
                                       preview:["path","max_session_duration"]},
   aws_iam_policy:                   {kind:"node", label:"IAM Policy",          icon:"i-iam",    cat:"sec",  scope:"global",
                                       preview:["path"]},
+  aws_iam_role_policy:              {kind:"assoc", label:"Role Policy",        icon:"i-iam",    cat:"sec",  scope:"global",
+                                      preview:["role"]},
+  aws_iam_openid_connect_provider:  {kind:"node", label:"OIDC Provider",       icon:"i-iam",    cat:"sec",  scope:"global",
+                                      preview:["url","client_id_list"]},
   aws_iam_instance_profile:         {kind:"node", label:"Instance Profile",    icon:"i-iam",    cat:"sec",  scope:"global",
                                       preview:["role"]},
   aws_iam_user:                     {kind:"node", label:"IAM User",            icon:"i-iam",    cat:"sec",  scope:"global",
@@ -77,6 +110,8 @@ var AWS_REG: Record<string, CatalogEntry> = {
                                           preview:["from_port","to_port","ip_protocol","cidr_ipv4"]},
   aws_lb_listener:                      {kind:"assoc", label:"LB Listener",          icon:"i-lb",  cat:"net",
                                           preview:["port","protocol"]},
+  aws_lb_target_group_attachment:       {kind:"assoc", label:"TG Attachment",         icon:"i-lb",  cat:"net",
+                                          preview:["target_group_arn","target_id","port"]},
   aws_vpc_endpoint_route_table_association:{kind:"assoc", label:"Endpoint RT Assoc", icon:"i-vpce",cat:"net",
                                           preview:["route_table_id"]}
 };
@@ -105,7 +140,8 @@ var SIZE_H: Record<string, number> = {nano:16, micro:20, small:26, medium:32, la
               "16xlarge":116, "24xlarge":128, metal:140};
 
 function awsBlockHeight(r: PlanResource): number {
-  var t = r.attrs && (r.attrs.instance_type || r.attrs.node_type || r.attrs.instance_class);
+  var t = r.attrs && (r.attrs.instance_type || r.attrs.node_type || r.attrs.instance_class ||
+                      (Array.isArray(r.attrs.instance_types) && r.attrs.instance_types[0]));
   if (t){
     var sz = String(t).split(".").slice(1).join(".");
     if (SIZE_H[sz]) return SIZE_H[sz];

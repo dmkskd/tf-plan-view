@@ -6,6 +6,8 @@ dist/
 /index.html
 .vite/
 .cache/
+target/
+cli/target/
 
 # Local Terraform plans & states (prevent leaking sensitive infra plans)
 plan.json

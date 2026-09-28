@@ -58,13 +58,21 @@ just test      # or: npm test
 Or run individual verification recipes with `just`:
 
 ```sh
-just test-unit                     # 19 unit assertions
-just test-unit placement           # run only placement assertions
+just test-unit                     # 29 unit assertions
 just test-boot                     # DOM boot check
+just test-render                   # interactive headless render check
 just test-pure                     # check pure functions against baseline
 just test-parse                    # check parser against baseline
 just test-layout                   # check layout against baseline
 just check                         # validate JS syntax across all files
+```
+
+### 4. Build and Test Standalone CLI
+
+```sh
+just cli-build                     # Build release binary (embeds dist/index.html)
+just cli-install                   # Install binary to ~/.cargo/bin/tfview
+cd cli && cargo test               # Run Rust CLI unit tests (redaction, XSS, LLM integration)
 ```
 
 | Script | Covers |

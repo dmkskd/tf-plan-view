@@ -1,5 +1,4 @@
-// ui/contextmenu.ts — Canvas node right-click context menu
-import { $, escapeHtml } from "../core/util.js";
+import { $, html } from "../core/util.js";
 import { CLI } from "../providers/registry.js";
 import { state, setSelected } from "../core/state.js";
 import { select, render, icoSvg, applyDisabledCascade } from "./diagram.js";
@@ -21,7 +20,10 @@ function closeCtx(): void {
 
 function ctxItem(label: string, hint: string, fn: () => void): HTMLButtonElement {
   var b = document.createElement("button");
-  b.innerHTML = escapeHtml(label) + (hint ? '<span class="k">' + escapeHtml(hint) + '</span>' : '');
+  b.innerHTML = html`
+    ${label}
+    ${hint && html`<span class="k">${hint}</span>`}
+  `.toString();
   b.addEventListener("click", function(e: MouseEvent){ e.stopPropagation(); closeCtx(); fn(); });
   return b;
 }
@@ -38,7 +40,10 @@ function openCtx(addr: string, x: number, y: number): void {
 
   var head = document.createElement("div");
   head.className = "ctx-head";
-  head.innerHTML = icoSvg(r.spec, 18) + '<b>' + escapeHtml(r.addr) + '</b>';
+  head.innerHTML = html`
+    ${icoSvg(r.spec, 18)}
+    <b>${r.addr}</b>
+  `.toString();
   ctxEl.appendChild(head);
 
   ctxEl.appendChild(ctxItem("Open details", "", function(){ select(addr); }));

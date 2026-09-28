@@ -26,13 +26,15 @@ function baseAddr(addr: string): string {
 }
 
 function parsePlan(plan: TerraformPlanJson | any, sourceName: string): PlanModel {
+  var llmReview = (plan && plan.annotations && plan.annotations.llm_review) || null;
   var out: PlanModel = {
     source: sourceName,
     tfVersion: (plan && plan.terraform_version) || null,
     formatVersion: (plan && plan.format_version) || null,
     resources: [], byAddr: {}, cfgByAddr: {},
     region: null, diagnostics: [], typeCounts: {},
-    summary: null
+    summary: null,
+    llmReview: llmReview
   };
   out.diag = function(level: "err" | "warn" | "ok" | "info", code: string, msg: string, detail?: string | string[] | null | any){
     out.diagnostics.push({level:level, code:code, msg:msg, detail:detail || null});
@@ -46,6 +48,12 @@ function parsePlan(plan: TerraformPlanJson | any, sourceName: string): PlanModel
   reportUnsupported(out);
   linkDependents(out);
   summarise(plan, out);
+
+  if (out.llmReview) {
+    var risk = out.llmReview.risk_level || "UNKNOWN";
+    var level: "err" | "warn" | "info" = (risk === "CRITICAL" || risk === "HIGH") ? "warn" : "info";
+    out.diag(level, "llm-review", "Risk Assessment: <b>" + escapeHtml(risk) + "</b> (" + escapeHtml(out.llmReview.model) + ")", out.llmReview.summary);
+  }
 
   var aws = out.resources.filter(function(r: PlanResource){ return !r.foreign; }).length;
   if (out.resources.length && !aws){
@@ -183,7 +191,8 @@ function readResources(plan: TerraformPlanJson, out: PlanModel, refIndex: Record
          the instance key before looking up its references. */
       refs: refIndex[baseAddr(rc.address)] || [],
       foreign: foreign,
-      enabled: true, enabledType: true
+      enabled: true, enabledType: true,
+      llmInsight: (out.llmReview && out.llmReview.resources && out.llmReview.resources[rc.address]) || null
     };
     out.resources.push(res);
     out.byAddr[res.addr] = res;

@@ -1,5 +1,4 @@
-// core/diff.ts — Attribute diffs, action resolution & rule-list matching
-import { escapeHtml } from "./util.js";
+import { escapeHtml, html, raw } from "./util.js";
 import { attrKind, kindSource } from "./schema.js";
 import { isRuleAttr, ruleKey, ruleRow } from "../providers/registry.js";
 import { PlanResource } from "../types/index.js";

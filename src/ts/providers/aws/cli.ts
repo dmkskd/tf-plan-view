@@ -118,6 +118,44 @@ function awsCli(r: PlanResource, ctx?: any): CliCommand[] {
     case "aws_cloudwatch_log_group":
       add("Tail", "aws logs tail" + reg + " " + ((r.attrs && r.attrs.name) || "<log-group>") + " --follow");
       break;
+    case "aws_eks_cluster":
+      add("Describe cluster", "aws eks describe-cluster" + reg + " --name " + ((r.attrs && r.attrs.name) || r.name || "<cluster-name>"));
+      add("Update kubeconfig", "aws eks update-kubeconfig" + reg + " --name " + ((r.attrs && r.attrs.name) || r.name || "<cluster-name>"));
+      break;
+    case "aws_eks_node_group":
+      add("Describe nodegroup", "aws eks describe-nodegroup" + reg + " --cluster-name <cluster-name> --nodegroup-name " + ((r.attrs && r.attrs.node_group_name) || r.name || "<nodegroup>"));
+      break;
+    case "aws_ec2_transit_gateway":
+      add("Describe", "aws ec2 describe-transit-gateways" + reg + byTag);
+      add("Attachments", "aws ec2 describe-transit-gateway-attachments" + reg + ' --filters "Name=transit-gateway-id,Values=<tgw-id>"');
+      break;
+    case "aws_ec2_transit_gateway_vpc_attachment":
+      add("Describe", "aws ec2 describe-transit-gateway-vpc-attachments" + reg + byTag);
+      break;
+    case "aws_vpc_peering_connection":
+      add("Describe", "aws ec2 describe-vpc-peering-connections" + reg + byTag);
+      break;
+    case "aws_ec2_managed_prefix_list":
+      add("Describe", "aws ec2 describe-managed-prefix-lists" + reg + byTag);
+      add("Entries", "aws ec2 get-managed-prefix-list-entries" + reg + " --prefix-list-id <prefix-list-id>");
+      break;
+    case "aws_route53_zone":
+      add("Get zone", "aws route53 get-hosted-zone --id <zone-id>");
+      add("List records", "aws route53 list-resource-record-sets --hosted-zone-id <zone-id>");
+      break;
+    case "aws_route53_record":
+      add("List records", "aws route53 list-resource-record-sets --hosted-zone-id <zone-id>");
+      break;
+    case "aws_kms_key":
+      add("Describe key", "aws kms describe-key" + reg + " --key-id <key-id>");
+      add("Key policy", "aws kms get-key-policy" + reg + " --key-id <key-id> --policy-name default");
+      break;
+    case "aws_s3_object":
+      add("Head object", "aws s3api head-object --bucket " + ((r.attrs && r.attrs.bucket) || "<bucket>") + " --key " + ((r.attrs && r.attrs.key) || "<key>"));
+      break;
+    case "aws_lb_target_group_attachment":
+      add("Target health", "aws elbv2 describe-target-health" + reg + " --target-group-arn <tg-arn>");
+      break;
     default:
       if (tag) add("Find by tag", "aws resourcegroupstaggingapi get-resources" + reg +
           ' --tag-filters "Key=Name,Values=' + cliQuote(tag) + '"');

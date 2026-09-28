@@ -1,5 +1,4 @@
-// ui/detail.js — Detail pane, collapsible inspector sections & context menu
-import { escapeHtml, $ } from "../core/util.js";
+import { escapeHtml, $, html, raw, copyText, type SafeHtml, HtmlSafeString } from "../core/util.js";
 import { CLI, rulesHtml, blockHeight } from "../providers/registry.js";
 import { hclFor, hclHighlight } from "../core/hcl.js";
 import { baseAddr } from "../core/parser.js";
@@ -7,11 +6,12 @@ import { changeHtml, reasonText, valText, sameVal } from "../core/diff.js";
 import { changedKeys, select, applySelection, drawEdges, ACTION_COLOR, icoSvg } from "./diagram.js";
 import { kindSource } from "../core/schema.js";
 import { state, setSelected, onSelect } from "../core/state.js";
+import { buildPlanLlmReviewHtml, buildResourceLlmInsightHtml, wireLlmReviewInteractivity } from "./llm-review.js";
 import type { PlanModel, PlanResource, CliCommand } from "../types/index.js";
 
 var detailEl = $("detail"), splitEl = $("split");
 
-var SEC_DEFAULT: Record<string, boolean> = {drift:true, checks:true, sections:false, diff:true, deps:true, refby:true, rules:true, hcl:false, cli:false, attrs:false};
+var SEC_DEFAULT: Record<string, boolean> = {llm:true, llmreview:true, drift:true, checks:true, sections:false, diff:true, deps:true, refby:true, rules:true, hcl:false, cli:false, attrs:false};
 var secOpen: Record<string, boolean> = {};
 try {
   var saved = localStorage.getItem("tfplanview-sections");
@@ -22,17 +22,19 @@ function isOpen(key: string): boolean {
   return (secOpen[key] === undefined) ? !!SEC_DEFAULT[key] : !!secOpen[key];
 }
 
-var CHEV = '<svg class="chev" viewBox="0 0 10 10" aria-hidden="true">' +
-           '<path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" ' +
-           'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+var CHEV = html`<svg class="chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-function sec(key: string, title: string, count: number | string | null | undefined, body: string): string {
-  return '<details data-sec="' + key + '"' + (isOpen(key) ? " open" : "") + '>' +
-           '<summary class="dsec">' + escapeHtml(title) +
-             (count !== null && count !== undefined ? ' <span class="cnt">' + escapeHtml(String(count)) + '</span>' : '') +
-             CHEV +
-           '</summary>' + body +
-         '</details>';
+function sec(key: string, title: string, count: number | string | null | undefined, body: string | SafeHtml): string {
+  var openAttr = isOpen(key) ? " open" : "";
+  var countHtml = (count !== null && count !== undefined)
+    ? html` <span class="cnt">${String(count)}</span>`
+    : "";
+  return html`
+    <details data-sec="${key}"${raw(openAttr)}>
+      <summary class="dsec">${title}${countHtml}${CHEV}</summary>
+      ${body instanceof HtmlSafeString ? body : raw(body)}
+    </details>
+  `.toString();
 }
 
 var detailSections: any[] = [], saveSections = function(): void {};
@@ -93,66 +95,88 @@ var SECTION_USE: Record<string, [string, string]> = {
   checks:              ["read", "listed below"],
   planned_values:      ["partial", "only used when resource_changes is missing"],
   prior_state:         ["ignored", "not used"],
-  relevant_attributes: ["ignored", "not used"]
+  relevant_attributes: ["ignored", "not used"],
+  annotations:         ["read", "architecture & risk review, execution metrics"]
 };
 
-function sectionRows(raw: any): string {
-  var keys = Object.keys(raw || {});
-  if (!keys.length) return '<div class="cli-note">nothing to list</div>';
+function sectionRows(rawJson: any): SafeHtml {
+  var keys = Object.keys(rawJson || {});
+  if (!keys.length) return html`<div class="cli-note">nothing to list</div>`;
 
   var rows = keys.map(function(k: string){
     var use = SECTION_USE[k] || ["unknown", "not recognised by this build"];
-    var size = JSON.stringify(raw[k]).length;
+    var size = JSON.stringify(rawJson[k]).length;
     return {k:k, use:use, size:size};
   }).sort(function(a: any, b: any){ return b.size - a.size; });
 
-  return '<div class="sections">' + rows.map(function(r: any){
-    var body = JSON.stringify(raw[r.k], null, 1);
-    if (body.length > 40000) body = body.slice(0, 40000) + "\n\u2026 truncated";
-    return '<details class="sec-row">' +
-             '<summary>' +
-               '<span class="nm">' + escapeHtml(r.k) + '</span>' +
-               '<span class="use ' + r.use[0] + '" title="' + escapeHtml(r.use[1]) + '">' +
-                 r.use[0] + '</span>' +
-               '<span class="sz">' + (r.size / 1024).toFixed(1) + ' KB</span>' +
-             '</summary>' +
-             '<pre class="rawjson">' + escapeHtml(body) + '</pre>' +
-           '</details>';
-  }).join("") + '</div>';
+  return html`
+    <div class="sections">
+      ${rows.map(function(r: any){
+        var body = JSON.stringify(rawJson[r.k], null, 1);
+        if (body.length > 40000) body = body.slice(0, 40000) + "\n\u2026 truncated";
+        return html`
+          <details class="sec-row">
+            <summary>
+              <span class="nm">${r.k}</span>
+              <span class="use ${r.use[0]}" title="${r.use[1]}">${r.use[0]}</span>
+              <span class="sz">${(r.size / 1024).toFixed(1)} KB</span>
+            </summary>
+            <pre class="rawjson">${body}</pre>
+          </details>
+        `;
+      })}
+    </div>
+  `;
 }
 
-function driftRows(raw: any): string {
-  var d = (raw && raw.resource_drift) || [];
-  if (!d.length) return "";
-  return '<div class="attrs">' + d.map(function(x: any){
-    var before = (x.change && x.change.before) || {};
-    var after  = (x.change && x.change.after) || {};
-    var keys = Object.keys(before).concat(Object.keys(after)).filter(function(k: string, i: number, a: string[]){
-      return a.indexOf(k) === i && !sameVal(before[k], after[k]);
-    });
-    return '<div class="attr"><span class="k">' + escapeHtml(x.address) + '</span>' +
-           '<span class="v">' + (keys.length
-             ? escapeHtml(keys.join(", ")) + ' changed outside terraform'
-             : '<span class="unknown">changed outside terraform</span>') + '</span></div>';
-  }).join("") + '</div>';
+function driftRows(rawJson: any): SafeHtml | null {
+  var d = (rawJson && rawJson.resource_drift) || [];
+  if (!d.length) return null;
+  return html`
+    <div class="attrs">
+      ${d.map(function(x: any){
+        var before = (x.change && x.change.before) || {};
+        var after  = (x.change && x.change.after) || {};
+        var keys = Object.keys(before).concat(Object.keys(after)).filter(function(k: string, i: number, a: string[]){
+          return a.indexOf(k) === i && !sameVal(before[k], after[k]);
+        });
+        return html`
+          <div class="attr">
+            <span class="k">${x.address}</span>
+            <span class="v">
+              ${keys.length
+                ? `${keys.join(", ")} changed outside terraform`
+                : html`<span class="unknown">changed outside terraform</span>`}
+            </span>
+          </div>
+        `;
+      })}
+    </div>
+  `;
 }
 
-function checkRows(raw: any): string {
-  var c = (raw && raw.checks) || [];
-  if (!c.length) return "";
-  return '<div class="attrs">' + c.map(function(x: any){
-    var addr = (x.address && (x.address.to_display || x.address.kind)) || "check";
-    var status = x.status || "unknown";
-    var colour = status === "pass" ? "var(--create)"
-               : status === "fail" ? "var(--destroy)"
-               : status === "error" ? "var(--destroy)" : "var(--muted)";
-    var msgs = (x.instances || []).reduce(function(acc: any[], i: any){
-      return acc.concat(i.problems || []);
-    }, []).map(function(pr: any){ return pr.message; });
-    return '<div class="attr"><span class="k">' + escapeHtml(addr) + '</span>' +
-           '<span class="v" style="color:' + colour + '">' + escapeHtml(status) +
-           (msgs.length ? ' \u2014 ' + escapeHtml(msgs.join("; ")) : '') + '</span></div>';
-  }).join("") + '</div>';
+function checkRows(rawJson: any): SafeHtml | null {
+  var c = (rawJson && rawJson.checks) || [];
+  if (!c.length) return null;
+  return html`
+    <div class="attrs">
+      ${c.map(function(x: any){
+        var addr = (x.address && (x.address.to_display || x.address.kind)) || "check";
+        var status = x.status || "unknown";
+        var msgs = (x.instances || []).reduce(function(acc: any[], i: any){
+          return acc.concat(i.problems || []);
+        }, []).map(function(pr: any){ return pr.message; });
+        return html`
+          <div class="attr">
+            <span class="k">${addr}</span>
+            <span class="v check-status" data-status="${status}">
+              ${status}${msgs.length ? " \u2014 " + msgs.join("; ") : ""}
+            </span>
+          </div>
+        `;
+      })}
+    </div>
+  `;
 }
 
 function renderPlanInfo(): void {
@@ -177,67 +201,100 @@ function renderPlanInfo(): void {
     ["outputs", model.outputs ? Object.keys(model.outputs).length : 0]
   ];
 
-  var html = '<div class="dhd">' +
-    '<div class="dhd-top file-top"><div class="dhd-name">' +
-      '<span class="type">loaded file</span>' +
-      '<h3>' + escapeHtml(model.source || "") + '</h3></div>' +
-      '</div>' +
-    '<div class="dhd-foot"><div class="badges">';
-  ["create","update","replace","delete"].forEach(function(a: string){
-    if (S[a]) html += '<span class="badge" style="color:' + (ACTION_COLOR as any)[a] +
-      '; background:color-mix(in srgb, ' + (ACTION_COLOR as any)[a] + ' 14%, transparent)">' +
-      S[a] + " " + escapeHtml(a) + '</span>';
+  var badgesHtml = ["create","update","replace","delete"].map(function(a: string){
+    if (!S[a]) return "";
+    return html`<span class="badge badge-action" data-action="${a}">${S[a]} ${a}</span>`;
   });
-  html += '</div></div></div>' + SEC_MASTER;
 
-  var meta = '<div class="attrs">';
-  rows.forEach(function(kv: [string, string | number]){
-    meta += '<div class="attr"><span class="k">' + escapeHtml(kv[0]) + '</span>' +
-            '<span class="v">' + escapeHtml(String(kv[1])) + '</span></div>';
-  });
-  html += sec("planmeta", "Plan metadata", null, meta + '</div>');
+  var paneHtml = html`
+    <div class="dhd">
+      <div class="dhd-top file-top">
+        <div class="dhd-name">
+          <span class="type">loaded file</span>
+          <h3>${model.source || ""}</h3>
+        </div>
+      </div>
+      <div class="dhd-foot">
+        <div class="badges">${badgesHtml}</div>
+      </div>
+    </div>
+  `.toString() + SEC_MASTER;
+
+  if (model.llmReview) {
+    paneHtml += sec("llmreview", "Architecture & Risk Review", model.llmReview.risk_level, buildPlanLlmReviewHtml(model.llmReview));
+  }
+
+  var metaHtml = html`
+    <div class="attrs">
+      ${rows.map(function(kv: [string, string | number]){
+        return html`
+          <div class="attr">
+            <span class="k">${kv[0]}</span>
+            <span class="v">${String(kv[1])}</span>
+          </div>
+        `;
+      })}
+    </div>
+  `.toString();
+  paneHtml += sec("planmeta", "Plan metadata", null, metaHtml);
 
   const outputs = model.outputs;
   if (outputs){
-    var ob = '<div class="attrs">';
-    Object.keys(outputs).sort().forEach(function(k: string){
-      var o = outputs[k];
-      var unk = o.after_unknown === true;
-      var v = unk ? "known after apply" : (o.after !== undefined ? JSON.stringify(o.after) : "\u2014");
-      ob += '<div class="attr"><span class="k">' + escapeHtml(k) + '</span>' +
-            '<span class="v' + (unk ? " unknown" : "") + '">' + escapeHtml(v) + '</span></div>';
-    });
-    html += sec("outputs", "Outputs", Object.keys(outputs).length, ob + '</div>');
+    var outputKeys = Object.keys(outputs).sort();
+    var outputsHtml = html`
+      <div class="attrs">
+        ${outputKeys.map(function(k: string){
+          var o = outputs[k];
+          var unk = o.after_unknown === true;
+          var v = unk ? "known after apply" : (o.after !== undefined ? JSON.stringify(o.after) : "\u2014");
+          return html`
+            <div class="attr">
+              <span class="k">${k}</span>
+              <span class="v${unk ? " unknown" : ""}">${v}</span>
+            </div>
+          `;
+        })}
+      </div>
+    `;
+    paneHtml += sec("outputs", "Outputs", outputKeys.length, outputsHtml);
   }
 
-  var addrs = '<div class="reflist">';
-  model.resources.forEach(function(r: PlanResource){
-    addrs += '<a data-goto="' + escapeHtml(r.addr) + '">' + escapeHtml(r.addr) +
-             ' <span style="color:' + ((ACTION_COLOR as any)[r.action] || "var(--noop)") + '">' +
-             escapeHtml(r.action) + '</span></a>';
-  });
-  html += sec("addrs", "Resources", model.resources.length, addrs + '</div>');
+  var addrs = html`
+    <div class="reflist">
+      ${model.resources.map(function(r: PlanResource){
+        return html`
+          <a data-goto="${r.addr}">
+            ${r.addr} <span class="action-text" data-action="${r.action}">${r.action}</span>
+          </a>
+        `;
+      })}
+    </div>
+  `;
+  paneHtml += sec("addrs", "Resources", model.resources.length, addrs);
 
   var drift = driftRows(model.raw);
   if (drift){
-    html += sec("drift", "Drift", (model.raw.resource_drift || []).length, drift);
+    paneHtml += sec("drift", "Drift", (model.raw.resource_drift || []).length, drift);
   }
   var checks = checkRows(model.raw);
   if (checks){
-    html += sec("checks", "Checks", (model.raw.checks || []).length, checks);
+    paneHtml += sec("checks", "Checks", (model.raw.checks || []).length, checks);
   }
 
-  html += sec("sections", "Plan sections",
+  paneHtml += sec("sections", "Plan sections",
               Object.keys(model.raw || {}).length, sectionRows(model.raw));
 
-  var raw = model.raw ? JSON.stringify(model.raw, null, 2) : (model.rawText || "");
-  var shown = raw.length > 200000 ? raw.slice(0, 200000) + "\n\u2026 truncated" : raw;
-  html += sec("raw", "Raw JSON", (rawBytes/1024).toFixed(1) + " KB",
-              '<pre class="rawjson">' + escapeHtml(shown) + '</pre>');
+  var rawJsonStr = model.raw ? JSON.stringify(model.raw, null, 2) : (model.rawText || "");
+  var shown = rawJsonStr.length > 200000 ? rawJsonStr.slice(0, 200000) + "\n\u2026 truncated" : rawJsonStr;
+  paneHtml += sec("raw", "Raw JSON", (rawBytes/1024).toFixed(1) + " KB",
+              html`<pre class="rawjson">${shown}</pre>`);
 
   if (!detailEl) detailEl = $("detail");
-  if (detailEl) detailEl.innerHTML = html;
+  if (detailEl) detailEl.innerHTML = paneHtml;
   wireSections();
+  if (model.llmReview) {
+    wireLlmReviewInteractivity(model.llmReview);
+  }
 }
 
 /* --- detail pane --- */
@@ -253,7 +310,7 @@ function renderPlanInfo(): void {
 interface DetailSectionBuilderResult {
   title: string;
   count: number | string | null | undefined;
-  body: string;
+  body: string | SafeHtml;
 }
 
 interface DetailSectionDef {
@@ -262,6 +319,11 @@ interface DetailSectionDef {
 }
 
 var DETAIL_SECTIONS: DetailSectionDef[] = [
+  {key:"llm", build: function(r: PlanResource){
+    if (!r.llmInsight) return null;
+    return {title:"Risk Assessment", count:r.llmInsight.risk, body:buildResourceLlmInsightHtml(r.llmInsight)};
+  }},
+
   {key:"diff", build: function(r: PlanResource){
     var ch = changeHtml(r);
     return ch && {title:"What changes", count:ch.count, body:ch.body};
@@ -282,12 +344,13 @@ var DETAIL_SECTIONS: DetailSectionDef[] = [
     var hcl = hclFor(r, model && model.cfgByAddr && model.cfgByAddr[baseAddr(r.addr)]);
     if (!hcl) return null;
     ctx.hcl = hcl;
-    return {title:"Terraform block", count:null, body:
-      '<div class="cli">' + copyBlock("reconstructed", 'data-hcl="1"',
-          '<pre class="hcl">' + hclHighlight(hcl) + '</pre>') + '</div>' +
-      note("Rebuilt from the plan\u2019s configuration block. Comments and exact " +
-           "interpolation are not in the plan, so values computed from variables are " +
-           "shown resolved with their reference noted.")};
+    var body = html`
+      <div class="cli">
+        ${copyBlock("reconstructed", 'data-hcl="1"', html`<pre class="hcl">${raw(hclHighlight(hcl))}</pre>`)}
+      </div>
+      ${note("Rebuilt from the plan\u2019s configuration block. Comments and exact interpolation are not in the plan, so values computed from variables are shown resolved with their reference noted.")}
+    `;
+    return {title:"Terraform block", count:null, body: body};
   }},
 
   {key:"rules", build: function(r: PlanResource){
@@ -301,18 +364,17 @@ var DETAIL_SECTIONS: DetailSectionDef[] = [
     ctx.cmds = cmds;
     if (!cmds.length){
       return {title:"Inspect with the AWS CLI", count:0,
-              body: note('No CLI recipe for <code>' + escapeHtml(r.type) + '</code> yet.')};
+              body: note(html`No CLI recipe for <code>${r.type}</code> yet.`)};
     }
-    var b = '<div class="cli">';
-    cmds.forEach(function(c: CliCommand, i: number){
-      b += copyBlock(c.label, 'data-cli="' + i + '"',
-        '<pre class="cli-cmd">' +
-        escapeHtml(c.cmd).replace(/(\s)(--[a-z-]+)/g, '$1<span class="fl">$2</span>') +
-        '</pre>');
+    var items = cmds.map(function(c: CliCommand, i: number){
+      var cmdFormatted = escapeHtml(c.cmd).replace(/(\s)(--[a-z-]+)/g, '$1<span class="fl">$2</span>');
+      return copyBlock(c.label, 'data-cli="' + i + '"', html`<pre class="cli-cmd">${raw(cmdFormatted)}</pre>`);
     });
-    return {title:"Inspect with the AWS CLI", count:cmds.length,
-            body: b + '</div>' +
-                  note("Placeholders in angle brackets are ids that only exist after apply.")};
+    var body = html`
+      <div class="cli">${items}</div>
+      ${note("Placeholders in angle brackets are ids that only exist after apply.")}
+    `;
+    return {title:"Inspect with the AWS CLI", count:cmds.length, body: body};
   }},
 
   {key:"attrs", build: function(r: PlanResource){
@@ -321,20 +383,33 @@ var DETAIL_SECTIONS: DetailSectionDef[] = [
   }}
 ];
 
-function note(html: string): string { return '<div class="cli-note">' + html + '</div>'; }
-
-function copyBlock(label: string, attr: string, inner: string): string {
-  return '<div class="cli-item"><div class="cli-lbl"><span>' + escapeHtml(label) + '</span>' +
-         '<button class="cli-copy" ' + attr + '>copy</button></div>' + inner + '</div>';
+function note(htmlContent: string | SafeHtml): SafeHtml {
+  return html`<div class="cli-note">${htmlContent}</div>`;
 }
 
-function addrList(addrs: string[]): string {
-  return '<div class="reflist">' + addrs.map(function(a: string){
-    return '<a data-goto="' + escapeHtml(a) + '">' + escapeHtml(a) + '</a>';
-  }).join("") + '</div>';
+function copyBlock(label: string, attr: string, inner: string | SafeHtml): SafeHtml {
+  return html`
+    <div class="cli-item">
+      <div class="cli-lbl">
+        <span>${label}</span>
+        <button class="cli-copy" ${raw(attr)}>copy</button>
+      </div>
+      ${inner}
+    </div>
+  `;
 }
 
-function attrRows(r: PlanResource): {count: number; body: string} {
+function addrList(addrs: string[]): SafeHtml {
+  return html`
+    <div class="reflist">
+      ${addrs.map(function(a: string){
+        return html`<a data-goto="${a}">${a}</a>`;
+      })}
+    </div>
+  `;
+}
+
+function attrRows(r: PlanResource): {count: number; body: SafeHtml} {
   var known = Object.keys(r.attrs || {}).filter(function(k: string){
     var v = (r.attrs as any)[k];
     if (v === null || v === undefined || v === "") return false;
@@ -347,40 +422,64 @@ function attrRows(r: PlanResource): {count: number; body: string} {
   }).sort();
   var count = known.length + unknown.length;
 
-  var b = "";
-  if (count > 10){
-    b += '<div class="attr-search"><input type="text" id="attrFilter" ' +
-         'placeholder="filter attributes" autocomplete="off"></div>';
-  }
-  b += '<div class="attrs" id="attrList">';
-  if (!count){
-    b += '<div class="attr"><span class="k">\u2014</span>' +
-         '<span class="v unknown">no planned values</span></div>';
-  }
-  known.forEach(function(k: string){
+  var filterHtml = (count > 10) ? html`
+    <div class="attr-search">
+      <input type="text" id="attrFilter" placeholder="filter attributes" autocomplete="off">
+    </div>
+  ` : "";
+
+  var emptyHtml = (!count) ? html`
+    <div class="attr">
+      <span class="k">\u2014</span>
+      <span class="v unknown">no planned values</span>
+    </div>
+  ` : "";
+
+  var knownHtml = known.map(function(k: string){
     var v = (r.attrs as any)[k];
     var s = (typeof v === "object") ? JSON.stringify(v, null, 2) : String(v);
     var long = s.length > 120;
     if (s.length > 1200) s = s.slice(0, 1200) + "\n\u2026";
-    b += '<div class="attr" data-k="' + escapeHtml(k) + '"><span class="k">' + escapeHtml(k) +
-         '</span><span class="v' + (long ? " long" : "") + '">' + escapeHtml(s) + '</span></div>';
+    return html`
+      <div class="attr" data-k="${k}">
+        <span class="k">${k}</span>
+        <span class="v${long ? " long" : ""}">${s}</span>
+      </div>
+    `;
   });
-  unknown.forEach(function(k: string){
-    b += '<div class="attr" data-k="' + escapeHtml(k) + '"><span class="k">' + escapeHtml(k) +
-         '</span><span class="v unknown">known after apply</span></div>';
+
+  var unknownHtml = unknown.map(function(k: string){
+    return html`
+      <div class="attr" data-k="${k}">
+        <span class="k">${k}</span>
+        <span class="v unknown">known after apply</span>
+      </div>
+    `;
   });
-  return {count:count, body:b + '</div>'};
+
+  var body = html`
+    ${filterHtml}
+    <div class="attrs" id="attrList">
+      ${emptyHtml}
+      ${knownHtml}
+      ${unknownHtml}
+    </div>
+  `;
+
+  return {count: count, body: body};
 }
 
 /* Sits directly above the sections and right-aligns with their chevrons, so
    it reads as the master switch for the column it lines up with. */
-var SEC_MASTER =
-  '<div class="sec-master"><button id="secAll" type="button">' +
-    '<span class="lbl"></span>' +
-    '<svg class="chev" viewBox="0 0 10 10" aria-hidden="true">' +
-      '<path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" ' +
-      'stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-  '</button></div>';
+var SEC_MASTER = html`
+  <div class="sec-master"><button id="secAll" type="button">
+    <span class="lbl"></span>
+    <svg class="chev" viewBox="0 0 10 10" aria-hidden="true">
+      <path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button></div>
+`;
 
 /* What terraform will do, said as an outcome and marked with the symbol its
    own plan output uses, so it cannot be mistaken for part of the name. */
@@ -393,32 +492,31 @@ var ACTION_PHRASE: Record<string, [string, string]> = {
   "no-op": ["",    "no changes"]
 };
 
-function detailHeader(r: PlanResource): string {
-  var color = (ACTION_COLOR as any)[r.action] || "var(--noop)";
+function detailHeader(r: PlanResource): SafeHtml {
   var phrase = ACTION_PHRASE[r.action] || ["", r.action];
+  var hasFlags = !r.supported || !r.enabled;
 
-  var flags =
-    (r.supported ? "" :
-      '<span class="badge" style="color:var(--warn); background:var(--warn-soft)">not implemented</span>') +
-    (r.enabled ? "" :
-      '<span class="badge" style="color:var(--replace); background:var(--warn-soft)">impact source</span>');
-
-  return '<div class="dhd">' +
-           '<div class="dhd-top">' +
-             icoSvg(r.spec, 34) +
-             '<div class="dhd-name">' +
-               '<span class="type">' + escapeHtml(r.type) + '</span>' +
-               '<h3>' + escapeHtml(r.name) + '</h3>' +
-             '</div>' +
-             '<span class="act-badge" title="' + escapeHtml(phrase[1]) + '"' +
-               ' style="color:' + color +
-               '; background:color-mix(in srgb, ' + color + ' 13%, transparent)">' +
-               escapeHtml(r.action) +
-               (phrase[0] ? '<i>' + escapeHtml(phrase[0]) + '</i>' : '') +
-             '</span>' +
-           '</div>' +
-           (flags ? '<div class="badges">' + flags + '</div>' : '') +
-         '</div>';
+  return html`
+    <div class="dhd">
+      <div class="dhd-top">
+        ${icoSvg(r.spec, 34)}
+        <div class="dhd-name">
+          <span class="type">${r.type}</span>
+          <h3>${r.name}</h3>
+        </div>
+        <span class="act-badge" data-action="${r.action}" title="${phrase[1]}">
+          ${r.action}
+          ${phrase[0] && html`<i>${phrase[0]}</i>`}
+        </span>
+      </div>
+      ${hasFlags && html`
+        <div class="badges">
+          ${!r.supported && html`<span class="badge badge-warn">not implemented</span>`}
+          ${!r.enabled && html`<span class="badge badge-replace">impact source</span>`}
+        </div>
+      `}
+    </div>
+  `;
 }
 
 function renderDetail(): void {
@@ -435,14 +533,14 @@ function renderDetail(): void {
 
   var r = model.byAddr[selected];
   var ctx: any = {};                                  /* builders stash copy targets here */
-  var html = detailHeader(r) + SEC_MASTER;
+  var htmlContent = detailHeader(r).toString() + SEC_MASTER.toString();
 
   DETAIL_SECTIONS.forEach(function(s: DetailSectionDef){
     var built = s.build(r, ctx);
-    if (built) html += sec(s.key, built.title, built.count, built.body);
+    if (built) htmlContent += sec(s.key, built.title, built.count, built.body);
   });
 
-  if (detailEl) detailEl.innerHTML = html;
+  if (detailEl) detailEl.innerHTML = htmlContent;
   wireSections();
   wireDetailControls(r, ctx);
 }
@@ -465,25 +563,6 @@ function wireDetailControls(r: PlanResource, ctx: any): void {
       });
     });
   }
-}
-
-function copyText(text: string, btn: HTMLElement): void {
-  function done(): void {
-    btn.textContent = "copied"; btn.classList.add("done");
-    setTimeout(function(){ btn.textContent = "copy"; btn.classList.remove("done"); }, 1400);
-  }
-  function fallback(): void {
-    var ta = document.createElement("textarea");
-    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
-    document.body.appendChild(ta); ta.select();
-    try { document.execCommand("copy"); done(); } catch(e){}
-    ta.remove();
-  }
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(text).then(done, fallback);
-    } else fallback();
-  } catch(e){ fallback(); }
 }
 
 onSelect(renderDetail);

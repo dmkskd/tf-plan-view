@@ -71,5 +71,16 @@ split:
 
 # Clean temporary build artifacts and caches
 clean:
-    rm -rf dist/ .vite/
+    rm -rf dist/ .vite/ cli/target/
     @echo "✅ Cleaned build artifacts!"
+
+# Build the standalone Rust CLI binary (embeds dist/index.html)
+cli-build: build
+    cd cli && cargo build --release
+    @echo "✅ Built release binary at cli/target/release/tfview"
+
+# Install tfview binary locally to ~/.cargo/bin (immediately available in PATH)
+cli-install: build
+    cargo install --path cli --force
+    @echo "✅ Installed tfview to ~/.cargo/bin/tfview"
+

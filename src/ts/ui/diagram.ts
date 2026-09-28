@@ -1,10 +1,10 @@
-// ui/diagram.js — Canvas DOM node rendering, SVG edge wiring & tile interactions
-import { escapeHtml, $ } from "../core/util.js";
+import { $, html, type SafeHtml } from "../core/util.js";
 import { CAT, blockHeight } from "../providers/registry.js";
 import { TW, TH, tileHeight, setTileHeight, buildTree } from "../core/layout.js";
 import { fitCanvas, applyTransform } from "./iso.js";
 import { sameVal } from "../core/diff.js";
 import { state, setSelected, notifySelect, notifyRender } from "../core/state.js";
+import { buildTileLlmChipHtml } from "./llm-review.js";
 import type { PlanModel, PlanResource, CatalogEntry, LayoutGroup } from "../types/index.js";
 
 var canvas = $("canvas"), edgesSvg = $("edges"), detailEl = $("detail"), splitEl = $("split");
@@ -14,10 +14,10 @@ var ACTION_COLOR = {
   delete:"var(--destroy)", "no-op":"var(--noop)", read:"var(--update)"
 };
 
-function icoSvg(spec: CatalogEntry | null | undefined, size: number): string {
+function icoSvg(spec: CatalogEntry | null | undefined, size: number): SafeHtml {
   var color = (spec && spec.cat && (CAT as any)[spec.cat]) ? (CAT as any)[spec.cat] : "var(--warn)";
   var id = spec ? spec.icon : "i-unknown";
-  return '<svg class="ico" style="color:' + color + '" width="' + size + '" height="' + size + '" viewBox="0 0 48 48" aria-hidden="true"><use href="#' + id + '"/></svg>';
+  return html`<svg class="ico" style="color:${color}" width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true"><use href="#${id}"/></svg>`;
 }
 
 function changedKeys(r: PlanResource): string[] {
@@ -65,8 +65,7 @@ function syncFilterBanner(): void {
   }
   var c = (ACTION_COLOR as any)[state.opts.action];
   b.hidden = false;
-  b.innerHTML = 'showing only <b style="color:' + c + '">' + escapeHtml(state.opts.action) +
-                '</b><span class="x">\u00d7</span>';
+  b.innerHTML = html`showing only <b style="color:${c}">${state.opts.action}</b><span class="x">\u00d7</span>`.toString();
   b.title = "Click to show everything again";
   b.onclick = function(){ state.opts.action = null; render(); };
   var p = $("canvasPane");
@@ -130,29 +129,35 @@ function render(): void {
       d.style.width = g.w + "px"; d.style.height = g.h + "px";
       /* Cloud, Region and AZ are drawn as outlines in the group's own colour;
          a container backed by a resource takes that resource's service tile. */
-      var ic = "";
+      var ic: SafeHtml | null = null;
       if (g.cls === "cloud"){
-        ic = '<svg viewBox="0 0 48 48" aria-hidden="true"><use href="#i-cloud"/></svg>';
+        ic = html`<svg viewBox="0 0 48 48" aria-hidden="true"><use href="#i-cloud"/></svg>`;
       } else if (g.cls === "region" || g.cls === "az"){
-        ic = '<svg viewBox="0 0 48 48" aria-hidden="true"><use href="#i-region"/></svg>';
+        ic = html`<svg viewBox="0 0 48 48" aria-hidden="true"><use href="#i-region"/></svg>`;
       } else if (g.res && g.res.spec){
-        ic = '<svg class="tile" viewBox="0 0 48 48" aria-hidden="true" style="color:' +
-             (g.res.spec.cat && (CAT as any)[g.res.spec.cat] ? (CAT as any)[g.res.spec.cat] : "var(--warn)") + '"><use href="#' + g.res.spec.icon + '"/></svg>';
+        var catCol = (g.res.spec.cat && (CAT as any)[g.res.spec.cat] ? (CAT as any)[g.res.spec.cat] : "var(--warn)");
+        ic = html`<svg class="tile" viewBox="0 0 48 48" aria-hidden="true" style="color:${catCol}"><use href="#${g.res.spec.icon}"/></svg>`;
       }
-      var gAct = "";
+      var gAct: SafeHtml | null = null;
       if (g.res && state.opts.mode === "changes" &&
           g.res.action !== "no-op" && g.res.action !== "read"){
-        var gc = (ACTION_COLOR as any)[g.res.action] || "var(--noop)";
         var gk = changedKeys(g.res);
-        gAct = '<span class="grp-act" style="color:' + gc +
-               '; background:color-mix(in srgb, ' + gc + ' 15%, var(--surface))"' +
-               ' title="' + escapeHtml(g.res.addr + (gk.length ? " \u2014 " + gk.join(", ") : "")) + '">' +
-               escapeHtml(g.res.action) + '</span>';
+        var title = g.res.addr + (gk.length ? " \u2014 " + gk.join(", ") : "");
+        gAct = html`
+          <span class="grp-act" data-action="${g.res.action}" title="${title}">
+            ${g.res.action}
+          </span>
+        `;
       }
-      d.innerHTML = '<div class="grp-hd">' + ic +
-        escapeHtml(g.label) + (g.meta ? ' <em>' + escapeHtml(g.meta) + '</em>' : '') +
-        gAct + '</div>' +
-        '<i class="fc n"></i><i class="fc w"></i>';
+      d.innerHTML = html`
+        <div class="grp-hd">
+          ${ic}
+          ${g.label}
+          ${g.meta && html`<em>${g.meta}</em>`}
+          ${gAct}
+        </div>
+        <i class="fc n"></i><i class="fc w"></i>
+      `.toString();
       if (g.res){
         const res = g.res;
         d.dataset.addr = res.addr;
@@ -176,39 +181,43 @@ function render(): void {
       n.dataset.addr = r.addr;
       var sub = subFor(r);
       if (sub && sub.toLowerCase() === String(r.name).toLowerCase()) sub = "";
-      var line2 = escapeHtml(r.name) + (sub ? ' <i>· ' + escapeHtml(sub) + '</i>' : '');
+      var line2 = html`${r.name}${sub && html` <i>· ${sub}</i>`}`;
       /* Topology is structure: every tile is drawn the same way, with the
          action carried only by the optional dot. Changes names the action
          on every tile, because that is what the mode is for. */
       var plain = (state.opts.mode !== "changes") || (r.action === "no-op");
       if (!plain) n.className += " has-chip";
-      n.innerHTML =
-        (plain
-          ? '<span class="act" style="background:' + ((ACTION_COLOR as any)[r.action] || "var(--noop)") + '" title="' + r.action + '"></span>'
-          : '<span class="actw" style="color:' + (ACTION_COLOR as any)[r.action] +
-            '; background:color-mix(in srgb, ' + (ACTION_COLOR as any)[r.action] + ' 16%, var(--surface))">' +
-            escapeHtml(r.action) + '</span>') +
-        icoSvg(r.spec, 24) +
-        '<div class="ttl">' + escapeHtml(titleFor(r)) + '</div>' +
-        '<div class="nm" title="' + escapeHtml(r.name + (sub ? "  ·  " + sub : "")) + '">' + line2 + '</div>' +
-        '<i class="fc n"></i><i class="fc w"></i>';
+
+      var llmChip = r.llmInsight ? buildTileLlmChipHtml(r.llmInsight) : null;
+
+      n.innerHTML = html`
+        ${llmChip}
+        ${plain
+          ? html`<span class="act" data-action="${r.action}" title="${r.action}"></span>`
+          : html`<span class="actw" data-action="${r.action}">${r.action}</span>`}
+        ${icoSvg(r.spec, 24)}
+        <div class="ttl">${titleFor(r)}</div>
+        <div class="nm" title="${r.name + (sub ? "  ·  " + sub : "")}">${line2}</div>
+        <i class="fc n"></i><i class="fc w"></i>
+      `.toString();
 
       if (state.opts.mode === "changes" && state.model && state.model.hasEdits && r.action !== "no-op" && r.action !== "read"){
         var ck = changedKeys(r);
         var forced = (r.replacePaths || []).map(function(pp: any){ return Array.isArray(pp) ? pp[0] : pp; });
-        var body: string;
+        var bodyHtml: SafeHtml;
         if (!ck.length){
-          body = '<span class="q">' + (r.action === "create" ? "new resource" : "no attribute changes") + '</span>';
+          bodyHtml = html`<span class="q">${r.action === "create" ? "new resource" : "no attribute changes"}</span>`;
         } else {
-          body = ck.slice(0, 3).map(function(k: string){
-            return forced.indexOf(k) >= 0
-              ? '<b title="forces replacement">' + escapeHtml(k) + '</b>'
-              : escapeHtml(k);
-          }).join(", ") + (ck.length > 3 ? ' <span class="q">+' + (ck.length - 3) + '</span>' : '');
+          var rendered = ck.slice(0, 3).map(function(k: string, i: number){
+            var isForced = forced.indexOf(k) >= 0;
+            return html`${i > 0 ? ", " : ""}${isForced ? html`<b title="forces replacement">${k}</b>` : k}`;
+          });
+          var extra = ck.length > 3 ? html` <span class="q">+${ck.length - 3}</span>` : "";
+          bodyHtml = html`${rendered}${extra}`;
         }
         var cd = document.createElement("div");
         cd.className = "chgline";
-        cd.innerHTML = body;
+        cd.innerHTML = bodyHtml.toString();
         n.appendChild(cd);
       }
       const res = r;
@@ -386,6 +395,17 @@ function applySelection(): void {
     el.classList.toggle("rel", !!selected && related[addr] && addr !== selected);
     el.classList.toggle("dim", !!selected && !related[addr]);
   });
+
+  if (selected && state.nodeEls[selected]) {
+    var selEl = state.nodeEls[selected];
+    if (typeof selEl.scrollIntoView === "function") {
+      try {
+        selEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      } catch (e) {
+        selEl.scrollIntoView();
+      }
+    }
+  }
 }
 
 export {

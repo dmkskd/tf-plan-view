@@ -329,7 +329,16 @@ if (emptySampleBtn) emptySampleBtn.addEventListener("click", function(){ loadSam
 
 function boot(): void {
   restoreSchema();
+  if ((window as any).__TFVIEW_PLAN_LABEL) {
+    var customLabel = (window as any).__TFVIEW_PLAN_LABEL;
+    SAMPLE_LABELS[DEFAULT_SAMPLE_ID] = customLabel;
+    if (SAMPLE_MENU_ITEMS[0]) SAMPLE_MENU_ITEMS[0][1] = customLabel;
+  }
   var has = !!sampleText(DEFAULT_SAMPLE_ID);
+  if ((window as any).__TFVIEW_AUTOLOAD && has) {
+    loadSample(DEFAULT_SAMPLE_ID);
+    return;
+  }
   setEmpty(true);
   if (sampleBtn) sampleBtn.disabled = !has;
   var emptySBtn = $("emptySampleBtn") as HTMLButtonElement | null;
