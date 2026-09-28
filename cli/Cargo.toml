@@ -2,7 +2,7 @@
 name = "tfview"
 version = "0.1.0"
 edition = "2021"
-description = "Instant cloud architecture visualizer for Terraform plans — safe, non-locking, zero-leak (currently supporting AWS)."
+description = "Render a Terraform plan as an AWS architecture diagram"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

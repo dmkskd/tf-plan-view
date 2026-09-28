@@ -18,7 +18,7 @@ const HTML_TEMPLATE: &str = include_str!(concat!(env!("OUT_DIR"), "/index.html")
 #[command(
     name = "tfview",
     version,
-    about = "Instant cloud architecture visualizer for Terraform plans — safe, non-locking, zero-leak (currently supporting AWS).",
+    about = "Render a Terraform plan as an AWS architecture diagram",
     arg_required_else_help = true,
     after_help = "EXAMPLES:\n  \
       tfview plan                          # Generate safe ephemeral plan & view in browser\n  \
