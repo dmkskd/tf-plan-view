@@ -1,5 +1,5 @@
 // app.js — Main application lifecycle, state & event orchestration
-import { escapeHtml, $ } from "./core/util.js";
+import { escapeHtml, $, html } from "./core/util.js";
 import { parsePlan } from "./core/parser.js";
 import { isSchemaFile, pruneSchema, storeSchema, restoreSchema } from "./core/schema.js";
 import { state, setModel, setSelected, onMode } from "./core/state.js";
@@ -24,10 +24,32 @@ function load(plan: any, name: string, rawText?: string): void {
   setModel(model);
   setSelected(null);
   var srcName = $("srcName");
-  if (srcName) srcName.innerHTML = '<b>' + escapeHtml(name) + '</b> \u00b7 ' + model.resources.length + ' res';
-  var tfver = $("tfver");
-  if (tfver) tfver.textContent = model.tfVersion ? ("terraform " + model.tfVersion) : "";
+  if (srcName) {
+    srcName.innerHTML = html`
+      <svg class="src-tf" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><use href="#i-terraform"/></svg>
+      <span class="src-pfx">plan</span>
+      <b class="src-file">${name}</b>
+      <span class="src-arr">\u203a</span>
+    `.toString();
+    srcName.title = "Active plan: " + name + " (" + model.resources.length + " resources) \u2014 Click to inspect details & JSON";
+  }
   model.resources.forEach(function(r: PlanResource){ r.enabledType = true; });
+  var hasLlm = !!(model && model.llmReview);
+  var toggleLlm = $("toggleLlm");
+  if (toggleLlm) {
+    toggleLlm.hidden = !hasLlm;
+    toggleLlm.classList.toggle("on", state.opts.showLlm);
+    toggleLlm.setAttribute("aria-pressed", state.opts.showLlm ? "true" : "false");
+    var modelName = (hasLlm && model.llmReview && model.llmReview.model) || "";
+    var providerName = (hasLlm && model.llmReview && model.llmReview.provider) || "";
+    var fullModel = providerName ? (providerName + " / " + modelName) : modelName;
+    toggleLlm.innerHTML = '<span class="sw"></span>LLM Review';
+    toggleLlm.title = "Toggle LLM risk badges" + (fullModel ? " \u00b7 Reviewed with " + fullModel : "");
+  }
+  var optLlmWrap = $("optLlmWrap");
+  if (optLlmWrap) optLlmWrap.hidden = !hasLlm;
+  var optLlm = $("optLlm") as HTMLInputElement | null;
+  if (optLlm) optLlm.checked = state.opts.showLlm;
   render();
   requestAnimationFrame(fitView);      /* after the pane has its real size */
   renderDetail();
@@ -42,7 +64,13 @@ function loadText(text: string, name: string): void {
     ]};
     setModel(errModel);
     var srcName = $("srcName");
-    if (srcName) srcName.textContent = name;
+    if (srcName) {
+      srcName.innerHTML = html`
+        <svg class="src-tf" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><use href="#i-terraform"/></svg>
+        <span class="src-pfx">plan</span>
+        <b class="src-file">${name}</b>
+      `.toString();
+    }
     if (canvas) Array.prototype.slice.call(canvas.querySelectorAll(".grp,.node")).forEach(function(n: HTMLElement){ n.remove(); });
     if (edgesSvg) edgesSvg.innerHTML = "";
     renderSidebar();
@@ -161,6 +189,15 @@ function applyView(): void {
   var canvasPane = $("canvasPane");
   if (canvasPane) canvasPane.hidden = isText;
 
+  var toggleLlm = $("toggleLlm");
+  if (toggleLlm) {
+    toggleLlm.classList.toggle("on", opts.showLlm);
+    toggleLlm.setAttribute("aria-pressed", opts.showLlm ? "true" : "false");
+  }
+  var optLlm = $("optLlm") as HTMLInputElement | null;
+  if (optLlm) optLlm.checked = opts.showLlm;
+  if (canvas) canvas.classList.toggle("hide-llm", !opts.showLlm);
+
   if (isText) {
     renderText();
     renderSidebar();
@@ -171,11 +208,27 @@ function applyView(): void {
 }
 function applyMode(m: "all" | "changes"): void { state.opts.mode = m; applyView(); }
 function setRender(r: "diagram" | "text"): void { state.opts.render = r; applyView(); }
+function setLlm(show: boolean): void {
+  state.opts.showLlm = show;
+  if (canvas) canvas.classList.toggle("hide-llm", !show);
+  var toggleLlm = $("toggleLlm");
+  if (toggleLlm) {
+    toggleLlm.classList.toggle("on", show);
+    toggleLlm.setAttribute("aria-pressed", show ? "true" : "false");
+  }
+  var optLlm = $("optLlm") as HTMLInputElement | null;
+  if (optLlm) optLlm.checked = show;
+  if (state.opts.render === "text") renderText();
+}
 onMode(function(){ applyView(); });
 
 var modeChg = $("modeChg");
 if (modeChg) modeChg.addEventListener("click", function(){
   applyMode(state.opts.mode === "changes" ? "all" : "changes");
+});
+var toggleLlm = $("toggleLlm");
+if (toggleLlm) toggleLlm.addEventListener("click", function(){
+  setLlm(!state.opts.showLlm);
 });
 var renderTextBtn = $("renderText");
 if (renderTextBtn) renderTextBtn.addEventListener("click", function(){ setRender("text"); });
@@ -201,6 +254,10 @@ if (optPulse) optPulse.addEventListener("change", function(e: Event){
   state.opts.pulse = (e.target as HTMLInputElement).checked;
   var model = state.model;
   if (canvas) canvas.classList.toggle("pulse", !!(state.opts.pulse && state.opts.mode === "changes" && model && model.hasEdits));
+});
+var optLlm = $("optLlm");
+if (optLlm) optLlm.addEventListener("change", function(e: Event){
+  setLlm((e.target as HTMLInputElement).checked);
 });
 var optAssoc = $("optAssoc");
 if (optAssoc) optAssoc.addEventListener("change", function(e: Event){ state.opts.showAssoc = (e.target as HTMLInputElement).checked; render(); });
@@ -259,14 +316,16 @@ if (renderIsoBtn) renderIsoBtn.addEventListener("click", function(){ setRender("
    parsing. */
 var SAMPLE_LABELS: Record<string, string> = {
   "embedded-plan": "bundled sample",
-  "embedded-plan-fullstack": "aws full-stack sample"
+  "embedded-plan-fullstack": "aws full-stack sample",
+  "embedded-plan-eks": "eks (llm review) sample"
 };
 var DEFAULT_SAMPLE_ID = "embedded-plan";
 /* Display text for the dropdown menu — separate from SAMPLE_LABELS, which
    is the "source" name shown elsewhere once a sample is actually loaded. */
 var SAMPLE_MENU_ITEMS: [string, string][] = [
   ["embedded-plan", "Single EC2"],
-  ["embedded-plan-fullstack", "Web app (ALB+RDS)"]
+  ["embedded-plan-fullstack", "Web app (ALB+RDS)"],
+  ["embedded-plan-eks", "EKS Cluster (LLM)"]
 ];
 
 function sampleText(id: string): string {
@@ -329,20 +388,24 @@ if (emptySampleBtn) emptySampleBtn.addEventListener("click", function(){ loadSam
 
 function boot(): void {
   restoreSchema();
-  if ((window as any).__TFVIEW_PLAN_LABEL) {
-    var customLabel = (window as any).__TFVIEW_PLAN_LABEL;
-    SAMPLE_LABELS[DEFAULT_SAMPLE_ID] = customLabel;
-    if (SAMPLE_MENU_ITEMS[0]) SAMPLE_MENU_ITEMS[0][1] = customLabel;
-  }
   var has = !!sampleText(DEFAULT_SAMPLE_ID);
-  if ((window as any).__TFVIEW_AUTOLOAD && has) {
-    loadSample(DEFAULT_SAMPLE_ID);
-    return;
-  }
-  setEmpty(true);
   if (sampleBtn) sampleBtn.disabled = !has;
   var emptySBtn = $("emptySampleBtn") as HTMLButtonElement | null;
   if (emptySBtn) emptySBtn.disabled = !has;
+
+  var injected = sampleText("injected-plan");
+  var label = (window as any).__TFVIEW_PLAN_LABEL || "terraform plan";
+  if ((window as any).__TFVIEW_AUTOLOAD && injected) {
+    try { load(JSON.parse(injected), label, injected); }
+    catch(e){ loadText(injected, label); }
+    return;
+  }
+  if ((window as any).__TFVIEW_AUTOLOAD && has) {
+    try { load(JSON.parse(sampleText(DEFAULT_SAMPLE_ID)), label, sampleText(DEFAULT_SAMPLE_ID)); }
+    catch(e){ loadText(sampleText(DEFAULT_SAMPLE_ID), label); }
+    return;
+  }
+  setEmpty(true);
   var diagEl = $("diag");
   if (diagEl) {
     diagEl.innerHTML = has

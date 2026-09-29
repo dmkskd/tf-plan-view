@@ -228,13 +228,17 @@ pub fn inject_plan(html_template: &str, plan_json: &str, label: &str) -> Result<
     let _: serde_json::Value = serde_json::from_str(plan_json)
         .context("Input is not valid JSON. Ensure input is generated via 'terraform show -json'.")?;
 
-    let start_tag = "<script type=\"application/json\" id=\"embedded-plan\">";
+    let primary_tag = "<script type=\"application/json\" id=\"injected-plan\">";
+    let fallback_tag = "<script type=\"application/json\" id=\"embedded-plan\">";
     let end_tag = "</script>";
 
-    let start_pos = html_template
-        .find(start_tag)
-        .context("Template does not contain id=\"embedded-plan\" script tag")?;
-    let content_start = start_pos + start_tag.len();
+    let (_start_pos, content_start) = if let Some(pos) = html_template.find(primary_tag) {
+        (pos, pos + primary_tag.len())
+    } else if let Some(pos) = html_template.find(fallback_tag) {
+        (pos, pos + fallback_tag.len())
+    } else {
+        anyhow::bail!("Template does not contain id=\"injected-plan\" or id=\"embedded-plan\" script tag");
+    };
 
     let rest = &html_template[content_start..];
     let end_pos = rest

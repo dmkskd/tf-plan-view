@@ -720,6 +720,19 @@ pub async fn run_llm_analysis(
     Ok((analysis, metrics))
 }
 
+fn format_count(n: i32) -> String {
+    let s = n.to_string();
+    let mut out = String::with_capacity(s.len() + s.len() / 3);
+    let len = s.len();
+    for (i, c) in s.chars().enumerate() {
+        if i > 0 && (len - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
+}
+
 /// Print formatted review summary to the console terminal
 pub fn print_terminal_summary(
     analysis: &LlmAnalysis,
@@ -740,10 +753,10 @@ pub fn print_terminal_summary(
 
     let sec = metrics.duration_ms as f64 / 1000.0;
     let tokens_display = match (metrics.prompt_tokens, metrics.completion_tokens, metrics.total_tokens) {
-        (Some(p), Some(c), Some(t)) => format!("Prompt: {} | Completion: {} | Total: {}", p, c, t),
+        (Some(p), Some(c), Some(t)) => format!("Tokens: {} total ({} input, {} output)", format_count(t), format_count(p), format_count(c)),
         _ => "Tokens: not reported by provider".to_string(),
     };
-    eprintln!("Metrics:       Duration: {:.2}s | {}", sec, tokens_display);
+    eprintln!("Review Time:   {:.2}s | {}", sec, tokens_display);
     eprintln!("\nSummary:\n  {}", analysis.summary);
 
     if !analysis.key_warnings.is_empty() {

@@ -49,12 +49,6 @@ function parsePlan(plan: TerraformPlanJson | any, sourceName: string): PlanModel
   linkDependents(out);
   summarise(plan, out);
 
-  if (out.llmReview) {
-    var risk = out.llmReview.risk_level || "UNKNOWN";
-    var level: "err" | "warn" | "info" = (risk === "CRITICAL" || risk === "HIGH") ? "warn" : "info";
-    out.diag(level, "llm-review", "Risk Assessment: <b>" + escapeHtml(risk) + "</b> (" + escapeHtml(out.llmReview.model) + ")", out.llmReview.summary);
-  }
-
   var aws = out.resources.filter(function(r: PlanResource){ return !r.foreign; }).length;
   if (out.resources.length && !aws){
     out.diag("err", "no-aws", "No AWS resources to draw");

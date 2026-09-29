@@ -378,6 +378,7 @@ export interface RenderOptions {
   render: "diagram" | "text";
   action: string | null;
   pulse: boolean;
+  showLlm: boolean;
 }
 
 export interface AppState {

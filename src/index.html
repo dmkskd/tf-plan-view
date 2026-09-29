@@ -63,6 +63,7 @@
     <symbol id="i-cloud" viewBox="0 0 48 48"><path d="M12 32h22a7 7 0 0 0 .6-13.96A11 11 0 0 0 13.4 20 7 7 0 0 0 12 32z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></symbol>
 
     <symbol id="i-region" viewBox="0 0 48 48"><circle cx="24" cy="24" r="13" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M11 24h26M24 11c5.5 5.5 5.5 20.5 0 26M24 11c-5.5 5.5-5.5 20.5 0 26" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
+    <symbol id="i-terraform" viewBox="0 0 24 24"><path fill="currentColor" d="M1.44 0v7.575l6.561 3.79V3.787zm21.12 4.227l-6.561 3.791v7.574l6.56-3.787zM8.72 4.23v7.575l6.561 3.787V8.018zm0 8.405v7.575L15.28 24v-7.578z"/></symbol>
   </defs>
 </svg>
 
@@ -71,10 +72,8 @@
   <div class="topbar">
     <div class="brand">
       <h1>tf view</h1>
-      <span class="scope" title="Currently supporting AWS (more providers coming soon)">aws</span>
-      <span id="tfver">—</span>
     </div>
-    <button class="src" id="srcName" title="Show the loaded file">no plan loaded</button>
+    <button class="src" id="srcName" title="Click to view plan details &amp; raw JSON"><svg class="src-tf" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><use href="#i-terraform"/></svg><span class="src-pfx">plan</span><b class="src-file">no plan loaded</b><span class="src-arr">›</span></button>
     <div class="tb-spacer"></div>
     <div class="seg" role="group" aria-label="Rendering">
       <button id="renderFlat" class="on" title="Draw it as a flat AWS diagram">Flat</button>
@@ -85,11 +84,16 @@
             title="Mark what this plan changes on top of the current view">
       <span class="sw"></span>Show changes
     </button>
+    <button class="btn toggle on" id="toggleLlm" aria-pressed="true"
+            title="Toggle LLM risk badges on canvas" hidden>
+      <span class="sw"></span>LLM Review
+    </button>
 
     <button class="btn btn-primary" id="loadBtn">Load plan.json</button>
     <button class="btn" id="sampleBtn" title="Load a bundled sample plan" aria-haspopup="true" aria-expanded="false">
       Samples<svg class="caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
+    <div class="ctxmenu" id="sampleMenu" hidden></div>
     <div class="seg icons">
       <button id="themeBtn" aria-label="Colour theme"></button>
       <a id="ghLink" href="https://github.com/dmkskd/tf-plan-view" target="_blank"
@@ -137,6 +141,7 @@
           <label class="opt"><input type="checkbox" id="optUnsup" checked> Show unsupported as tiles</label>
           <label class="opt"><input type="checkbox" id="optActions" checked> Show plan action dots</label>
           <label class="opt"><input type="checkbox" id="optPulse" checked> Pulse changed resources</label>
+          <label class="opt" id="optLlmWrap" hidden><input type="checkbox" id="optLlm" checked> Show LLM risk chips</label>
           <div class="act-legend" id="actLegend"></div>
           <label class="opt">Dependency edges
             <select id="optEdges">
@@ -167,7 +172,6 @@
 
       <button class="filter-banner" id="filterBanner" hidden></button>
       <div class="ctxmenu" id="ctxMenu" hidden></div>
-      <div class="ctxmenu" id="sampleMenu" hidden></div>
       <div class="rulepop" id="rulePop" hidden></div>
       <div class="iso-hud" id="isoHud">
         <span class="iso-only">drag <b>orbit</b></span>

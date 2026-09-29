@@ -92,6 +92,7 @@ function render(): void {
     canvas.classList.toggle("mode-changes", state.opts.mode === "changes");
     canvas.classList.toggle("emphasise", state.opts.mode === "changes" && hasEdits);
     canvas.classList.toggle("pulse", !!state.opts.pulse && state.opts.mode === "changes" && hasEdits);
+    canvas.classList.toggle("hide-llm", !state.opts.showLlm);
   }
 
   var tree = buildTree(state.model, state.opts);
@@ -149,11 +150,13 @@ function render(): void {
           </span>
         `;
       }
+      var gLlm = (g.res && g.res.llmInsight) ? buildTileLlmChipHtml(g.res.llmInsight) : null;
       d.innerHTML = html`
         <div class="grp-hd">
           ${ic}
-          ${g.label}
+          <span class="grp-lbl" title="${g.label}">${g.label}</span>
           ${g.meta && html`<em>${g.meta}</em>`}
+          ${gLlm}
           ${gAct}
         </div>
         <i class="fc n"></i><i class="fc w"></i>

@@ -238,24 +238,23 @@
     padding: 12px 14px; margin: 0 18px 14px;
     background: var(--surface-2);
     border: 1px solid var(--line);
-    border-left: 4px solid var(--muted);
     border-radius: 8px;
     display: flex; flex-direction: column; gap: 8px;
   }
   .llm-review-card[data-risk="CRITICAL"], .llm-review-card[data-risk="critical"] {
-    border-left-color: var(--err);
+    border-color: color-mix(in srgb, var(--err) 30%, var(--line));
     background: var(--err-soft);
   }
   .llm-review-card[data-risk="HIGH"], .llm-review-card[data-risk="high"] {
-    border-left-color: var(--warn);
+    border-color: color-mix(in srgb, var(--warn) 30%, var(--line));
     background: var(--warn-soft);
   }
   .llm-review-card[data-risk="MEDIUM"], .llm-review-card[data-risk="medium"] {
-    border-left-color: var(--aws-compute);
+    border-color: color-mix(in srgb, var(--aws-compute) 30%, var(--line));
     background: var(--surface-2);
   }
   .llm-review-card[data-risk="LOW"], .llm-review-card[data-risk="low"] {
-    border-left-color: var(--create);
+    border-color: color-mix(in srgb, var(--create) 30%, var(--line));
     background: var(--ok-soft);
   }
 
@@ -362,13 +361,13 @@
     display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto;
   }
   .llm-triage-row {
-    padding: 6px 8px; border-radius: 6px; background: var(--surface-3);
-    border-left: 3px solid var(--muted); display: flex; flex-direction: column; gap: 3px;
+    padding: 6px 10px; border-radius: 6px; background: var(--surface-3);
+    border: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px;
   }
-  .llm-triage-row[data-risk="CRITICAL"] { border-left-color: var(--err); }
-  .llm-triage-row[data-risk="HIGH"] { border-left-color: var(--warn); }
-  .llm-triage-row[data-risk="MEDIUM"] { border-left-color: var(--aws-compute); }
-  .llm-triage-row[data-risk="LOW"] { border-left-color: var(--create); }
+  .llm-triage-row[data-risk="CRITICAL"] { border-color: color-mix(in srgb, var(--err) 35%, var(--line)); }
+  .llm-triage-row[data-risk="HIGH"] { border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .llm-triage-row[data-risk="MEDIUM"] { border-color: color-mix(in srgb, var(--aws-compute) 35%, var(--line)); }
+  .llm-triage-row[data-risk="LOW"] { border-color: color-mix(in srgb, var(--create) 35%, var(--line)); }
   .llm-triage-top {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   }
@@ -390,13 +389,13 @@
   .llm-insight-card {
     padding: 10px 14px; margin: 0 18px 14px;
     background: var(--surface-2); border: 1px solid var(--line);
-    border-left: 4px solid var(--muted); border-radius: 8px;
+    border-radius: 8px;
     display: flex; flex-direction: column; gap: 6px;
   }
-  .llm-insight-card[data-risk="CRITICAL"], .llm-insight-card[data-risk="critical"] { border-left-color: var(--err); background: var(--err-soft); }
-  .llm-insight-card[data-risk="HIGH"], .llm-insight-card[data-risk="high"] { border-left-color: var(--warn); background: var(--warn-soft); }
-  .llm-insight-card[data-risk="MEDIUM"], .llm-insight-card[data-risk="medium"] { border-left-color: var(--aws-compute); }
-  .llm-insight-card[data-risk="LOW"], .llm-insight-card[data-risk="low"] { border-left-color: var(--create); background: var(--ok-soft); }
+  .llm-insight-card[data-risk="CRITICAL"], .llm-insight-card[data-risk="critical"] { border-color: color-mix(in srgb, var(--err) 30%, var(--line)); background: var(--err-soft); }
+  .llm-insight-card[data-risk="HIGH"], .llm-insight-card[data-risk="high"] { border-color: color-mix(in srgb, var(--warn) 30%, var(--line)); background: var(--warn-soft); }
+  .llm-insight-card[data-risk="MEDIUM"], .llm-insight-card[data-risk="medium"] { border-color: color-mix(in srgb, var(--aws-compute) 30%, var(--line)); }
+  .llm-insight-card[data-risk="LOW"], .llm-insight-card[data-risk="low"] { border-color: color-mix(in srgb, var(--create) 30%, var(--line)); background: var(--ok-soft); }
 
   .llm-insight-head {
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;

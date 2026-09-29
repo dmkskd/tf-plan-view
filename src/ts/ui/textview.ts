@@ -85,7 +85,20 @@ function documentBody(): string {
     return true;
   }).sort(function(a: any, b: any){ return a.addr.localeCompare(b.addr); });
 
-  var out: string[] = ['<span class="c"># ' + escapeHtml(model.source) + '</span>', ""];
+  var tfInfo = model.tfVersion ? ("Terraform v" + escapeHtml(model.tfVersion) + " \u00b7 ") : "";
+  var resCount = model.resources.length + " resource" + (model.resources.length === 1 ? "" : "s");
+  var out: string[] = ['<span class="c"># ' + tfInfo + 'Plan: ' + escapeHtml(model.source) + ' (' + resCount + ')</span>'];
+
+  if (model.llmReview && state.opts.showLlm !== false) {
+    var rev = model.llmReview;
+    var risk = (rev.risk_level || "UNKNOWN").toUpperCase();
+    var riskCls = risk.toLowerCase();
+    out.push('<span class="c"># \u2500\u2500\u2500 LLM Review: </span><span class="llm-risk ' + riskCls + '">' + escapeHtml(risk) + ' RISK</span><span class="c"> \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500</span>');
+    if (rev.blast_radius) out.push('<span class="c"># Blast Radius: ' + escapeHtml(rev.blast_radius) + '</span>');
+    if (rev.summary) out.push('<span class="c"># Summary: ' + escapeHtml(rev.summary) + '</span>');
+    out.push('<span class="c"># \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500</span>');
+  }
+  out.push("");
   out = out.concat(tvVariables());
   out = out.concat(tvDrift());
   out = out.concat(tvHead("Resources", list.length));
@@ -104,6 +117,15 @@ function documentBody(): string {
     out.push('<span class="c"># ' + escapeHtml(r.addr) +
              (r.action === "delete" ? '   <span class="del">will not exist after apply</span>' : '') +
              '</span>');
+    if (r.llmInsight && state.opts.showLlm !== false) {
+      var ins = r.llmInsight;
+      var ir = ins.risk ? ins.risk.toUpperCase() : "UNKNOWN";
+      var irCls = ir.toLowerCase();
+      var irrev = ins.irreversible ? " \u00b7 IRREVERSIBLE" : "";
+      var badge = ins.badge ? (" " + ins.badge) : "";
+      var note = ins.note ? (": " + escapeHtml(ins.note)) : "";
+      out.push('<span class="c"># [</span><span class="llm-risk ' + irCls + '">' + escapeHtml(ir) + irrev + '</span><span class="c">]' + escapeHtml(badge) + note + '</span>');
+    }
     out.push('<span class="k">resource</span> <span class="t">"' + escapeHtml(r.type) +
              '"</span> <span class="s">"' + escapeHtml(r.name) + '"</span> {');
 
@@ -334,7 +356,29 @@ function changesBody(): string {
     return true;
   }).sort(function(a: PlanResource, b: PlanResource){ return a.addr.localeCompare(b.addr); });
 
-  var out: string[] = [];
+  var tfInfo = model.tfVersion ? ("Terraform v" + escapeHtml(model.tfVersion) + " \u00b7 ") : "";
+  var out: string[] = ['<span class="c"># ' + tfInfo + 'Plan: ' + escapeHtml(model.source) + '</span>'];
+
+  if (model.llmReview && state.opts.showLlm !== false) {
+    var rev = model.llmReview;
+    var risk = (rev.risk_level || "UNKNOWN").toUpperCase();
+    var riskCls = risk.toLowerCase();
+    out.push('<span class="c"># \u2500\u2500\u2500 LLM Review: </span><span class="llm-risk ' + riskCls + '">' + escapeHtml(risk) + ' RISK</span><span class="c"> \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500</span>');
+    var modelId = (rev.provider ? rev.provider + " / " : "") + rev.model;
+    var metricsInfo = "";
+    if (rev.metrics) {
+      var sec = (rev.metrics.duration_ms / 1000).toFixed(2);
+      var tok = (rev.metrics.total_tokens !== null && rev.metrics.total_tokens !== undefined)
+        ? " \u00b7 " + rev.metrics.total_tokens.toLocaleString() + " tokens"
+        : "";
+      metricsInfo = " \u00b7 " + sec + "s" + tok;
+    }
+    out.push('<span class="c"># Model: ' + escapeHtml(modelId) + metricsInfo + '</span>');
+    if (rev.blast_radius) out.push('<span class="c"># Blast Radius: ' + escapeHtml(rev.blast_radius) + '</span>');
+    if (rev.summary) out.push('<span class="c"># Summary: ' + escapeHtml(rev.summary) + '</span>');
+    out.push('<span class="c"># \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500</span>');
+  }
+  out.push("");
   out.push('<span class="c">Terraform used the selected providers to generate the ' +
            'following execution plan.</span>');
   out.push('<span class="c">Resource actions are indicated with the following symbols:</span>');
@@ -352,6 +396,15 @@ function changesBody(): string {
     var head = TEXT_HEAD[r.action] || ["~", r.action, "upd"];
     var cls = head[2], sym = head[0];
     out.push('  <span class="c"># ' + escapeHtml(r.addr) + ' ' + head[1] + '</span>');
+    if (r.llmInsight && state.opts.showLlm !== false) {
+      var ins = r.llmInsight;
+      var ir = ins.risk ? ins.risk.toUpperCase() : "UNKNOWN";
+      var irCls = ir.toLowerCase();
+      var irrev = ins.irreversible ? " \u00b7 IRREVERSIBLE" : "";
+      var badge = ins.badge ? (" " + ins.badge) : "";
+      var note = ins.note ? (": " + escapeHtml(ins.note)) : "";
+      out.push('  <span class="c"># [</span><span class="llm-risk ' + irCls + '">' + escapeHtml(ir) + irrev + '</span><span class="c">]' + escapeHtml(badge) + note + '</span>');
+    }
 
     var open = '<span class="' + cls + '">' + sym + '</span> ' +
                '<span class="k">resource</span> <span class="t">"' + escapeHtml(r.type) +

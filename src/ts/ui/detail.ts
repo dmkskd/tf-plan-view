@@ -200,6 +200,9 @@ function renderPlanInfo(): void {
     ["resources", model.resources.length],
     ["outputs", model.outputs ? Object.keys(model.outputs).length : 0]
   ];
+  if (model.llmReview) {
+    rows.push(["llm_model", (model.llmReview.provider ? model.llmReview.provider + " / " : "") + model.llmReview.model]);
+  }
 
   var badgesHtml = ["create","update","replace","delete"].map(function(a: string){
     if (!S[a]) return "";

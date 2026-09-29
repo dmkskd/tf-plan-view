@@ -55,15 +55,25 @@ function popRuleLines(r: PlanResource, dir: string, isNacl?: boolean): string {
    already shown as the tile's subtitle (spec.sub, e.g. "postgres") is
    still repeated here — the hover card should be a self-contained
    summary, not rely on the tile's small print already being visible. */
+function formatAttrItem(item: any): string {
+  if (item && typeof item === "object") {
+    return Object.entries(item).map(function(pair){ return pair[0] + ": " + pair[1]; }).join(", ");
+  }
+  return String(item);
+}
+
 function attrPreviewVal(v: any): string | null {
   if (Array.isArray(v)){
     if (!v.length) return null;
-    var s = v.slice(0, 3).map(String).join(", ");
-    return v.length > 3 ? s + " …" : s;
+    var s = v.slice(0, 3).map(formatAttrItem).join("; ");
+    return v.length > 3 ? s + " \u2026" : s;
   }
-  if (v && typeof v === "object") return null;
+  if (v && typeof v === "object") {
+    var strObj = formatAttrItem(v);
+    return strObj.length > 64 ? strObj.slice(0, 64) + "\u2026" : strObj;
+  }
   var str = String(v);
-  return str.length > 64 ? str.slice(0, 64) + "…" : str;
+  return str.length > 64 ? str.slice(0, 64) + "\u2026" : str;
 }
 
 function attrPreviewRows(r: PlanResource): SafeHtml {
@@ -85,6 +95,7 @@ function attrPreviewRows(r: PlanResource): SafeHtml {
 
 function hasPreview(r: PlanResource | null | undefined): boolean {
   if (!r) return false;
+  if (state.opts.showLlm !== false && r.llmInsight) return true;
   if (r.type === "aws_security_group" || r.type === "aws_network_acl") return true;
   return !!attrPreviewRows(r).value;
 }
@@ -97,7 +108,7 @@ function showRulePop(addr: string, x: number, y: number): void {
   var isSg = r.type === "aws_security_group";
   var isNacl = r.type === "aws_network_acl";
 
-  var body: SafeHtml;
+  var body: SafeHtml = html``;
   if (isSg || isNacl){
     body = html`
       <div class="rp-dir">inbound</div>
@@ -112,9 +123,27 @@ function showRulePop(addr: string, x: number, y: number): void {
     `;
   } else {
     var rows = attrPreviewRows(r);
-    if (!rows.value) return;
-    body = html`<div class="rp-attrs">${rows}</div>`;
+    if (rows.value) {
+      body = html`<div class="rp-attrs">${rows}</div>`;
+    }
   }
+
+  var llmSection: SafeHtml = html``;
+  if (state.opts.showLlm !== false && r.llmInsight) {
+    var ins = r.llmInsight;
+    llmSection = html`
+      <div class="rp-llm" data-risk="${ins.risk || ""}">
+        <div class="rp-llm-head">
+          <span class="llm-risk-badge" data-risk="${ins.risk || ""}">${ins.risk || ""}</span>
+          ${ins.badge ? html`<span class="rp-llm-badge">${ins.badge}</span>` : ""}
+          ${ins.irreversible ? html`<span class="llm-irreversible-pill">Irreversible</span>` : ""}
+        </div>
+        ${ins.note ? html`<div class="rp-llm-note">${ins.note}</div>` : ""}
+      </div>
+    `;
+  }
+
+  if (!llmSection.value && !body.value && !isSg && !isNacl) return;
 
   popEl.innerHTML = html`
     <div class="rp-title">
@@ -122,6 +151,7 @@ function showRulePop(addr: string, x: number, y: number): void {
       ${isSg ? "security group" : isNacl ? "network acl" : ((r.spec && r.spec.label) || r.type)}
       <b>${r.name}</b>
     </div>
+    ${llmSection}
     ${body}
   `.toString();
 

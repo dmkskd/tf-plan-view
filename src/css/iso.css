@@ -117,6 +117,31 @@
   }
   .rulepop .rp-v.unknown{color:var(--faint); font-style:italic;}
 
+  /* LLM insight preview inside rulepop hover card */
+  .rulepop .rp-llm{
+    margin-bottom:8px; padding:6px 8px; border-radius:6px;
+    background:var(--surface-2); border:1px solid var(--line-soft);
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .rulepop .rp-llm[data-risk="CRITICAL"], .rulepop .rp-llm[data-risk="critical"]{
+    border-color:color-mix(in srgb, var(--err) 35%, var(--line));
+    background:var(--err-soft);
+  }
+  .rulepop .rp-llm[data-risk="HIGH"], .rulepop .rp-llm[data-risk="high"]{
+    border-color:color-mix(in srgb, var(--warn) 35%, var(--line));
+    background:var(--warn-soft);
+  }
+  .rulepop .rp-llm[data-risk="MEDIUM"], .rulepop .rp-llm[data-risk="medium"]{
+    border-color:color-mix(in srgb, var(--aws-compute) 35%, var(--line));
+  }
+  .rulepop .rp-llm[data-risk="LOW"], .rulepop .rp-llm[data-risk="low"]{
+    border-color:color-mix(in srgb, var(--create) 35%, var(--line));
+    background:var(--ok-soft);
+  }
+  .rulepop .rp-llm-head{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .rulepop .rp-llm-badge{font-family:"IBM Plex Sans",sans-serif; font-size:11px; font-weight:600; color:var(--ink);}
+  .rulepop .rp-llm-note{font-family:"IBM Plex Sans",sans-serif; font-size:11px; line-height:1.35; color:var(--body);}
+
   .ctxmenu{
     position:fixed; z-index:50; min-width:210px; padding:5px;
     background:var(--surface); border:1px solid var(--line); border-radius:10px;

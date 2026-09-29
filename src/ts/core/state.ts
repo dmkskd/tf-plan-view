@@ -11,7 +11,8 @@ export const state: AppState = {
     mode: "all",
     render: "diagram",
     action: null,
-    pulse: true
+    pulse: true,
+    showLlm: true
   },
   nodeEls: {},
   suppressClick: false
