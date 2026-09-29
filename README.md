@@ -48,4 +48,4 @@ The optional `explain` command adds model-generated review annotations. See the 
 - Unrecognised resource types are drawn as dashed amber tiles and reported.
 - Unrecognised and unplaced resources are listed under Validation.
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) to modify or verify the app.
+See [Development](docs/DEVELOPMENT.md) to modify or verify the app.
