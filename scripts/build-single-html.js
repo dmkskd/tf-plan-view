@@ -42,10 +42,12 @@ for (const f of cssOrder) {
 const kindsData = fs.readFileSync(path.join(SRC_DIR, "data", "collection-kinds.json"), "utf8").trim();
 const planData = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan.json"), "utf8").trim();
 const planDataFullstack = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan-fullstack.json"), "utf8").trim();
+const planDataEks = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan-eks.json"), "utf8").trim();
 
 const minKinds = JSON.stringify(JSON.parse(kindsData));
 const minPlan = JSON.stringify(JSON.parse(planData));
 const minPlanFullstack = JSON.stringify(JSON.parse(planDataFullstack));
+const minPlanEks = JSON.stringify(JSON.parse(planDataEks));
 
 // 3. Module Dependency Graph Resolution starting at main.ts
 function crawlDependencyGraph(entryFile) {
@@ -191,6 +193,8 @@ const section4 = `
 
   ${getModuleByRelative("core/state.js")}
 
+  ${getModuleByRelative("ui/llm-review.js")}
+
   ${getModuleByRelative("ui/diagram.js")}
 
   ${getModuleByRelative("ui/iso.js")}
@@ -309,9 +313,12 @@ ${jsBundle.trim()}
      collection attribute is a set (s), list (l) or map (m), which is all a diff
      needs. 109KB here against 13MB for the full schema. -->
 <script type="application/json" id="collection-kinds">${minKinds}</script>
+<!-- dedicated container for CLI-injected plans so samples are never overwritten -->
+<script type="application/json" id="injected-plan"></script>
 <!-- bundled sample plans for offline testing and demos -->
 <script type="application/json" id="embedded-plan">${minPlan}</script>
 <script type="application/json" id="embedded-plan-fullstack">${minPlanFullstack}</script>
+<script type="application/json" id="embedded-plan-eks">${minPlanEks}</script>
 </body>
 </html>
 `;
