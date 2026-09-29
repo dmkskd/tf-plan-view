@@ -4,9 +4,9 @@ Renders a `Terraform` plan as an `AWS` architecture diagram.
 
 ![image](docs/images/3d-screenshot.png)
 
-Runs in the browser with no AWS API access, using `tf plan` json as the only input.
+The web page uses a Terraform plan JSON file as input and does not make any AWS API calls.
 
-Designed as a single html page - available at [https://dmkskd.github.io/tf-plan-view/](https://dmkskd.github.io/tf-plan-view/)
+Designed as a single html page - available at [https://dmkskd.github.io/tf-view/](https://dmkskd.github.io/tf-view/)
 
 ## How to use
 
@@ -26,9 +26,20 @@ just open
 3. Load the generated `plan.json` with the **Load plan json** button or by dropping it on the
 page.
 
-Files are read in the browser and never uploaded. 
+Plan files selected or dropped onto the page remain local and are not uploaded to a server.
 **Sample plan** loads
 plans embedded in `index.html`.
+
+## Command line
+
+`tfview` is a standalone binary that produces a self-contained HTML report from a Terraform plan. It can generate a plan from the current directory or use an existing plan JSON file:
+
+```sh
+tfview plan
+tfview open plan.json
+```
+
+The optional `explain` command adds model-generated review annotations. See the [CLI guide](docs/CLI.md) for building the binary from source, command options, output handling, and data sent to a model.
 
 ## Things to know
 
