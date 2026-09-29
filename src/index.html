@@ -187,15 +187,13 @@
       <div class="empty-state" id="emptyState" hidden>
         <div class="intro">
           <h2>Visualise a Terraform plan</h2>
-          <p>Draws the AWS infrastructure a Terraform plan describes. Select a
-             resource for its changes, Terraform block and CLI commands.</p>
           <p class="scope-note"><b>AWS only.</b> Other providers are not supported.</p>
 
           <div class="steps">
             <div class="step">
               <span class="num">1</span>
               <div>
-                <b>Turn your plan into JSON.</b> <code>plan.out</code> is a binary
+                <b>Turn the plan into JSON.</b> <code>plan.out</code> is a binary
                 archive, so it has to be converted first.
                 <pre>terraform plan -out=plan.out
 terraform show -json plan.out &gt; plan.json</pre>
@@ -213,10 +211,7 @@ terraform show -json plan.out &gt; plan.json</pre>
 
           <div class="sample-action">
             <button type="button" class="btn btn-primary" id="emptySampleBtn">View sample plan</button>
-            <span>Explore the diagram with an example.</span>
           </div>
-          <p class="or">Optional: drop <code>terraform providers schema -json</code> output
-             as well, and collection diffs become schema-verified rather than inferred.</p>
         </div>
       </div>
     </div>
