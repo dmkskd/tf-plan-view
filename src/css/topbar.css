@@ -10,7 +10,7 @@
   .src{
     display:inline-flex; align-items:center; gap:8px; font-family:"IBM Plex Mono",monospace;
     font-size:12px; color:var(--muted); background:var(--surface-2);
-    border:1px solid var(--line); border-radius:6px; padding:5px 10px; max-width:420px;
+    border:1px solid var(--line); border-radius:6px; padding:5px 10px; max-width:320px; flex:0 1 auto;
     cursor:pointer; transition:all .15s ease;
   }
   .src:hover{
@@ -71,6 +71,21 @@
   .seg.icons > *:hover{color:var(--ink); background:var(--surface-3);}
   .btn:hover{filter:brightness(1.06);}
   .btn-primary{background:var(--aws-net); border-color:transparent; color:#fff;}
+  .btn-load{
+    gap:7px;
+    background:color-mix(in srgb, var(--aws-net) 9%, var(--surface-2));
+    border-color:color-mix(in srgb, var(--aws-net) 32%, var(--line));
+    color:var(--ink);
+    transition:background .15s ease, border-color .15s ease, box-shadow .15s ease, filter .15s ease;
+  }
+  .btn-load .btn-ic{flex:none; color:var(--aws-net); transition:transform .15s ease;}
+  .btn-load:hover{
+    background:color-mix(in srgb, var(--aws-net) 16%, var(--surface));
+    border-color:var(--aws-net);
+    box-shadow:0 1px 4px color-mix(in srgb, var(--aws-net) 22%, transparent);
+    filter:none;
+  }
+  .btn-load:hover .btn-ic{transform:translateY(-1px);}
   .seg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
   .seg button{
     font-family:"Archivo",sans-serif; font-size:13px; font-weight:600;

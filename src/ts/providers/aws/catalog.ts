@@ -135,18 +135,9 @@ var CAT_LABEL: [string, string][] = [
   ["other",   "Not implemented"]
 ];
 
-var SIZE_H: Record<string, number> = {nano:16, micro:20, small:26, medium:32, large:40, xlarge:52,
-              "2xlarge":64, "4xlarge":78, "8xlarge":92, "12xlarge":104,
-              "16xlarge":116, "24xlarge":128, metal:140};
+var SIZE_H: Record<string, number> = {};
 
 function awsBlockHeight(r: PlanResource): number {
-  var t = r.attrs && (r.attrs.instance_type || r.attrs.node_type || r.attrs.instance_class ||
-                      (Array.isArray(r.attrs.instance_types) && r.attrs.instance_types[0]));
-  if (t){
-    var sz = String(t).split(".").slice(1).join(".");
-    if (SIZE_H[sz]) return SIZE_H[sz];
-  }
-  if (r.type === "aws_vpc_endpoint") return 22;
   if (r.kind === "assoc") return 10;
   return 26;
 }

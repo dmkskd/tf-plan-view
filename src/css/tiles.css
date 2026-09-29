@@ -43,6 +43,9 @@
   .grp.sg{border:1.3px dashed var(--aws-sec); border-radius:9px;
     background:color-mix(in srgb, var(--aws-sec) 4%, transparent);}
   .grp.sg > .grp-hd{color:var(--aws-sec);}
+  .grp.cluster{border:1.3px solid var(--aws-compute); border-radius:9px;
+    background:color-mix(in srgb, var(--aws-compute) 4%, transparent);}
+  .grp.cluster > .grp-hd{color:var(--aws-compute);}
   .grp.loose{border:1.3px dashed var(--line); background:var(--surface-2);}
   .grp.loose > .grp-hd{color:var(--muted);}
 

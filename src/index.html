@@ -75,6 +75,14 @@
     </div>
     <button class="src" id="srcName" title="Click to view plan details &amp; raw JSON"><svg class="src-tf" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><use href="#i-terraform"/></svg><span class="src-pfx">plan</span><b class="src-file">no plan loaded</b><span class="src-arr">›</span></button>
     <div class="tb-spacer"></div>
+    <button class="btn btn-load" id="loadBtn" title="Load a terraform plan JSON file (or drop file anywhere)">
+      <svg class="btn-ic" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 10.5v2a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2"/><path d="M8 2.5v7.5"/><path d="M5 5.5l3-3 3 3"/></svg>
+      <span>Load plan.json</span>
+    </button>
+    <button class="btn" id="sampleBtn" title="Load a bundled sample plan" aria-haspopup="true" aria-expanded="false">
+      Samples<svg class="caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="ctxmenu" id="sampleMenu" hidden></div>
     <div class="seg" role="group" aria-label="Rendering">
       <button id="renderFlat" class="on" title="Draw it as a flat AWS diagram">Flat</button>
       <button id="renderIso" title="Draw it as an isometric AWS diagram">3D</button>
@@ -89,11 +97,6 @@
       <span class="sw"></span>LLM Review
     </button>
 
-    <button class="btn btn-primary" id="loadBtn">Load plan.json</button>
-    <button class="btn" id="sampleBtn" title="Load a bundled sample plan" aria-haspopup="true" aria-expanded="false">
-      Samples<svg class="caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="ctxmenu" id="sampleMenu" hidden></div>
     <div class="seg icons">
       <button id="themeBtn" aria-label="Colour theme"></button>
       <a id="ghLink" href="https://github.com/dmkskd/tf-plan-view" target="_blank"

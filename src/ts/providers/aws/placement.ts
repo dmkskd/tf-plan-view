@@ -181,10 +181,57 @@ function placeSecurityGroups(ctx: LayoutContext): void {
   });
 }
 
+/* An EKS cluster with managed node groups is drawn as a container around its
+   node groups. If a cluster has no node groups (e.g. Fargate only or unmanaged),
+   it stays as an ordinary tile. */
+function placeEksClusters(ctx: LayoutContext): void {
+  var clusterRes: Record<string, PlanResource> = {};
+  var clusterByName: Record<string, PlanResource> = {};
+  ctx.vis.forEach(function(r: PlanResource){
+    if (r.type === "aws_eks_cluster") {
+      clusterRes[r.addr] = r;
+      if (r.attrs && r.attrs.name) clusterByName[r.attrs.name] = r;
+      clusterByName[r.name] = r;
+    }
+  });
+
+  var clusterGroups: Record<string, LayoutGroup> = (ctx as any).clusterGroups || ((ctx as any).clusterGroups = {});
+
+  Object.keys(clusterRes).forEach(function(addr: string){
+    var cRes = clusterRes[addr];
+    var nodeGroups: PlanResource[] = [];
+
+    ctx.vis.forEach(function(r: PlanResource){
+      if (r.type !== "aws_eks_node_group") return;
+      var cName = (r.attrs && r.attrs.cluster_name) || "";
+      var match = (cName && clusterByName[cName] === cRes) ||
+                  r.refs.indexOf(cRes.addr) >= 0 ||
+                  r.refs.indexOf(cRes.type + "." + cRes.name) >= 0;
+      if (match) nodeGroups.push(r);
+    });
+
+    if (!nodeGroups.length) return; /* empty cluster stays a tile */
+
+    var version = (cRes.attrs && cRes.attrs.version) || "";
+    var sub = version ? "k8s " + version : "";
+    var g = mkGroup("cluster eks", "EKS Cluster " + cRes.name, sub, 760);
+    g.res = cRes;
+    clusterGroups[addr] = g;
+
+    var parent = networkContainerAws(ctx, cRes) || vpcWideOf(ctx, cRes) || ctx.region;
+    parent.children.push(g);
+
+    nodeGroups.forEach(function(ng: PlanResource){
+      ctx.ownerOf[ng.addr] = g;
+    });
+  });
+}
+
 function placeAwsContainers(ctx: LayoutContext): void {
   placeVpcs(ctx);
   placeSubnets(ctx);
   placeSecurityGroups(ctx);
+  placeEksClusters(ctx);
 }
 
 function containerOfAws(ctx: LayoutContext, r: PlanResource): LayoutGroup | null {
@@ -195,7 +242,10 @@ function containerOfAws(ctx: LayoutContext, r: PlanResource): LayoutGroup | null
 
 function isBoundaryAws(ctx: LayoutContext, r: PlanResource): boolean {
   var boxes = ctx.sgGroups[r.addr];
-  return r.type === "aws_security_group" && !!boxes && boxes.length > 0;
+  if (r.type === "aws_security_group" && !!boxes && boxes.length > 0) return true;
+  var clusterGroups = (ctx as any).clusterGroups;
+  if (r.type === "aws_eks_cluster" && clusterGroups && clusterGroups[r.addr]) return true;
+  return false;
 }
 
 export {
