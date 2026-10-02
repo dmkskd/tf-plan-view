@@ -365,6 +365,7 @@ export interface ProviderPlugin {
   categories: Record<string, string>;
   categoryLabels: [string, string][];
   cli: (r: PlanResource, ctx?: any) => CliCommand[];
+  consoleUrl?: (r: PlanResource, ctx?: any) => string | null;
   sizing?: ProviderSizing;
   rules?: ProviderRules;
   placement: ProviderPlacement;

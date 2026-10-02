@@ -414,3 +414,6 @@
   }
 
   footer.legal{flex:none; padding:10px 18px; padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px)); border-top:1px solid var(--line); color:var(--faint); font-size:12px; background:var(--surface);}
+
+  .detail .console-link{display:inline-block; margin-top:8px; font-size:12px; color:var(--accent, #4f8cff); text-decoration:none;}
+  .detail .console-link:hover{text-decoration:underline;}

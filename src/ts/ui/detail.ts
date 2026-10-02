@@ -1,5 +1,5 @@
 import { escapeHtml, $, html, raw, copyText, type SafeHtml, HtmlSafeString } from "../core/util.js";
-import { CLI, rulesHtml, blockHeight } from "../providers/registry.js";
+import { CLI, consoleUrl, rulesHtml, blockHeight } from "../providers/registry.js";
 import { hclFor, hclHighlight } from "../core/hcl.js";
 import { baseAddr } from "../core/parser.js";
 import { changeHtml, reasonText, valText, sameVal } from "../core/diff.js";
@@ -496,6 +496,7 @@ var ACTION_PHRASE: Record<string, [string, string]> = {
 };
 
 function detailHeader(r: PlanResource): SafeHtml {
+  var link = consoleUrl(r, {region: state.model && state.model.region});
   var phrase = ACTION_PHRASE[r.action] || ["", r.action];
   var hasFlags = !r.supported || !r.enabled;
 
@@ -512,6 +513,7 @@ function detailHeader(r: PlanResource): SafeHtml {
           ${phrase[0] && html`<i>${phrase[0]}</i>`}
         </span>
       </div>
+      ${link && html`<a class="console-link" href="${link}" target="_blank" rel="noopener noreferrer">Open in AWS console \u2197</a>`}
       ${hasFlags && html`
         <div class="badges">
           ${!r.supported && html`<span class="badge badge-warn">not implemented</span>`}

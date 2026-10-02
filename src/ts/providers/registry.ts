@@ -89,6 +89,11 @@ export function CLI(r: PlanResource, ctx?: any): CliCommand[] {
   return (p && p.cli) ? p.cli(r, ctx) : [];
 }
 
+export function consoleUrl(r: PlanResource, ctx?: any): string | null {
+  const p = getProviderForResource(r);
+  return (p && p.consoleUrl) ? p.consoleUrl(r, ctx) : null;
+}
+
 export function rulesHtml(r: PlanResource): RuleSection | null {
   const p = getProviderForResource(r);
   return (p && p.rules && p.rules.rulesHtml) ? p.rules.rulesHtml(r) : null;

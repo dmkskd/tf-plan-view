@@ -1,5 +1,5 @@
 import { $, html } from "../core/util.js";
-import { CLI } from "../providers/registry.js";
+import { CLI, consoleUrl } from "../providers/registry.js";
 import { state, setSelected } from "../core/state.js";
 import { select, render, icoSvg, applyDisabledCascade } from "./diagram.js";
 import { renderDetail } from "./detail.js";
@@ -82,6 +82,10 @@ function openCtx(addr: string, x: number, y: number): void {
   ctxEl.appendChild(ctxItem("Copy address", "", function(){
     copyTextSilent(r.addr);
   }));
+  var link = consoleUrl(r, {region: model.region});
+  if (link){
+    ctxEl.appendChild(ctxItem("Open in AWS console", "\u2197", function(){ window.open(link as string, "_blank", "noopener,noreferrer"); }));
+  }
   var cmds = CLI(r, {region: model.region});
   if (cmds.length){
     ctxEl.appendChild(ctxItem("Copy " + cmds[0].label.toLowerCase() + " command", "aws", function(){

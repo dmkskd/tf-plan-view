@@ -138,6 +138,8 @@ const section1 = `
 
   ${getModuleByRelative("providers/aws/cli.js")}
 
+  ${getModuleByRelative("providers/aws/console.js")}
+
   ${getModuleByRelative("providers/aws/index.js")}
 
   ${getModuleByRelative("providers/gcp/index.js")}

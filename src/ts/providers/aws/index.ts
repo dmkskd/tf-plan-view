@@ -2,6 +2,7 @@
 import { ProviderPlugin } from "../../types/index.js";
 import { AWS_REG, CAT, CAT_LABEL, SIZE_H, awsBlockHeight } from "./catalog.js";
 import { awsCli } from "./cli.js";
+import { awsConsoleUrl } from "./console.js";
 import {
   PORT_NAME, portName, portText, protoText, peerText,
   awsRulesHtml, awsIsRuleAttr, awsRuleKey, awsRuleRow, awsPopRow, awsRuleLines
@@ -19,6 +20,7 @@ export const awsProvider: ProviderPlugin = {
   categories: CAT,
   categoryLabels: CAT_LABEL,
   cli: awsCli,
+  consoleUrl: awsConsoleUrl,
   get sizing() {
     return { blockHeight: awsBlockHeight, SIZE_H };
   },
