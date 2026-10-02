@@ -10,6 +10,7 @@ import {
 import { renderText, planText } from "./ui/textview.js";
 import { renderSidebar, setTypes } from "./ui/sidebar.js";
 import { renderDetail, renderPlanInfo, copyText } from "./ui/detail.js";
+import { linksEnabled, setLinksEnabled, restoreLinksEnabled } from "./core/links.js";
 import { closeCtx } from "./ui/contextmenu.js";
 import { fitView, setIso, ISO } from "./ui/iso.js";
 import "./ui/rule-popover.js";
@@ -230,6 +231,36 @@ var toggleLlm = $("toggleLlm");
 if (toggleLlm) toggleLlm.addEventListener("click", function(){
   setLlm(!state.opts.showLlm);
 });
+/* ---------- settings (gear popover) ---------- */
+(function(){
+  var btn = $("settingsBtn"), menu = $("settingsMenu");
+  var optLinks = $("optLinks") as HTMLInputElement | null;
+  if (!btn || !menu || !optLinks) return;
+  var pop = menu, gear = btn;
+  function close(): void {
+    pop.hidden = true;
+    gear.setAttribute("aria-expanded", "false");
+  }
+  optLinks.checked = restoreLinksEnabled();
+  optLinks.addEventListener("change", function(){
+    setLinksEnabled(optLinks!.checked);
+    if (state.selected) renderDetail();
+  });
+  pop.addEventListener("click", function(e: MouseEvent){ e.stopPropagation(); });
+  gear.addEventListener("click", function(e: MouseEvent){
+    e.stopPropagation();
+    if (!pop.hidden){ close(); return; }
+    var r = gear.getBoundingClientRect();
+    pop.hidden = false;
+    gear.setAttribute("aria-expanded", "true");
+    var w = pop.offsetWidth;
+    pop.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + "px";
+    pop.style.top = (r.bottom + 6) + "px";
+  });
+  document.addEventListener("click", close);
+  document.addEventListener("keydown", function(e: KeyboardEvent){ if (e.key === "Escape") close(); });
+})();
+
 var renderTextBtn = $("renderText");
 if (renderTextBtn) renderTextBtn.addEventListener("click", function(){ setRender("text"); });
 

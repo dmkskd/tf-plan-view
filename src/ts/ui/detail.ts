@@ -1,4 +1,5 @@
 import { escapeHtml, $, html, raw, copyText, type SafeHtml, HtmlSafeString } from "../core/util.js";
+import { linkTitle } from "../core/links.js";
 import { CLI, consoleUrl, rulesHtml, blockHeight } from "../providers/registry.js";
 import { hclFor, hclHighlight } from "../core/hcl.js";
 import { baseAddr } from "../core/parser.js";
@@ -513,7 +514,7 @@ function detailHeader(r: PlanResource): SafeHtml {
           ${phrase[0] && html`<i>${phrase[0]}</i>`}
         </span>
       </div>
-      ${link && html`<a class="console-link" href="${link}" target="_blank" rel="noopener noreferrer">Open in AWS console \u2197</a>`}
+      ${link && html`<a class="console-link" href="${link}" title="${linkTitle(link)}" target="_blank" rel="noopener noreferrer">Open in AWS console \u2197</a>`}
       ${hasFlags && html`
         <div class="badges">
           ${!r.supported && html`<span class="badge badge-warn">not implemented</span>`}

@@ -3,6 +3,7 @@ import { CLI, consoleUrl } from "../providers/registry.js";
 import { state, setSelected } from "../core/state.js";
 import { select, render, icoSvg, applyDisabledCascade } from "./diagram.js";
 import { renderDetail } from "./detail.js";
+import { linkTitle } from "../core/links.js";
 
 /* ------------------------------------------------------------------
    Context menu. Actions belong on the resource you are pointing at,
@@ -26,6 +27,22 @@ function ctxItem(label: string, hint: string, fn: () => void): HTMLButtonElement
   `.toString();
   b.addEventListener("click", function(e: MouseEvent){ e.stopPropagation(); closeCtx(); fn(); });
   return b;
+}
+
+/* A real anchor, so the browser shows the true destination in its status bar
+   and the click is exactly the URL that was validated. */
+function ctxLink(label: string, hint: string, href: string): HTMLAnchorElement {
+  var a = document.createElement("a");
+  a.innerHTML = html`
+    ${label}
+    ${hint && html`<span class="k">${hint}</span>`}
+  `.toString();
+  a.href = href;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  a.title = linkTitle(href);
+  a.addEventListener("click", function(e: MouseEvent){ e.stopPropagation(); closeCtx(); });
+  return a;
 }
 
 function openCtx(addr: string, x: number, y: number): void {
@@ -84,7 +101,7 @@ function openCtx(addr: string, x: number, y: number): void {
   }));
   var link = consoleUrl(r, {region: model.region});
   if (link){
-    ctxEl.appendChild(ctxItem("Open in AWS console", "\u2197", function(){ window.open(link as string, "_blank", "noopener,noreferrer"); }));
+    ctxEl.appendChild(ctxLink("Open in AWS console", "\u2197", link));
   }
   var cmds = CLI(r, {region: model.region});
   if (cmds.length){

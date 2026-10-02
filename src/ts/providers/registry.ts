@@ -3,6 +3,7 @@ import { ProviderPlugin, CatalogEntry, CliCommand, PlanResource, RuleSection, La
 import { awsProvider } from "./aws/index.js";
 import { CAT, CAT_LABEL } from "./aws/catalog.js";
 import { gcpProvider } from "./gcp/index.js";
+import { linksEnabled, guardedLink } from "../core/links.js";
 
 const providers: ProviderPlugin[] = [awsProvider, gcpProvider];
 
@@ -91,7 +92,8 @@ export function CLI(r: PlanResource, ctx?: any): CliCommand[] {
 
 export function consoleUrl(r: PlanResource, ctx?: any): string | null {
   const p = getProviderForResource(r);
-  return (p && p.consoleUrl) ? p.consoleUrl(r, ctx) : null;
+  if (!linksEnabled() || !p || !p.consoleUrl) return null;
+  return guardedLink(p.consoleUrl(r, ctx));
 }
 
 export function rulesHtml(r: PlanResource): RuleSection | null {
