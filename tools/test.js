@@ -417,6 +417,47 @@ describe("diff: rule matching", () => {
   });
 });
 
+describe("parse: non-resource sections become typed fields", () => {
+  const withExtras = () => parsePlan(plan([VPC], {
+    variables: { region: { value: "eu-west-1" }, flag: { value: true } },
+    output_changes: {
+      vpc_id: { actions: ["create"], after_unknown: true },
+      secret: { actions: ["create"], after: "x", after_sensitive: true },
+      name: { actions: ["no-op"], after: "main" }
+    },
+    resource_drift: [{ address: "aws_vpc.main", type: "aws_vpc", name: "main",
+      change: { actions: ["update"], before: { a: 1 }, after: { a: 2 } } }],
+    checks: [{ address: { kind: "check", to_display: "check.health" }, status: "fail",
+      instances: [{ problems: [{ message: "bad" }, { message: "worse" }] }] }]
+  }), "t");
+
+  test("variables are name to value", () => {
+    eq(withExtras().variables, { region: "eu-west-1", flag: true });
+  });
+
+  test("outputs are normalised, with unknown and sensitive as booleans", () => {
+    const o = withExtras().outputs;
+    eq(o.vpc_id.afterUnknown, true);
+    eq(o.secret.afterSensitive, true);
+    eq(o.name.after, "main");
+    eq(o.name.afterUnknown, false);
+  });
+
+  test("drift carries before and after", () => {
+    eq(withExtras().driftDetails, [{ address: "aws_vpc.main", type: "aws_vpc", name: "main",
+      before: { a: 1 }, after: { a: 2 } }]);
+  });
+
+  test("a check keeps its status and flattens its problems", () => {
+    eq(withExtras().checks, [{ name: "check.health", status: "fail", problems: ["bad", "worse"] }]);
+  });
+
+  test("a plan with none of them has empty fields, not undefined", () => {
+    const m = parsePlan(plan([VPC]), "t");
+    eq([m.variables, m.driftDetails, m.checks, m.outputs], [{}, [], [], null]);
+  });
+});
+
 describe("plan: the bundled sample", () => {
   const model = parsePlan(app.samplePlan(), "sample");
 

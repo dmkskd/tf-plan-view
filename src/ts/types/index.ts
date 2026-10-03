@@ -193,6 +193,29 @@ export interface DiagnosticItem {
   detail?: string | string[] | null;
 }
 
+/* what changed outside Terraform since the last apply */
+export interface DriftEntry {
+  address: string;
+  type: string;
+  name: string;
+  before: Record<string, any>;
+  after: Record<string, any>;
+}
+
+/* one check block's result, flattened to what is shown */
+export interface CheckEntry {
+  name: string;
+  status: string;
+  problems: string[];
+}
+
+export interface OutputChange {
+  actions: string[];
+  after: any;
+  afterUnknown: boolean;
+  afterSensitive: boolean;
+}
+
 export interface PlanModel {
   source: string;
   tfVersion: string | null;
@@ -212,6 +235,9 @@ export interface PlanModel {
     [key: string]: number | undefined;
   } | null;
   region?: string | null;
+  /* the input as read. Only the raw-JSON inspector panels may use this; the
+     rest of the UI reads the typed fields above, so it never depends on which
+     kind of file was loaded. */
   raw?: TerraformPlanJson | any;
   rawText?: string;
   rawBytes?: number;
@@ -219,7 +245,10 @@ export interface PlanModel {
   hasEdits?: boolean;
   anc?: Record<string, string[]>;
   drift?: string[];
-  outputs?: Record<string, any> | null;
+  outputs?: Record<string, OutputChange> | null;
+  driftDetails: DriftEntry[];
+  checks: CheckEntry[];
+  variables: Record<string, any>;
   providerConstraint?: string | null;
   llmReview?: LlmReview | null;
   diag?: (level: "err" | "warn" | "ok" | "info", code: string, msg: string, detail?: string | string[] | null | any) => void;

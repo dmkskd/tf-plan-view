@@ -6,7 +6,7 @@ import { hclValue } from "../core/hcl.js";
 import { changedKeys } from "./diagram.js";
 import { attrKind } from "../core/schema.js";
 import { state, onRender } from "../core/state.js";
-import type { PlanModel, PlanResource, RenderOptions } from "../types/index.js";
+import type { PlanModel, PlanResource, RenderOptions, DriftEntry, CheckEntry } from "../types/index.js";
 
 /* ------------------------------------------------------------------
    Text view.
@@ -171,8 +171,7 @@ function tvHead(title?: string, count?: number): string[] { return []; }        
 function tvVariables(): string[] {
   var model = state.model;
   if (!model) return [];
-  var v = (model.raw && model.raw.variables) || null;
-  if (!v) return [];
+  var v = model.variables;
   var names = Object.keys(v).sort();
   if (!names.length) return [];
   var pad = names.reduce(function(n: number, k: string){ return Math.max(n, k.length); }, 0);
@@ -180,7 +179,7 @@ function tvVariables(): string[] {
   names.forEach(function(n: string){
     out.push('    <span class="a">' + escapeHtml(n) + '</span>' +
              new Array(pad - n.length + 1).join(" ") + ' = ' +
-             hclValue(tvLit(v[n] && v[n].value)));
+             hclValue(tvLit(v[n])));
   });
   out.push("");
   return out;
@@ -189,12 +188,12 @@ function tvVariables(): string[] {
 function tvDrift(): string[] {
   var model = state.model;
   if (!model) return [];
-  var d = (model.raw && model.raw.resource_drift) || [];
+  var d = model.driftDetails;
   if (!d.length) return [];
   var out = tvHead("Drift", d.length);
-  d.forEach(function(x: any){
-    var before = (x.change && x.change.before) || {};
-    var after  = (x.change && x.change.after) || {};
+  d.forEach(function(x: DriftEntry){
+    var before = x.before;
+    var after  = x.after;
     var keys = Object.keys(before).concat(Object.keys(after)).filter(function(k: string, i: number, a: string[]){
       return a.indexOf(k) === i && !sameVal(before[k], after[k]);
     }).sort();
@@ -217,18 +216,15 @@ function tvDrift(): string[] {
 function tvChecks(): string[] {
   var model = state.model;
   if (!model) return [];
-  var c = (model.raw && model.raw.checks) || [];
+  var c = model.checks;
   if (!c.length) return [];
   var out = tvHead("Checks", c.length);
-  c.forEach(function(x: any){
-    var addr = (x.address && (x.address.to_display || x.address.kind)) || "check";
+  c.forEach(function(x: CheckEntry){
     var cls = x.status === "fail" || x.status === "error" ? "del" : "add";
     out.push('  <span class="' + cls + '">' + escapeHtml(x.status || "?") + '</span>  ' +
-             escapeHtml(addr));
-    (x.instances || []).forEach(function(i: any){
-      (i.problems || []).forEach(function(pr: any){
-        out.push('      <span class="c">' + escapeHtml(pr.message || "") + '</span>');
-      });
+             escapeHtml(x.name));
+    x.problems.forEach(function(msg: string){
+      out.push('      <span class="c">' + escapeHtml(msg) + '</span>');
     });
   });
   out.push("");
@@ -238,7 +234,7 @@ function tvChecks(): string[] {
 function tvOutputs(changesOnly: boolean): string[] {
   var model = state.model;
   if (!model) return [];
-  var o = (model.raw && model.raw.output_changes) || null;
+  const o = model.outputs;
   if (!o) return [];
   var names = Object.keys(o).sort();
   if (!names.length) return [];
@@ -254,9 +250,9 @@ function tvOutputs(changesOnly: boolean): string[] {
     var ch = o[n];
     var act = actionOf(ch.actions);
     var head = TEXT_HEAD[act] || ["~", "", "upd"];
-    var val = ch.after_unknown === true
+    var val = ch.afterUnknown
       ? '<span class="unk">(known after apply)</span>'
-      : (ch.after_sensitive === true
+      : (ch.afterSensitive
           ? '<span class="unk">(sensitive value)</span>'
           : hclValue(tvLit(ch.after)));
     out.push('  ' + (changesOnly
@@ -292,7 +288,7 @@ function textSections(): TextSection[] {
   if (opts.mode === "changes"){
     var d = tvDrift();
     if (d.length) out.push({key:"drift", label:"Drift",
-      count:(model.raw.resource_drift || []).length,
+      count:model.driftDetails.length,
       body:d.join("\n").replace(/\n+$/, ""),
       note:"changed outside terraform since the last apply"});
 
@@ -309,12 +305,12 @@ function textSections(): TextSection[] {
   } else {
     var v = tvVariables();
     if (v.length) out.push({key:"variables", label:"Variables",
-      count:Object.keys(model.raw.variables || {}).length,
+      count:Object.keys(model.variables).length,
       body:v.join("\n").replace(/\n+$/, ""), note:"inputs used for this plan"});
 
     var dd = tvDrift();
     if (dd.length) out.push({key:"drift", label:"Drift",
-      count:(model.raw.resource_drift || []).length,
+      count:model.driftDetails.length,
       body:dd.join("\n").replace(/\n+$/, ""),
       note:"changed outside terraform since the last apply"});
 
@@ -335,7 +331,7 @@ function textSections(): TextSection[] {
 
   var c = tvChecks();
   if (c.length) out.push({key:"checks", label:"Checks",
-    count:(model.raw.checks || []).length, body:c.join("\n").replace(/\n+$/, "")});
+    count:model.checks.length, body:c.join("\n").replace(/\n+$/, "")});
 
   return out;
 }

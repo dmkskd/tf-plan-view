@@ -27,6 +27,18 @@ function awsConsoleUrl(r: PlanResource, ctx?: any): string | null {
     return iamHost + "/iam/home#/roles/details/" + encodeURIComponent(name);
   }
 
+  /* EKS is addressed by name too, and the name is in the plan even when the
+     id is not. A node group lives under its cluster, so it needs both. */
+  if (r.type === "aws_eks_cluster" || r.type === "aws_eks_node_group") {
+    var cluster = r.type === "aws_eks_cluster" ? val("name") : val("cluster_name");
+    if (typeof cluster !== "string" || !cluster) return null;
+    var base = host + "/eks/clusters/" + encodeURIComponent(cluster);
+    if (r.type === "aws_eks_cluster") return base + q;
+    var ng = val("node_group_name");
+    if (typeof ng !== "string" || !ng) return null;
+    return base + "/nodegroups/" + encodeURIComponent(ng) + q;
+  }
+
   if (typeof id !== "string" || !id) return null;
   var eid = encodeURIComponent(id);
 

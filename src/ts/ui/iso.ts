@@ -55,12 +55,27 @@ function fitView(): void {
   requestAnimationFrame(centerScroll);
 }
 
+/* the rotation takes this long (.canvas.iso in iso.css) */
+var ISO_MS = 450;
+var isoLeaveTimer: any = null;
+
 function setIso(on: boolean): void {
   if (!isoCanvas) isoCanvas = $("canvas");
   ISO.on = on;
-  if (isoCanvas) isoCanvas.classList.toggle("iso", on);
   var wrap = $("canvasWrap");
-  if (wrap) wrap.classList.toggle("iso", on);   /* perspective lives here */
+  /* The transition rule, the perspective and the 3D faces all hang off the
+     `iso` class. Dropping it at once would make the way back snap, so on the
+     way out the class stays until the rotation has played. */
+  clearTimeout(isoLeaveTimer);
+  if (on){
+    if (isoCanvas) isoCanvas.classList.add("iso");
+    if (wrap) wrap.classList.add("iso");        /* perspective lives here */
+  } else {
+    isoLeaveTimer = setTimeout(function(){
+      if (isoCanvas) isoCanvas.classList.remove("iso");
+      if (wrap) wrap.classList.remove("iso");
+    }, ISO_MS + 40);
+  }
   var pane = $("canvasPane");
   if (pane) pane.classList.toggle("iso", on);   /* the hud reads this      */
   var flatBtn = $("renderFlat");

@@ -90,13 +90,14 @@ check("disabling persists", store["tfplanview-links"] === "0" && !links.linksEna
 const regions = ["evil.com/#", "eu-west-1.evil.com/x", "eu-west-1@evil.com", "eu-west-1\\evil", "", "//evil", "EU-WEST-1", "eu-west-1 "];
 const ids = ["i-1/../../x", "i-1#frag", "i-1\"><script>", "i-1@evil.com", "//evil.com", "https://evil.com", "i-1\n", "аws"];
 const types = ["aws_instance", "aws_security_group", "aws_vpc", "aws_subnet", "aws_route_table",
-               "aws_internet_gateway", "aws_nat_gateway", "aws_eip", "aws_iam_role"];
+               "aws_internet_gateway", "aws_nat_gateway", "aws_eip", "aws_iam_role",
+               "aws_eks_cluster", "aws_eks_node_group"];
 links.setLinksEnabled(true);
 let escaped = 0, produced = 0;
 for (const region of regions.concat(["eu-west-1", "cn-north-1", "us-gov-west-1"])) {
   for (const id of ids) {
     for (const type of types) {
-      const r = { type, attrs: { id, name: id }, before: null };
+      const r = { type, attrs: { id, name: id, cluster_name: id, node_group_name: id }, before: null };
       const raw = awsConsoleUrl(r, { region });
       if (raw === null) continue;
       const safe = links.guardedLink(raw);
@@ -108,6 +109,16 @@ for (const region of regions.concat(["eu-west-1", "cn-north-1", "us-gov-west-1"]
   }
 }
 check("hostile plan never reaches a non-console host (" + produced + " urls checked)", escaped === 0);
+const eks = {
+  cluster: { type: "aws_eks_cluster", attrs: { name: "prod-eks" } },
+  group: { type: "aws_eks_node_group", attrs: { cluster_name: "prod-eks", node_group_name: "app-workers-v1" } }
+};
+check("an EKS cluster links by name, with no id",
+  awsConsoleUrl(eks.cluster, { region: "us-east-1" }) === "https://us-east-1.console.aws.amazon.com/eks/clusters/prod-eks?region=us-east-1");
+check("an EKS node group links under its cluster",
+  awsConsoleUrl(eks.group, { region: "us-east-1" }) === "https://us-east-1.console.aws.amazon.com/eks/clusters/prod-eks/nodegroups/app-workers-v1?region=us-east-1");
+check("an EKS node group without a cluster name gets no link",
+  awsConsoleUrl({ type: "aws_eks_node_group", attrs: { node_group_name: "x" } }, { region: "us-east-1" }) === null);
 check("an invalid region yields no link", awsConsoleUrl({ type: "aws_vpc", attrs: { id: "vpc-1" } }, { region: "evil.com/#" }) === null);
 check("a hostile id stays inside the fragment",
   new URL(awsConsoleUrl({ type: "aws_vpc", attrs: { id: "x/../..?a=b#c" } }, { region: "eu-west-1" })).pathname === "/vpcconsole/home");

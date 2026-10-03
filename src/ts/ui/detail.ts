@@ -8,7 +8,7 @@ import { changedKeys, select, applySelection, drawEdges, ACTION_COLOR, icoSvg } 
 import { kindSource } from "../core/schema.js";
 import { state, setSelected, onSelect } from "../core/state.js";
 import { buildPlanLlmReviewHtml, buildResourceLlmInsightHtml, wireLlmReviewInteractivity } from "./llm-review.js";
-import type { PlanModel, PlanResource, CliCommand } from "../types/index.js";
+import type { PlanModel, PlanResource, CliCommand, DriftEntry, CheckEntry } from "../types/index.js";
 
 var detailEl = $("detail"), splitEl = $("split");
 
@@ -130,14 +130,13 @@ function sectionRows(rawJson: any): SafeHtml {
   `;
 }
 
-function driftRows(rawJson: any): SafeHtml | null {
-  var d = (rawJson && rawJson.resource_drift) || [];
+function driftRows(d: DriftEntry[]): SafeHtml | null {
   if (!d.length) return null;
   return html`
     <div class="attrs">
-      ${d.map(function(x: any){
-        var before = (x.change && x.change.before) || {};
-        var after  = (x.change && x.change.after) || {};
+      ${d.map(function(x: DriftEntry){
+        var before = x.before;
+        var after  = x.after;
         var keys = Object.keys(before).concat(Object.keys(after)).filter(function(k: string, i: number, a: string[]){
           return a.indexOf(k) === i && !sameVal(before[k], after[k]);
         });
@@ -156,22 +155,17 @@ function driftRows(rawJson: any): SafeHtml | null {
   `;
 }
 
-function checkRows(rawJson: any): SafeHtml | null {
-  var c = (rawJson && rawJson.checks) || [];
+function checkRows(c: CheckEntry[]): SafeHtml | null {
   if (!c.length) return null;
   return html`
     <div class="attrs">
-      ${c.map(function(x: any){
-        var addr = (x.address && (x.address.to_display || x.address.kind)) || "check";
+      ${c.map(function(x: CheckEntry){
         var status = x.status || "unknown";
-        var msgs = (x.instances || []).reduce(function(acc: any[], i: any){
-          return acc.concat(i.problems || []);
-        }, []).map(function(pr: any){ return pr.message; });
         return html`
           <div class="attr">
-            <span class="k">${addr}</span>
+            <span class="k">${x.name}</span>
             <span class="v check-status" data-status="${status}">
-              ${status}${msgs.length ? " \u2014 " + msgs.join("; ") : ""}
+              ${status}${x.problems.length ? " \u2014 " + x.problems.join("; ") : ""}
             </span>
           </div>
         `;
@@ -249,7 +243,7 @@ function renderPlanInfo(): void {
       <div class="attrs">
         ${outputKeys.map(function(k: string){
           var o = outputs[k];
-          var unk = o.after_unknown === true;
+          var unk = o.afterUnknown;
           var v = unk ? "known after apply" : (o.after !== undefined ? JSON.stringify(o.after) : "\u2014");
           return html`
             <div class="attr">
@@ -276,13 +270,13 @@ function renderPlanInfo(): void {
   `;
   paneHtml += sec("addrs", "Resources", model.resources.length, addrs);
 
-  var drift = driftRows(model.raw);
+  var drift = driftRows(model.driftDetails);
   if (drift){
-    paneHtml += sec("drift", "Drift", (model.raw.resource_drift || []).length, drift);
+    paneHtml += sec("drift", "Drift", model.driftDetails.length, drift);
   }
-  var checks = checkRows(model.raw);
+  var checks = checkRows(model.checks);
   if (checks){
-    paneHtml += sec("checks", "Checks", (model.raw.checks || []).length, checks);
+    paneHtml += sec("checks", "Checks", model.checks.length, checks);
   }
 
   paneHtml += sec("sections", "Plan sections",

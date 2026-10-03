@@ -32,6 +32,7 @@ function parsePlan(plan: TerraformPlanJson | any, sourceName: string): PlanModel
     tfVersion: (plan && plan.terraform_version) || null,
     formatVersion: (plan && plan.format_version) || null,
     resources: [], byAddr: {}, cfgByAddr: {},
+    driftDetails: [], checks: [], variables: {},
     region: null, diagnostics: [], typeCounts: {},
     summary: null,
     llmReview: llmReview
@@ -47,6 +48,7 @@ function parsePlan(plan: TerraformPlanJson | any, sourceName: string): PlanModel
   readResources(plan, out, refs);
   reportUnsupported(out);
   linkDependents(out);
+  readExtras(plan, out);
   summarise(plan, out);
 
   var aws = out.resources.filter(function(r: PlanResource){ return !r.foreign; }).length;
@@ -223,6 +225,50 @@ function linkDependents(out: PlanModel): void {
   });
 }
 
+/* The parts of a plan that are not resources: variables, outputs, drift and
+   check results. Read once here into typed fields, so nothing downstream has
+   to know the JSON layout (or whether the input was a plan or a state). */
+function readExtras(plan: TerraformPlanJson, out: PlanModel): void {
+  var vars: Record<string, any> = (plan as any).variables || {};
+  Object.keys(vars).forEach(function(n: string){ out.variables[n] = vars[n] && vars[n].value; });
+
+  var oc: Record<string, any> | undefined = plan.output_changes;
+  if (oc){
+    out.outputs = {};
+    Object.keys(oc).forEach(function(n: string){
+      var ch = oc![n] || {};
+      out.outputs![n] = {
+        actions: ch.actions || [],
+        after: ch.after,
+        afterUnknown: ch.after_unknown === true,
+        afterSensitive: ch.after_sensitive === true
+      };
+    });
+  } else {
+    out.outputs = null;
+  }
+
+  (plan.resource_drift || []).forEach(function(d: TerraformResourceDrift){
+    var ch = d.change || {};
+    out.driftDetails.push({
+      address: d.address, type: d.type, name: d.name,
+      before: ch.before || {}, after: ch.after || {}
+    });
+  });
+
+  ((plan as any).checks || []).forEach(function(c: any){
+    var problems: string[] = [];
+    (c.instances || []).forEach(function(i: any){
+      (i.problems || []).forEach(function(pr: any){ problems.push(pr.message || ""); });
+    });
+    out.checks.push({
+      name: (c.address && (c.address.to_display || c.address.kind)) || "check",
+      status: c.status || "",
+      problems: problems
+    });
+  });
+}
+
 function summarise(plan: TerraformPlanJson, out: PlanModel): void {
   out.summary = {create:0, update:0, replace:0, "delete":0, "no-op":0, read:0};
   out.resources.forEach(function(r: PlanResource){
@@ -231,8 +277,6 @@ function summarise(plan: TerraformPlanJson, out: PlanModel): void {
       out.summary[r.action]!++;
     }
   });
-
-  out.outputs = plan.output_changes || null;
 
   if (Array.isArray(plan.resource_drift) && plan.resource_drift.length){
     var n = plan.resource_drift.length;
@@ -251,5 +295,5 @@ function summarise(plan: TerraformPlanJson, out: PlanModel): void {
 export {
   actionOf, baseAddr, parsePlan, checkShape, readProviders, readModules,
   readReferences, readResources, reportUnsupported,
-  linkDependents, summarise
+  linkDependents, readExtras, summarise
 };
