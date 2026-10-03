@@ -177,7 +177,6 @@ export interface PlanResource {
   foreign?: boolean;
   supported?: boolean;
   unsupported?: boolean;
-  enabled?: boolean;
   enabledType?: boolean;
   hidden?: boolean;
   unknown?: Record<string, any>;
@@ -222,7 +221,6 @@ export interface PlanModel {
   drift?: string[];
   outputs?: Record<string, any> | null;
   providerConstraint?: string | null;
-  brokenSet?: Record<string, boolean>;
   llmReview?: LlmReview | null;
   diag?: (level: "err" | "warn" | "ok" | "info", code: string, msg: string, detail?: string | string[] | null | any) => void;
 }

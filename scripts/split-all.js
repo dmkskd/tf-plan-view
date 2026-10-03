@@ -172,7 +172,7 @@ ${diagSliceB}
 
 export {
   ACTION_COLOR, icoSvg, changedKeys, titleFor, subFor, setEmpty, syncFilterBanner,
-  render, boxOf, anchor, encloses, drawEdges, select, applySelection, applyDisabledCascade
+  render, boxOf, anchor, encloses, drawEdges, select, applySelection
 };
 `);
 

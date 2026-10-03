@@ -1,7 +1,7 @@
 import { $, html } from "../core/util.js";
 import { CLI, consoleUrl } from "../providers/registry.js";
 import { state, setSelected } from "../core/state.js";
-import { select, render, icoSvg, applyDisabledCascade } from "./diagram.js";
+import { select, render, icoSvg } from "./diagram.js";
 import { renderDetail } from "./detail.js";
 import { linkTitle } from "../core/links.js";
 
@@ -65,15 +65,6 @@ function openCtx(addr: string, x: number, y: number): void {
 
   ctxEl.appendChild(ctxItem("Open details", "", function(){ select(addr); }));
 
-  ctxEl.appendChild(ctxItem(
-    r.enabled ? "Show impact" : "Clear impact",
-    r.enabled ? (r.dependents || []).length ? "" : "none" : "",
-    function(){
-      r.enabled = !r.enabled;
-      applyDisabledCascade();
-      if (state.selected === addr) renderDetail();
-    }));
-
   var hr1 = document.createElement("hr"); ctxEl.appendChild(hr1);
 
   ctxEl.appendChild(ctxItem("Hide this resource", "", function(){
@@ -96,7 +87,7 @@ function openCtx(addr: string, x: number, y: number): void {
 
   var hr2 = document.createElement("hr"); ctxEl.appendChild(hr2);
 
-  ctxEl.appendChild(ctxItem("Copy address", "", function(){
+  ctxEl.appendChild(ctxItem("Copy resource address", r.addr.length > 24 ? "\u2026" + r.addr.slice(-23) : r.addr, function(){
     copyTextSilent(r.addr);
   }));
   var link = consoleUrl(r, {region: model.region});

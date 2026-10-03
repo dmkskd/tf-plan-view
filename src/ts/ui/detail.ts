@@ -499,7 +499,7 @@ var ACTION_PHRASE: Record<string, [string, string]> = {
 function detailHeader(r: PlanResource): SafeHtml {
   var link = consoleUrl(r, {region: state.model && state.model.region});
   var phrase = ACTION_PHRASE[r.action] || ["", r.action];
-  var hasFlags = !r.supported || !r.enabled;
+  var hasFlags = !r.supported;
 
   return html`
     <div class="dhd">
@@ -518,7 +518,6 @@ function detailHeader(r: PlanResource): SafeHtml {
       ${hasFlags && html`
         <div class="badges">
           ${!r.supported && html`<span class="badge badge-warn">not implemented</span>`}
-          ${!r.enabled && html`<span class="badge badge-replace">impact source</span>`}
         </div>
       `}
     </div>

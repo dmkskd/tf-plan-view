@@ -248,7 +248,6 @@
   .canvas.iso .node.unsup::after{background:color-mix(in srgb, var(--warn-soft) 80%, var(--face-s));}
   .canvas.iso .node.unsup::before{background:color-mix(in srgb, var(--warn-soft) 66%, var(--face-e));}
   .canvas.iso #edges{transform:translateZ(26px); overflow:visible;}
-  .canvas.iso .node.impact-src{--h:44px;}
 
   /* Fading a preserve-3d element via `opacity` forces the spec's flattening
      rule (opacity != 1 -> transform-style:flat for that element), which

@@ -176,7 +176,7 @@ function render(): void {
       var n = document.createElement("div");
       var isChanged = r.action !== "no-op" && r.action !== "read";
       n.className = "node act-" + r.action + (isChanged ? " is-changed" : "") +
-                    (r.supported ? "" : " unsup") + (r.enabled ? "" : " impact-src");
+                    (r.supported ? "" : " unsup");
       if (isChanged) n.style.setProperty("--pulse", (ACTION_COLOR as any)[r.action]);
       n.style.left = g.x + "px"; n.style.top = g.y + "px";
       n.style.width = TW + "px"; n.style.height = TH + "px";
@@ -230,40 +230,9 @@ function render(): void {
     }
   })(tree, 0);
 
-  applyDisabledCascade();
   drawEdges();
   applySelection();
   notifyRender();
-}
-
-/* --- disabling a component: mark transitive dependents --- */
-function applyDisabledCascade(): void {
-  const model = state.model;
-  if (!model) return;
-  var broken: Record<string, boolean> = {};
-  var changed = true;
-  while (changed){
-    changed = false;
-    model.resources.forEach(function(r: PlanResource){
-      if (!r.enabled || broken[r.addr]) return;
-      for (var i = 0; i < r.refs.length; i++){
-        var t = model.byAddr[r.refs[i]];
-        if (t && (!t.enabled || broken[t.addr])){ broken[r.addr] = true; changed = true; return; }
-      }
-    });
-  }
-  model.brokenSet = broken;
-  model.resources.forEach(function(r: PlanResource){
-    var el = state.nodeEls[r.addr];
-    if (!el) return;
-    el.classList.toggle("impact-src", !r.enabled);
-    el.classList.toggle("broken", !!broken[r.addr] && r.enabled);
-    var f = el.querySelector(".flag");
-    if (broken[r.addr] && r.enabled){
-      if (!f){ f = document.createElement("div"); f.className = "flag"; el.appendChild(f); }
-      f.textContent = "affected";
-    } else if (f){ f.remove(); }
-  });
 }
 
 interface BoxInfo {
@@ -414,5 +383,5 @@ function applySelection(): void {
 export {
   canvas, edgesSvg, detailEl, splitEl,
   ACTION_COLOR, icoSvg, changedKeys, titleFor, subFor, setEmpty, syncFilterBanner,
-  render, boxOf, anchor, encloses, drawEdges, select, applySelection, applyDisabledCascade
+  render, boxOf, anchor, encloses, drawEdges, select, applySelection
 };

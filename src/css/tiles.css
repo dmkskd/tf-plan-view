@@ -146,20 +146,6 @@
   .canvas.mode-changes .node.act-delete{border-color:var(--destroy); box-shadow:inset 3px 0 0 var(--destroy);}
   .node.unsup{border-style:dashed; border-color:var(--warn); background:var(--warn-soft);}
   .node.unsup .ttl{color:var(--warn);}
-  .node.impact-src{
-    border-color:var(--replace);
-    box-shadow:0 0 0 2px color-mix(in srgb, var(--replace) 45%, transparent);
-  }
-  .node.broken{
-    border-color:var(--replace);
-    box-shadow:0 0 0 2px color-mix(in srgb, var(--replace) 22%, transparent);
-    background:var(--warn-soft);
-  }
-  .node .flag{
-    position:absolute; right:8px; bottom:7px;
-    font-family:"Archivo",sans-serif; font-size:8.5px; font-weight:700; letter-spacing:.08em;
-    text-transform:uppercase; color:var(--replace);
-  }
 
   .empty-state{
     position:absolute; inset:0; overflow:auto; z-index:2;

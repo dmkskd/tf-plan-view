@@ -185,7 +185,7 @@ function readResources(plan: TerraformPlanJson, out: PlanModel, refIndex: Record
          the instance key before looking up its references. */
       refs: refIndex[baseAddr(rc.address)] || [],
       foreign: foreign,
-      enabled: true, enabledType: true,
+      enabledType: true,
       llmInsight: (out.llmReview && out.llmReview.resources && out.llmReview.resources[rc.address]) || null
     };
     out.resources.push(res);
